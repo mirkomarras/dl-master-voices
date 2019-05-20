@@ -17,4 +17,12 @@ Audio Post Processing function for WaveGAN audio
 4. IR_Unknown.wav
 
 ## List of Room IR
-1. BRIR.wav
+1. Room_01.wav
+2. Room_02.wav
+3. Room_03.wav
+4. Room_04.wav
+5. Room_05.wav
+6. Room_06.wav
+7. Room_07.wav
+8. Room_08.wav
+9. Room_09.wav
