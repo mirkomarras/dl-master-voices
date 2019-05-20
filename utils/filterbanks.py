@@ -1,14 +1,10 @@
 # -*- coding: utf-8 -*-
-import os
-import datetime
 import numpy as np
 import scipy as sp
 import scipy.signal as sig
 import scipy.io.wavfile
 from scipy.fftpack import dct
-import matplotlib.pyplot as plt
 
-# %% High-frequency emphasis
 
 def filterbanks1d(signal, *, sample_rate=16000, prefilter=True, normalize=True, nfilt=24, frame_size=0.025, frame_stride=0.01):
     
@@ -69,7 +65,6 @@ def filterbanks1d(signal, *, sample_rate=16000, prefilter=True, normalize=True, 
     
     return filter_banks
 
-# %%
 
 def filterbanks(batch, sample_rate=16000, prefilter=True, normalize=True, nfilt=24, frame_size=0.025, frame_stride=0.01):
     """
@@ -147,64 +142,4 @@ def filterbanks(batch, sample_rate=16000, prefilter=True, normalize=True, nfilt=
     assert filter_banks.shape == (n_batch, num_frames, nfilt), 'Something is wrong - invalid filter banks\' size'
     
     return filter_banks
-    
-# %%
 
-dirname = 'voxceleb/test/id10270/5r0dWxy17C8/'
-files = sorted([x for x in os.listdir(dirname) if x.endswith('.wav')])
-
-sample_rate = 16000     # Hz
-sample_lenghth = 3.0    # seconds
-
-batch_size = len(files)
-signal_len = int(sample_lenghth * sample_rate)
-
-batch = np.zeros((batch_size, signal_len))
-
-for i, filename in enumerate(files):
-    f_rate, signal = scipy.io.wavfile.read(os.path.join(dirname, filename))
-    if f_rate != sample_rate:
-        raise IOError('Sampling rate for {} does not match the expected {} Hz'.format(filename, sample_rate))
-    
-    # Randomly sample a piece of the recording
-    start = np.random.randint(0, len(signal) - signal_len)
-    batch[i] = signal[start:(start+signal_len)]
-
-# %% Show batch
-    
-    
-t1 = datetime.datetime.now()
-fb = filterbanks(batch, prefilter=True)
-t2 = datetime.datetime.now()    
-
-t3 = datetime.datetime.now()
-fb1 = np.zeros_like(fb)
-for b in range(batch.shape[0]):
-    fb1[b] = filterbanks1d(batch[b], prefilter=True)
-t4 = datetime.datetime.now()
-
-# %%
-
-print('tensor: {} s'.format((t2 - t1).total_seconds()))
-print('1-dim: {} s'.format((t4 - t3).total_seconds()))
-
-# %%
-
-example_id = 10
-
-plt.figure(figsize=(12,8))
-
-plt.subplot(3,1,1)
-plt.plot(np.arange(0, batch.shape[1])/sample_rate,  batch[example_id])
-plt.xlim([0, batch.shape[1] / sample_rate])
-plt.yticks([])
-plt.title('Input signal')
-plt.xlabel('Time [s]')
-
-plt.subplot(3,1,2)
-plt.imshow(fb1[example_id].T)
-plt.title('Filetrbanks: 1 dim')
-
-plt.subplot(3,1,3)
-plt.imshow(fb[example_id].squeeze().T)
-plt.title('Filterbanks: tensor')
