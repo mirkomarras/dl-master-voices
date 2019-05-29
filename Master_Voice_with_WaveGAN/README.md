@@ -5,7 +5,7 @@
 2. Room IR directory: _/beegfs/kp2218/test_runs/conv_test/data/audio/ir_mic/IR_OktavaMD57.wav_
 3. Mic IR directory: _/beegfs/kp2218/test_runs/conv_test/data/audio/ir_room/BRIR.wav_
 4. Batch size: _16_
-5. Number of iterations: _10_
+5. Number of iterations: _100_
 6. Learning rate: _0.0001_
 7. Min similarity factor: _0.25_
 8. Max similairty factor: _0.75_
