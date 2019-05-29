@@ -41,4 +41,4 @@ python3 Master_Voice_Main_Script.py --utterance_type 'female'
 10. Post processing: _--post_processing_
 
 ### Model Architecture
-![Alt text](https://github.com/mirkomarras/mastervoices/blob/master/Master_Voice_with_WaveGAN/helper.py?raw=true "Model Summary")
+![Alt text](https://github.com/mirkomarras/mastervoices/blob/master/Master_Voice_with_WaveGAN/model.png?raw=true "Model Summary")
