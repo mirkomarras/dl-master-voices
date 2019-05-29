@@ -18,6 +18,16 @@ To run the script, execute the following code:
 python3 Master_Voice_Main_Script.py
 ```
 
+To run the script (without post-processing), execute the following code:
+```
+python3 Master_Voice_Main_Script.py --post_processing 'no'
+```
+
+To run the script (female utterances), execute the following code:
+```
+python3 Master_Voice_Main_Script.py --utterance_type 'female'
+```
+
 ### Parameters
 1. Speaker IR directory: _--speaker_ir_
 2. Room IR directory: _--room_ir_
