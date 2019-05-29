@@ -39,3 +39,6 @@ python3 Master_Voice_Main_Script.py --utterance_type 'female'
 8. Max similairty factor: _--max_similarity_
 9. Utterance type: _--utterance_type_
 10. Post processing: _--post_processing_
+
+### Model Architecture
+![Alt text](https://github.com/mirkomarras/mastervoices/blob/master/Master_Voice_with_WaveGAN/helper.py?raw=true "Model Summary")
