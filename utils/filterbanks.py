@@ -62,6 +62,8 @@ def filterbanks1d(signal, *, sample_rate=16000, prefilter=True, normalize=True, 
     # Mean normalization
     if normalize:
         filter_banks -= (np.mean(filter_banks, axis=0) + 1e-8)
+        
+    filter_banks /= np.abs(filter_banks).max()
     
     return filter_banks
 
@@ -138,6 +140,9 @@ def filterbanks(batch, sample_rate=16000, prefilter=True, normalize=True, nfilt=
     # Mean normalization
     if normalize:
         filter_banks -= (np.mean(filter_banks, axis=1, keepdims=True) + 1e-8)
+    
+    # Normalize to -1 1
+    filter_banks /= np.abs(filter_banks).max()
         
     assert filter_banks.shape == (n_batch, num_frames, nfilt), 'Something is wrong - invalid filter banks\' size'
     
