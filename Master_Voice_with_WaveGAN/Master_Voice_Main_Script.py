@@ -343,7 +343,6 @@ def run_model(ir_speaker_dir, ir_room_dir, ir_mic_dir,
     elif utterance_type == 'female':
         indexes_optimization = indexes_female_utterances
 
-
     # Given the input parameters, the model is run for a total of 10 times (with 1000 iterations each)
     total_runs = 10
     counter = 0
@@ -383,7 +382,6 @@ def run_model(ir_speaker_dir, ir_room_dir, ir_mic_dir,
 
                     input_pair = ([master_z,
                                     np.array([base_spectrogram.reshape(*base_spectrogram.shape, 1)])])
-
 
                 # Cost and gradient calculation
                 cost, gradient = grab_cost_and_gradients_from_model(input_pair)
