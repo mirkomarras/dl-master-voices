@@ -10,7 +10,7 @@ _Note:_ The training loop for the Master Voice model is repeated 10 times for a 
 5. Number of iterations: _1000_
 6. Learning rate: _0.0001_
 7. Min similarity factor: _0.25_
-8. Max similairty factor: _0.75_
+8. Max similarity factor: _0.75_
 9. Utterance type: _male_
 10. Post processing: False
 11. Save directory: None
@@ -43,7 +43,7 @@ python3 Master_Voice_Main_Script.py --save_dir './data' /
 5. Number of iterations: _--iterations_
 6. Learning rate: _--learning_rate_
 7. Min similarity factor: _--min_similarity_
-8. Max similairty factor: _--max_similarity_
+8. Max similarity factor: _--max_similarity_
 9. Utterance type: _--utterance_type_
 10. Post processing: _--post_processing_
 11. Save directory: _--save_dir_
