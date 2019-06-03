@@ -1,31 +1,36 @@
 # Master Voice with WaveGAN (Python script)
 
-### Initial parameters
+### Default parameters
 1. Speaker IR directory: _/beegfs/kp2218/test_runs/conv_test/data/audio/ir_speaker/IR_ClestionBD300.wav_
 2. Room IR directory: _/beegfs/kp2218/test_runs/conv_test/data/audio/ir_mic/IR_OktavaMD57.wav_
 3. Mic IR directory: _/beegfs/kp2218/test_runs/conv_test/data/audio/ir_room/BRIR.wav_
 4. Batch size: _16_
-5. Number of iterations: _100_
+5. Number of iterations: _1000_
 6. Learning rate: _0.0001_
 7. Min similarity factor: _0.25_
 8. Max similairty factor: _0.75_
 9. Utterance type: _male_
-10. Post processing: _yes_
+10. Post processing: False
+11. Save directory: None
 
 ### Running the script
+_Note:_ Here, the directory extension in which the training results are stored must be provided
+
 To run the script, execute the following code:
 ```
-python3 Master_Voice_Main_Script.py
+python3 Master_Voice_Main_Script.py --save_dir './data'
 ```
 
-To run the script (without post-processing), execute the following code:
+To run the script (with post-processing), execute the following code:
 ```
-python3 Master_Voice_Main_Script.py --post_processing 'no'
+python3 Master_Voice_Main_Script.py --save_dir './data' /
+                                    --post_processing
 ```
 
 To run the script (female utterances), execute the following code:
 ```
-python3 Master_Voice_Main_Script.py --utterance_type 'female'
+python3 Master_Voice_Main_Script.py --save_dir './data' /
+                                    --utterance_type 'female'
 ```
 
 ### Parameters
@@ -39,6 +44,7 @@ python3 Master_Voice_Main_Script.py --utterance_type 'female'
 8. Max similairty factor: _--max_similarity_
 9. Utterance type: _--utterance_type_
 10. Post processing: _--post_processing_
+11. Save directory: _--save_dir_
 
 ### Model Architecture
 ![Alt text](https://github.com/mirkomarras/mastervoices/blob/master/Master_Voice_with_WaveGAN/model.png?raw=true "Model Summary")
