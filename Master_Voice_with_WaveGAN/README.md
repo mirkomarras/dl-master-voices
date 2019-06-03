@@ -1,5 +1,7 @@
 # Master Voice with WaveGAN (Python script)
 
+_Note:_ The training loop for the Master Voice model is repeated 10 times for a given set of parameters. This loop is different from the _iterations_ parameter mentioned in the script.
+
 ### Default parameters
 1. Speaker IR directory: _/beegfs/kp2218/test_runs/conv_test/data/audio/ir_speaker/IR_ClestionBD300.wav_
 2. Room IR directory: _/beegfs/kp2218/test_runs/conv_test/data/audio/ir_mic/IR_OktavaMD57.wav_
