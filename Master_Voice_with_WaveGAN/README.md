@@ -61,7 +61,7 @@ python3 Master_Voice_Main_Script.py --save_dir './female_no-PP' /
 | Mic IR directory        | _--mic_ir_  |
 | Batch size              | _--batch_  |
 | Number of iterations    | _--iterations_  |
-| Learning Rate           | _-learning_rate_  |
+| Learning Rate           | _--learning_rate_  |
 | Min similarity factor   | _--min_similarity_  |
 | Max similarity factor   | _--max_similarity_  |
 | Utterance type          | _--utterance_type_ |
