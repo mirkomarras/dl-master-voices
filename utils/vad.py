@@ -9,13 +9,14 @@ import sys
 import struct
 import numpy as np
 from scipy.io import wavfile
+from scipy.signal import medfilt
 import webrtcvad
 
 sys.path.append('..')
 
 from utils import vad, filterbanks
 
-def filterbank_vad(filterbanks, sample_rate, smoothing_window=0):
+def filterbank_vad(filterbanks, sample_rate, smoothing_window=63, threshold=1.05, med_kernel=31):
     
     # Check if the array is oriented as expected
     assert filterbanks.shape[0] > filterbanks.shape[1]
@@ -24,9 +25,9 @@ def filterbank_vad(filterbanks, sample_rate, smoothing_window=0):
     nfilt = filterbanks.shape[1]
         
     # Find the bin which corresponds to the maximum voice frequency
-    max_voice_freq = 3400 
-    voice_low_freq_mel = (2595 * np.log10(1 + (300) / 700))
+    max_voice_freq = 2500
     voice_freq_mel = (2595 * np.log10(1 + (max_voice_freq) / 700))
+    voice_low_freq_mel = (2595 * np.log10(1 + (200) / 700))
     
     # Define filter banks    
     low_freq_mel = 0
@@ -37,17 +38,22 @@ def filterbank_vad(filterbanks, sample_rate, smoothing_window=0):
     low_bin_index = np.argmin(np.abs(mel_points - voice_low_freq_mel))
     bin_index = np.argmin(np.abs(mel_points - voice_freq_mel))
     
+#    print('VAD between bins {} - {}'.format(low_bin_index, bin_index))
     
-    filterbanks -= np.quantile(filterbanks, 0.01) # filterbanks.min()
+    filterbanks -= np.quantile(filterbanks, 0.05) # filterbanks.min()
     filterbanks = filterbanks.clip(min=0)
         
-    in_bank_energy_ratio = np.mean(filterbanks[:, low_bin_index:bin_index], axis=1) / np.mean(filterbanks, axis=1)
+    x = np.mean(filterbanks[:, low_bin_index:bin_index], axis=1)
+    y = np.mean(filterbanks, axis=1)
+    
+    # Ratio of energy in low-pass band to total energy 
+    z = x / y
     
     if smoothing_window > 0:
         w = np.hamming(smoothing_window)
-        in_bank_energy_ratio = np.convolve(w/w.sum(), in_bank_energy_ratio, mode='same')
+        z = np.convolve(w/w.sum(), z, mode='same')
     
-    return in_bank_energy_ratio    
+    return medfilt(z > threshold, med_kernel)
     
 
 def google_vad(samples, sample_rate, window_duration_ms=30):
@@ -63,7 +69,7 @@ def google_vad(samples, sample_rate, window_duration_ms=30):
     # Initialize the VAD model & set aggressive mode
     # Int [0,3] - 0 is the least aggressive about filtering out non-speech, 3 is the most aggressive. 
     vad_model = webrtcvad.Vad()    
-    vad_model.set_mode(1)
+    vad_model.set_mode(3)
 
     samples_per_window = int(window_duration * sample_rate + 0.5)
     bytes_per_sample = 2
@@ -102,50 +108,79 @@ if __name__ == "__main__":
     # Load sample
     # ../../datasets/voxceleb/test/id10270/5r0dWxy17C8/00002.wav
     # ffmpeg -i 111.mp3 -acodec pcm_s16le -ac 1 -ar 16000 out.wav
-    sample_rate, samples = wavfile.read('../tests/sample16kHz.wav')
     
-    # The Google VAD
-    segments = google_vad(samples, sample_rate)
+    filename = '../tests/sample16kHz.wav'
     
-    # Simple VAD based on filterbank thresholding
-    filterbanks = filterbanks.filterbanks1d(samples, prefilter=True)
-    energy_rates = filterbank_vad(filterbanks, sample_rate)
+    def compare_vad(filename):
     
-    # Plotting
-    plt.figure(figsize = (10,7))
-    plt.subplot(3,1,1)
-    plt.plot(samples)
-    plt.xlim([0, samples.shape[0]])
+        sample_rate, samples = wavfile.read(filename)
+        
+        # The Google VAD
+        segments = google_vad(samples, sample_rate)
+        
+        # Simple VAD based on filterbank thresholding
+        fb = filterbanks.filterbanks1d(samples, prefilter=True)
+        vad_decisions = filterbank_vad(fb, sample_rate)
+        
+        # Plotting
+        plt.figure(figsize = (18,7))
+        plt.subplot(4,1,1)
+        plt.plot(samples)
+        plt.xlim([0, samples.shape[0]])
+        
+        ymax = max(samples)
+        
+        # plot segment identifed as speech
+        for segment in segments:
+            if segment['is_speech']:
+                plt.plot([ segment['start'], segment['stop'] - 1], [ymax * 1.1, ymax * 1.1], color = 'orange')
+        
+        plt.xticks([])
+        plt.yticks([])
+        plt.ylabel('Google VAD')
+        
+        plt.subplot(4,1,2)
+        plt.imshow(fb.T)
+        plt.axis('auto')
+    #    plt.yticks([])
+        plt.xticks([])
+        plt.xlim([0, fb.shape[0]])
+        plt.plot([0, fb.shape[0]], [15, 15], 'w--')
+        plt.ylabel('Mel filterbanks')
+        
+        plt.subplot(4,1,3)
+        plt.plot(vad_decisions)
+        plt.yticks([])
+        plt.xticks([])
+        plt.xlim([0, fb.shape[0]])
+        plt.ylabel('Simple VAD')
+        
+        plt.subplot(4,1,4)
+        plt.xlim([0, fb.shape[0]])
     
-    ymax = max(samples)
+    #    filterbanks -= filterbanks.min()
+        fb -= np.quantile(fb, 0.05) # filterbanks.min()
+        fb = fb.clip(min=0)
+                
+        x = np.mean(fb[:, 2:15], axis=1)
+        y = np.mean(fb, axis=1)
+        
+        w = np.hamming(15)
+    #    w = np.ones((32,))
+    #    x = np.convolve(w/w.sum(), x, mode='same')
+    #    y = np.convolve(w/w.sum(), y, mode='same')
     
-    # plot segment identifed as speech
-    for segment in segments:
-        if segment['is_speech']:
-            plt.plot([ segment['start'], segment['stop'] - 1], [ymax * 1.1, ymax * 1.1], color = 'orange')
+        z = x/y
+        z = np.convolve(w/w.sum(), z, mode='same')
     
-    plt.xlabel('sample')
-    plt.xticks([])
-    plt.yticks([])
-    
-    plt.subplot(3,1,2)
-    plt.imshow(filterbanks.T)
-    plt.axis('auto')
-    plt.yticks([])
-    plt.xticks([])
-    plt.xlim([0, filterbanks.shape[0]])
-    
-    plt.subplot(3,1,3)
-    plt.plot(energy_rates)
-    plt.xticks([])
-#    plt.yticks([])
-    plt.xlim([0, filterbanks.shape[0]])
-
-    filterbanks -= np.quantile(filterbanks, 0.05) # filterbanks.min()
-    filterbanks = filterbanks.clip(min=0)
-            
-    x = np.mean(filterbanks[:, 3:18], axis=1)
-    y = np.mean(filterbanks, axis=1)
-    plt.plot(x)
-    plt.plot(y)
-    
+        plt.plot(x)
+        plt.plot(y)
+        plt.plot(z)
+        plt.plot([0, fb.shape[0]], [1, 1], 'k:')
+        plt.plot(medfilt(z > 1.05, 31))
+    #    plt.yticks([])
+        plt.xticks([])
+        plt.ylabel('Ad-hoc play')
+        
+    compare_vad(filename)
+    compare_vad('../../datasets/voxceleb/test/id10270/5r0dWxy17C8/00002.wav')
