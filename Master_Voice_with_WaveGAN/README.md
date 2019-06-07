@@ -5,9 +5,9 @@ _Note:_ The training loop for the Master Voice model is repeated 10 times for a 
 ### Default parameters
 | Parameter               | Value |
 | ----------------------- | ------------- |
-| Speaker IR directory    |  _/beegfs/kp2218/test_runs/conv_test/data/audio/ir_speaker/IR_ClestionBD300.wav_  |
-| Room IR directory       | _/beegfs/kp2218/test_runs/conv_test/data/audio/ir_mic/IR_OktavaMD57.wav_  |
-| Mic IR directory        | _/beegfs/kp2218/test_runs/conv_test/data/audio/ir_room/BRIR.wav_  |
+| Speaker IR directory    |  _./audio/ir_speaker/IR_ClestionBD300.wav_  |
+| Room IR directory       | _./audio/ir_mic/IR_OktavaMD57.wav_  |
+| Mic IR directory        | _./audio/ir_room/BRIR.wav_  |
 | Batch size              | _16_  |
 | Number of iterations    | _1000_  |
 | Learning Rate           | _1e-4_  |
@@ -16,6 +16,7 @@ _Note:_ The training loop for the Master Voice model is repeated 10 times for a 
 | Utterance type          | _male_ |
 | Post processing         | _False_  |
 | Save directory          | _None_  |
+| Total repetitions       | _10_  |
 
 ### Running the script
 _Note:_ Here, the directory extension in which the training results are stored must be provided
@@ -67,6 +68,7 @@ python3 Master_Voice_Main_Script.py --save_dir './female_no-PP' /
 | Utterance type          | _--utterance_type_ |
 | Post processing         | _--post_processing_  |
 | Save directory          | _--save_dir_  |
+| Total repetitions       | _--total_runs  |
 
 ### Model Architecture
-![Alt text](https://github.com/mirkomarras/mastervoices/blob/master/Master_Voice_with_WaveGAN/model.png?raw=true "Model Summary")
+// ![Alt text](https://github.com/mirkomarras/mastervoices/blob/master/Master_Voice_with_WaveGAN/model.png?raw=true "Model Summary")
