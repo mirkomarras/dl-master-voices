@@ -54,4 +54,4 @@ python3 Master_Voice_Main_Script.py --save_dir './female_no-PP' /
                                     --utterance_type 'female'
 ```
 ### Model Architecture
-// ![Alt text](https://github.com/mirkomarras/mastervoices/blob/master/Master_Voice_with_WaveGAN/model.png?raw=true "Model Summary")
+![Alt text](https://github.com/mirkomarras/mastervoices/blob/master/Master_Voice_with_WaveGAN/model.png?raw=true "Model Summary")
