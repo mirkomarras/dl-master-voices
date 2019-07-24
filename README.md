@@ -16,6 +16,16 @@ samples called **Master Voices** (MVs) which match large populations of speakers
 ...
 
 ## Getting Started
+
+### Step 1: Download Source Data Sets
+- VoxCeleb1
+- VoxCeleb2
+
+## Step 2: Train Speaker Verification Algorithms
+- VGGVox
+- XVector
+- ResNetVox
+
 ...
 
 ## Contribution
