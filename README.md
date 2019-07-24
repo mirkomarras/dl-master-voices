@@ -28,6 +28,16 @@ celebrities, extracted from videos uploaded to YouTube.
 
 XVector - [Tensorflow Pre-Trained Model]()
 
+```
+$ python ./train/train_x-vector_model.py 
+  --data_source_vox1 "/beegfs/mm10572/voxceleb1" 
+  --data_source_vox2 "/beegfs/mm10572/voxceleb2" 
+  --noises_dir "./data/noise"
+  --model_dir "./models/xvector/pre-trained"
+  --aug 3 
+  --vad True 
+```
+
 VGGVox - [Tensorflow Pre-Trained Model]()
 
 ResNet34Vox - [Tensorflow Pre-Trained Model]()
