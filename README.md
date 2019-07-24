@@ -28,6 +28,15 @@ celebrities, extracted from videos uploaded to YouTube.
 
 #### XVector Model Training 
 
+The training script looks for utterances in *data_source_vox1* and *data_source_vox2* folders, excluding the ones from users 
+used for master voice analysis. Both data sources should point to a folder containing *dev* and *test* VoxCeleb folders. By 
+default, the model is trained for *n_epochs=1024* on batches of size *batch_size=512* with a learning rate of 
+*learning_rate=1e-1*. On each utterance, voice activity detection (*vad=[True|False]*) and data augmentation (*aug=[0:no| 
+1:aug any|2:aug seq|3:aug_prob]*) can be performed. This step produces a x-vector model that is saved on the folder 
+*model_dir*.
+
+A sample x-vector training command is provided below: 
+
 ```
 $ python ./train/train_x-vector_model.py 
   --data_source_vox1 "/beegfs/mm10572/voxceleb1" 
@@ -37,6 +46,8 @@ $ python ./train/train_x-vector_model.py
   --aug 3 
   --vad True 
 ```
+
+
 
 #### VGGVox Model Training 
 
