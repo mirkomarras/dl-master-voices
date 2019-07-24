@@ -21,7 +21,7 @@ samples called **Master Voices** (MVs) which match large populations of speakers
 - VoxCeleb1
 - VoxCeleb2
 
-## Step 2: Train Speaker Verification Algorithms
+### Step 2: Train Speaker Verification Algorithms
 - VGGVox
 - XVector
 - ResNetVox
