@@ -26,7 +26,7 @@ Please feel free to file issues and pull requests on the repo and we will addres
 If you find this code useful in your work, please cite our papers:
 
 ```
-Marras, M., Korus, P., Memon, N., Fenu, G. (2019)
+Marras, M., Korus, P., Memon, N., & Fenu, G. (2019)
 Adversarial Optimization for Dictionary Attacks on Speaker Verification
 In: 20th Annual Conference of the International Speech Communication Association (INTERSPEECH 2019)
 ```
