@@ -5,7 +5,7 @@ import random
 
 class FilterbankGenerator():
 
-    def __init__(self, list_IDs, labels, max_chunk_size, batch_size, shuffle, sample_rate, nfilt, noises, num_fft, frame_size, frame_stride, preemphasis_alpha, vad, aug, prefilter, normalize, n_proc=4):
+    def __init__(self, list_IDs, labels, max_chunk_size, batch_size, shuffle, sample_rate, nfilt, noises, num_fft, frame_size, frame_stride, preemphasis_alpha, vad, aug, prefilter, normalize, n_proc=8):
         self.list_IDs = list_IDs
         self.labels = labels
         self.max_chunk_size = max_chunk_size
@@ -40,12 +40,17 @@ class FilterbankGenerator():
             np.random.shuffle(self.indexes)
 
     def data_generation(self, list_IDs_temp, list_Labels):
-        X = np.empty((self.batch_size, self.max_chunk_size, self.nfilt))
-        y = np.empty((self.batch_size), dtype=int)
+        X = []
+        y = []
         params = [[path, self.sample_rate, self.nfilt, self.noises, self.num_fft, self.frame_size, self.frame_stride, self.preemphasis_alpha, self.vad, self.aug, self.prefilter, self.normalize] for path in list_IDs_temp]
-        filterbanks = self.pool.map(get_fft_filterbank_unpack, params)
-        for i, (sp, label) in enumerate(zip(filterbanks,list_Labels)):
-            start = random.choice(range(sp.shape[0] - self.max_chunk_size))
-            X[i,] = sp[start : start + self.max_chunk_size, :]
-            y[i] = label
+        filterbanks = np.array(self.pool.map(get_fft_filterbank_unpack, params))
+        for _, (sp, label) in enumerate(zip(filterbanks,list_Labels)):
+            try:
+                start = random.choice(range(sp.shape[0] - self.max_chunk_size))
+                X.append(sp[start : start + self.max_chunk_size, :])
+                y.append(label)
+            except:
+                continue
+        X = np.array(X)
+        y = np.array(y)
         return X, y

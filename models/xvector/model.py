@@ -169,48 +169,6 @@ class Model(object):
             one_hot_matrix[i, lab] = 1
         return one_hot_matrix
 
-    def print_models_params(self, input_dir):
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
-            self.load_model(sess, input_dir)
-            print('\n\nThe x-vector components are:\n')
-            for v in self.graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
-                print(v.name)
-            print('\n')
-
-    def get_models_weights(self, input_dir):
-        import h5py
-        h5file = os.path.join(input_dir, 'model.h5')
-        if os.path.exists(h5file):
-            name2weights = {}
-
-            def add2weights(name, mat):
-                if not isinstance(mat, h5py.Group):
-                    name2weights[name] = mat.value
-
-            with h5py.File(h5file, 'r') as hf:
-                hf.visititems(add2weights)
-            return name2weights
-
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
-            self.load_model(sess, input_dir)
-            name2weights = {}
-            for v in self.graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
-                name2weights[v.name] = sess.run(v)
-                print('%s  shape: %s' % (v.name, str(name2weights[v.name].shape)))
-            for i in range(5):
-                for scope_name in ("frame_level_info_layer-%s" % i, "embed_layer-%s" % i):
-                    for var_name in ("mean", "variance"):
-                        name = '%s/%s:0' % (scope_name, var_name)
-                        try:
-                            name2weights[name] = sess.run(self.graph.get_tensor_by_name(name))
-                            print('%s  shape: %s' % (name, str(name2weights[name].shape)))
-                        except:
-                            pass
-            with h5py.File(h5file, 'w') as hf:
-                for name, mat in name2weights.iteritems():
-                    hf.create_dataset(name, data=mat.astype(np.float32))
-            return name2weights
-
     def train_model(self, filterbanks_generator, n_epochs, n_steps_per_epoch, learning_rate, dropout_proportion, print_interval, output_dir):
         with tf.Session(config=tf.ConfigProto(allow_soft_placement=False, log_device_placement=False)) as sess:
             self.load_model(sess, output_dir)
@@ -258,7 +216,7 @@ class Model(object):
                     total_accuracy += accuracy
 
                     if minibatch_idx % print_interval == 0:
-                        print("\rStep %4.0f / %4.0f | AvgLoss: %3.4f | AvgAcc: %3.7f | AvgDiskTime: %3.1f | AvgGPUTime: %3.1f | ElapsedTime: %3.1f" % (minibatch_idx+1, minibatch_count, total_loss / (minibatch_idx+1), total_accuracy / (minibatch_idx+1), curr_disk_waiting, curr_gpu_waiting, (time.time() - start_time)), end='')
+                        print("\rStep %4.0f / %4.0f | AvgLoss: %3.4f | AvgAcc: %3.7f | AvgDiskTime: %3.1f | AvgGPUTime: %3.1f | ElapsedTime: %3.1f" % (minibatch_idx+1, minibatch_count, total_loss / (minibatch_idx+1), total_accuracy / (minibatch_idx+1), curr_disk_waiting, curr_gpu_waiting, time.time() - start_time), end='')
 
                 print()
                 Model.save_model(sess, output_dir)

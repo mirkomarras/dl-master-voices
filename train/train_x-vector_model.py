@@ -31,7 +31,8 @@ def main():
     parser.add_argument('--mode', dest='mode', default='train', type=str, action='store', help='Usage mode for x-vector model [train/extract].')
 
     # Training parameters
-    parser.add_argument('--data_source', dest='data_source', default='', type=str, action='store', help='Base path of the training dataset in form of data_source/user/video/audio.wav')
+    parser.add_argument('--data_source_vox1', dest='data_source_vox1', default='', type=str, action='store', help='Base VoxCeleb1 path of the training datasets')
+    parser.add_argument('--data_source_vox2', dest='data_source_vox2', default='', type=str, action='store', help='Base VoxCeleb2 path of the training datasets')
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Number of training epochs')
     parser.add_argument('--batch_size', dest='batch_size', default=512, type=int, action='store', help='Size of training batches')
     parser.add_argument('--learning_rate', dest='learning_rate', default=1e-1, type=float, action='store', help='Batch size for training')
@@ -65,22 +66,18 @@ def main():
         for file in os.listdir(os.path.join(args.noises_dir, type)):
             noises[type].append(os.path.join(args.noises_dir, type, file))
 
-    data = getData(args.data_source)
+    data = getData(args.data_source_vox1, args.data_source_vox2)
     training_generator = FilterbankGenerator(data['paths'], data['labels'], args.max_chunk_size, args.batch_size, args.shuffle, args.sample_rate, args.nfilt, noises, args.num_fft, args.frame_size, args.frame_stride, args.preemphasis, args.vad, args.aug, args.prefilter, args.normalize)
 
-    # Enrich parameters
-    args.n_classes = len(np.unique(data['labels']))
-    args.steps_per_epoch = len(data['paths']) // args.batch_size
-
     model = XVector.Model()
-    model.build_model(args.n_classes, args.nfilt, args.model_dir)
-    model.train_model(training_generator, args.n_epochs, args.steps_per_epoch, args.learning_rate, args.dropout_proportion, args.print_interval, args.model_dir)
+    model.build_model(len(np.unique(data['labels'])), args.nfilt, args.model_dir)
+    model.train_model(training_generator, args.n_epochs, len(data['paths']) // args.batch_size, args.learning_rate, args.dropout_proportion, args.print_interval, args.model_dir)
 
 if __name__ == "__main__":
     main()
 
 
-# python ./train/train_x-vector_model.py --data_source "/beegfs/mm10572/voxceleb1/dev" --aug 3 --vad True --noises_dir "./data/noise" --model_dir "./models/xvector/pre-trained"
+# python ./train/train_x-vector_model.py --data_source_vox1 "/beegfs/mm10572/voxceleb1" --data_source_vox2 "/beegfs/mm10572/voxceleb2" --aug 3 --vad True --noises_dir "./data/noise" --model_dir "./models/xvector/pre-trained"
 
 
 
