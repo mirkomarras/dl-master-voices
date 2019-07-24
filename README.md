@@ -18,15 +18,19 @@ samples called **Master Voices** (MVs) which match large populations of speakers
 ## Getting Started
 
 ### Step 1: Download Source Data Sets
-[VoxCeleb1](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox1.html) VoxCeleb1 contains over 100,000 utterances for 1,251 
+[VoxCeleb1](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox1.html) contains over 100,000 utterances for 1,251 
 celebrities, extracted from videos uploaded to YouTube. 
 
-[VoxCeleb2](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html)
+[VoxCeleb2](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html) contains over 1 million utterances for 6,112 
+celebrities, extracted from videos uploaded to YouTube.
 
 ### Step 2: Train Speaker Verification Algorithms
-- VGGVox: 
-- XVector
-- ResNetVox
+
+VGGVox - [Tensorflow Pre-Trained Model]()
+
+XVector - [Tensorflow Pre-Trained Model]()
+
+ResNetVox - [Tensorflow Pre-Trained Model]()
 
 ...
 
