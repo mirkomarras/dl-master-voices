@@ -26,7 +26,7 @@ celebrities, extracted from videos uploaded to YouTube.
 
 ### Step 2: Train Speaker Verification Algorithms
 
-XVector - [Tensorflow Pre-Trained Model]()
+#### XVector Model Training 
 
 ```
 $ python ./train/train_x-vector_model.py 
@@ -38,11 +38,20 @@ $ python ./train/train_x-vector_model.py
   --vad True 
 ```
 
-VGGVox - [Tensorflow Pre-Trained Model]()
+#### VGGVox Model Training 
 
-ResNet34Vox - [Tensorflow Pre-Trained Model]()
+``` 
+```
 
-ResNet50Vox - [Tensorflow Pre-Trained Model]()
+#### ResNet34Vox Model Training 
+
+``` 
+```
+
+#### ResNet50Vox Model Training 
+
+``` 
+```
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
