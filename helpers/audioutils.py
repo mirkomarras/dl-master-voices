@@ -266,4 +266,37 @@ def get_fft_filterbank(filename, sample_rate, nfilt, noises, num_fft=512, frame_
 
     filter_banks /= np.abs(filter_banks).max()
 
-    return filter_banks
+    start = random.choice(range(filter_banks.shape[0] - 300))
+    return filter_banks[start: start + 300, :]
+
+def get_fft_spectrum_unpack(args):
+    return get_fft_spectrum(*args)
+
+def get_fft_spectrum(filename, sample_rate, nfilt, noises, num_fft=512, frame_size=0.025, frame_stride=0.01, preemphasis_alpha=0.97, vad=False, aug=0, prefilter=True, normalize=True):
+    signal = load_wav(filename, sample_rate)
+
+    # Voice activity detection
+    if vad:
+        signal = vad_func(signal, sample_rate)
+
+    assert aug <= 3, 'Only augmentation modes equal or less than 2 supported'
+
+    # Augmentation
+    if aug == 1:
+        signal = augment_any(signal, sample_rate, noises)
+    elif aug == 2:
+        signal = augment_sequential(signal, sample_rate, noises)
+    elif aug == 3:
+        signal = augment_prob(signal, sample_rate, noises)
+
+    assert signal.ndim == 1, 'Only 1-dim signals supported'
+
+    # get FFT spectrum
+    signal = remove_dc_and_dither(signal, sample_rate)
+    signal = preemphasis(signal, coeff=preemphasis_alpha)
+    frames = framesig(signal, frame_len=frame_size * sample_rate, frame_step=frame_stride * sample_rate, winfunc=np.hamming)
+    fft = abs(np.fft.fft(frames,n=num_fft))
+    fft_norm = normalize_frames(fft.T)
+    start = random.choice(range(fft_norm.shape[1] - 300))
+    fft_norm = fft_norm[:, start: start + 300]
+    return fft_norm.reshape((512, 300, 1))

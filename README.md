@@ -50,18 +50,69 @@ Please find the resulting pre-trained model trained on 1,024,292 utterances from
 
 #### VGGVox Model Training 
 
-``` 
+The training script looks for utterances in *data_source_vox1* and *data_source_vox2* folders, excluding the ones from users 
+used for master voice analysis. Both data sources should point to a folder containing *dev* and *test* VoxCeleb folders. By 
+default, the model is trained for *n_epochs=40* on *512x300*-sized spectrograms grouped in batches of size *batch_size=32* with a learning rate of 
+*learning_rate=1e-1*. For each utterance, an vgg-vector of size *1024* is returned. On each utterance, voice activity detection (*vad=[True|False]*) and data augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. This step saves a x-vector model on the folder 
+*model_dir*.
+
+A sample vgg-vector training command is provided below: 
+
 ```
+$ python ./train/train_vgg-vector_model.py 
+  --data_source_vox1 "/beegfs/mm10572/voxceleb1" 
+  --data_source_vox2 "/beegfs/mm10572/voxceleb2" 
+  --noises_dir "./data/noise"
+  --model_dir "./models/vggvox/pre-trained"
+  --aug 3 
+  --vad True 
+```
+
+Please find the resulting pre-trained model trained on 1,024,292 utterances from 5,205 users in *./models/vggvox/pre-trained*. 
 
 #### ResNet34Vox Model Training 
 
-``` 
+The training script looks for utterances in *data_source_vox1* and *data_source_vox2* folders, excluding the ones from users 
+used for master voice analysis. Both data sources should point to a folder containing *dev* and *test* VoxCeleb folders. By 
+default, the model is trained for *n_epochs=40* on *512x300*-sized spectrograms grouped in batches of size *batch_size=32* with a learning rate of 
+*learning_rate=1e-1*. For each utterance, a resnet34-vector of size *512* is returned. On each utterance, voice activity detection (*vad=[True|False]*) and data augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. This step saves a x-vector model on the folder 
+*model_dir*.
+
+A sample vgg-vector training command is provided below: 
+
 ```
+$ python ./train/train_resnet34-vector_model.py 
+  --data_source_vox1 "/beegfs/mm10572/voxceleb1" 
+  --data_source_vox2 "/beegfs/mm10572/voxceleb2" 
+  --noises_dir "./data/noise"
+  --model_dir "./models/resnet34vox/pre-trained"
+  --aug 3 
+  --vad True 
+```
+
+Please find the resulting pre-trained model trained on 1,024,292 utterances from 5,205 users in *./models/resnet34vox/pre-trained*. 
 
 #### ResNet50Vox Model Training 
 
-``` 
+The training script looks for utterances in *data_source_vox1* and *data_source_vox2* folders, excluding the ones from users 
+used for master voice analysis. Both data sources should point to a folder containing *dev* and *test* VoxCeleb folders. By 
+default, the model is trained for *n_epochs=40* on *512x300*-sized spectrograms grouped in batches of size *batch_size=32* with a learning rate of 
+*learning_rate=1e-1*. For each utterance, a resnet50-vector of size *512* is returned. On each utterance, voice activity detection (*vad=[True|False]*) and data augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. This step saves a x-vector model on the folder 
+*model_dir*.
+
+A sample vgg-vector training command is provided below: 
+
 ```
+$ python ./train/train_resnet50-vector_model.py 
+  --data_source_vox1 "/beegfs/mm10572/voxceleb1" 
+  --data_source_vox2 "/beegfs/mm10572/voxceleb2" 
+  --noises_dir "./data/noise"
+  --model_dir "./models/resnet50vox/pre-trained"
+  --aug 3 
+  --vad True 
+```
+
+Please find the resulting pre-trained model trained on 1,024,292 utterances from 5,205 users in *./models/resnet50vox/pre-trained*. 
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 

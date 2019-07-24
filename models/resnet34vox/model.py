@@ -7,40 +7,76 @@ import queue
 import time
 import os
 
+def identity_block2d(input_tensor, kernel_size, filters, stage, block, is_training, reuse, kernel_initializer=tf.contrib.layers.xavier_initializer(uniform=False)):
+    filters1, filters2, filters3 = filters
+
+    conv_name_1 = 'conv' + str(stage) + '_' + str(block) + '_1x1_reduce'
+    bn_name_1 = 'bn' + str(stage) + '_' + str(block) + '_1x1_reduce'
+
+    x = tf.layers.conv2d(input_tensor, filters1, (1, 1), use_bias=False, kernel_initializer=kernel_initializer,
+                         name=conv_name_1, reuse=reuse)
+    x = tf.layers.batch_normalization(x, training=is_training, name=bn_name_1, reuse=reuse)
+    x = tf.nn.relu(x)
+
+    conv_name_2 = 'conv' + str(stage) + '_' + str(block) + '_3x3'
+    bn_name_2 = 'bn' + str(stage) + '_' + str(block) + '_3x3'
+    x = tf.layers.conv2d(x, filters2, kernel_size, use_bias=False, padding='SAME',
+                         kernel_initializer=kernel_initializer, name=conv_name_2, reuse=reuse)
+    x = tf.layers.batch_normalization(x, training=is_training, name=bn_name_2, reuse=reuse)
+    x = tf.nn.relu(x)
+
+    conv_name_3 = 'conv' + str(stage) + '_' + str(block) + '_1x1_increase'
+    bn_name_3 = 'bn' + str(stage) + '_' + str(block) + '_1x1_increase'
+    x = tf.layers.conv2d(x, filters3, (1, 1), use_bias=False, kernel_initializer=kernel_initializer, name=conv_name_3,
+                         reuse=reuse)
+    x = tf.layers.batch_normalization(x, training=is_training, name=bn_name_3, reuse=reuse)
+
+    x = tf.add(input_tensor, x)
+    x = tf.nn.relu(x)
+    return x
+
+def conv_block_2d(input_tensor, kernel_size, filters, stage, block, is_training, reuse, strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer(uniform=False)):
+    filters1, filters2, filters3 = filters
+
+    conv_name_1 = 'conv' + str(stage) + '_' + str(block) + '_1x1_reduce'
+    bn_name_1 = 'bn' + str(stage) + '_' + str(block) + '_1x1_reduce'
+    x = tf.layers.conv2d(input_tensor, filters1, (1, 1), strides=strides, use_bias=False,
+                         kernel_initializer=kernel_initializer, name=conv_name_1, reuse=reuse)
+    x = tf.layers.batch_normalization(x, training=is_training, name=bn_name_1, reuse=reuse)
+    x = tf.nn.relu(x)
+
+    conv_name_2 = 'conv' + str(stage) + '_' + str(block) + '_3x3'
+    bn_name_2 = 'bn' + str(stage) + '_' + str(block) + '_3x3'
+    x = tf.layers.conv2d(x, filters2, kernel_size, padding='SAME', use_bias=False,
+                         kernel_initializer=kernel_initializer, name=conv_name_2, reuse=reuse)
+    x = tf.layers.batch_normalization(x, training=is_training, name=bn_name_2, reuse=reuse)
+    x = tf.nn.relu(x)
+
+    conv_name_3 = 'conv' + str(stage) + '_' + str(block) + '_1x1_increase'
+    bn_name_3 = 'bn' + str(stage) + '_' + str(block) + '_1x1_increase'
+    x = tf.layers.conv2d(x, filters3, (1, 1), use_bias=False, kernel_initializer=kernel_initializer, name=conv_name_3,
+                         reuse=reuse)
+    x = tf.layers.batch_normalization(x, training=is_training, name=bn_name_3, reuse=reuse)
+
+    conv_name_4 = 'conv' + str(stage) + '_' + str(block) + '_1x1_shortcut'
+    bn_name_4 = 'bn' + str(stage) + '_' + str(block) + '_1x1_shortcut'
+    shortcut = tf.layers.conv2d(input_tensor, filters3, (1, 1), use_bias=False, strides=strides,
+                                kernel_initializer=kernel_initializer, name=conv_name_4, reuse=reuse)
+    shortcut = tf.layers.batch_normalization(shortcut, training=is_training, name=bn_name_4, reuse=reuse)
+
+    x = tf.add(shortcut, x)
+    x = tf.nn.relu(x)
+    return x
+
 class Model(object):
 
     def __init__(self):
         self.graph = None
         self.var2std_epsilon = 0.00001
+        self.reuse = False
 
-    def __get_variable(self, name, shape, initializer, trainable=True):
-        return tf.get_variable(name, shape, initializer=initializer, dtype=tf.float32, trainable=trainable)
-
-    def batch_norm_wrapper(self, inputs, is_training, decay=0.99, epsilon=1e-3, name_prefix=''):
-        gamma = self.__get_variable(name_prefix + 'gamma', inputs.get_shape()[-1], tf.constant_initializer(1.0))
-        beta = self.__get_variable(name_prefix + 'beta', inputs.get_shape()[-1], tf.constant_initializer(0.0))
-        pop_mean = self.__get_variable(name_prefix + 'mean', inputs.get_shape()[-1], tf.constant_initializer(0.0), trainable=False)
-        pop_var = self.__get_variable(name_prefix + 'variance', inputs.get_shape()[-1], tf.constant_initializer(1.0), trainable=False)
-        axis = list(range(len(inputs.get_shape()) - 1))
-
-        def in_training():
-            batch_mean, batch_var = tf.nn.moments(inputs, axis)
-            train_mean = tf.assign(pop_mean, pop_mean * decay + batch_mean * (1 - decay))
-            train_var = tf.assign(pop_var, pop_var * decay + batch_var * (1 - decay))
-            with tf.control_dependencies([train_mean, train_var]):
-                return tf.nn.batch_normalization(inputs, batch_mean, batch_var, beta, gamma, epsilon)
-
-        def in_evaluation():
-            return tf.nn.batch_normalization(inputs, pop_mean, pop_var, beta, gamma, epsilon)
-
-        return tf.cond(is_training, lambda: in_training(), lambda: in_evaluation())
-
-    def build_model(self, num_classes, nfilt, output_dir):
-        layer_sizes = [512, 512, 512, 512, 3 * 512]
-        kernel_sizes = [5, 5, 7, 1, 1]
-        embedding_sizes = [512, 512]
-
-        print("Start building x-vector model")
+    def build_model(self, num_classes, output_dir):
+        print("Start building ResNet34-vector model")
 
         tf.reset_default_graph()
         self.graph = tf.Graph()
@@ -54,59 +90,51 @@ class Model(object):
             self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
             self.phase = tf.placeholder(tf.bool, name="phase")
 
+            kernel_initializer = tf.contrib.layers.xavier_initializer(uniform=False)
+
             # Placeholders for regular data
-            self.input_x = tf.placeholder(tf.float32, [None, None, nfilt], name="input_x")
+            self.input_x = tf.placeholder(tf.float32, [None, 512, 300, 1], name="input_x")
             self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
 
-            h = self.input_x
+            input_x = tf.layers.batch_normalization(self.input_x, training=self.phase, name='bbn0', reuse=self.reuse)
 
-            # Frame level information Layer
-            prev_dim = nfilt
-            for i, (kernel_size, layer_size) in enumerate(zip(kernel_sizes, layer_sizes)):
-                with tf.variable_scope("frame_level_info_layer-%s" % i):
-                    kernel_shape = [kernel_size, prev_dim, layer_size]
-                    w = tf.Variable(tf.truncated_normal(kernel_shape, stddev=0.1), name="w")
-                    b = tf.Variable(tf.constant(0.1, shape=[layer_size]), name="b")
+            x = tf.layers.conv2d(input_x, 64, (7, 7), strides=(1, 1), kernel_initializer=kernel_initializer, use_bias=False, padding='SAME', name='voice_conv1_1/3x3_s1', reuse=self.reuse)
+            x = tf.layers.batch_normalization(x, training=self.phase, name='voice_bn1_1/3x3_s1', reuse=self.reuse)
+            x = tf.nn.relu(x)
+            x = tf.layers.max_pooling2d(x, (2, 2), strides=(2, 2), name='voice_mpool1')
 
-                    conv = tf.nn.conv1d(h, w, stride=1, padding="SAME", name="conv-layer-%s" % i)
-                    h = tf.nn.bias_add(conv, b)
+            x1 = conv_block_2d(x, 3, [48, 48, 96], stage=2, block='voice_1a', strides=(1, 1), is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
+            x1 = identity_block2d(x1, 3, [48, 48, 96], stage=2, block='voice_1b', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
 
-                    # Apply nonlinearity and BN
-                    h = tf.nn.relu(h, name="relu")
-                    h = self.batch_norm_wrapper(h, decay=0.95, is_training=self.phase)
+            x2 = conv_block_2d(x1, 3, [96, 96, 128], stage=3, block='voice_2a', strides=(2, 2), is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
+            x2 = identity_block2d(x2, 3, [96, 96, 128], stage=3, block='voice_2b', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
+            x2 = identity_block2d(x2, 3, [96, 96, 128], stage=3, block='voice_2c', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
 
-                    prev_dim = layer_size
+            x3 = conv_block_2d(x2, 3, [128, 128, 256], stage=4, block='voice_3a', strides=(2, 2), is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
+            x3 = identity_block2d(x3, 3, [128, 128, 256], stage=4, block='voice_3b', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
+            x3 = identity_block2d(x3, 3, [128, 128, 256], stage=4, block='voice_3c', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
 
-                    # Apply dropout
-                    if i != len(kernel_sizes) - 1:
-                        with tf.name_scope("dropout-%s" % i):
-                            h = tf.nn.dropout(h, self.dropout_keep_prob)
+            x4 = conv_block_2d(x3, 3, [256, 256, 512], stage=5, block='voice_4a', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
+            x4 = identity_block2d(x4, 3, [256, 256, 512], stage=5, block='voice_4b', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
+            x4 = identity_block2d(x4, 3, [256, 256, 512], stage=5, block='voice_4c', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
 
-            # Statistic pooling
-            tf_mean, tf_var = tf.nn.moments(h, 1)
-            h = tf.concat([tf_mean, tf.sqrt(tf_var + self.var2std_epsilon)], 1)
-            prev_dim = prev_dim * 2
+            with tf.variable_scope('fc'):
+                pooling_output = tf.layers.max_pooling2d(x4, (3, 1), strides=(2, 2), name='voice_mpool2')
+                pooling_output = tf.layers.conv2d(pooling_output, filters=512, kernel_size=[7, 1], strides=[1, 1], padding='SAME', activation=tf.nn.relu, name='fc_block1')
+                flattened = tf.contrib.layers.flatten(pooling_output)
+                flattened = tf.nn.l2_normalize(flattened)
+                w = tf.Variable(tf.truncated_normal([76800, 512], stddev=0.1), name="w")
+                b = tf.Variable(tf.constant(0.1, shape=[512]), name="b")
 
-            # Embedding layers
-            for i, out_dim in enumerate(embedding_sizes):
+                h = tf.nn.xw_plus_b(flattened, w, b, name="scores")
 
-                with tf.variable_scope("embed_layer-%s" % i):
-                    w = tf.Variable(tf.truncated_normal([prev_dim, out_dim], stddev=0.1), name="w")
-                    b = tf.Variable(tf.constant(0.1, shape=[out_dim]), name="b")
+                h = tf.nn.relu(h, name="relu")
 
-                    h = tf.nn.xw_plus_b(h, w, b, name="scores")
+                with tf.name_scope("dropout"):
+                    h = tf.nn.dropout(h, self.dropout_keep_prob)
 
-                    h = tf.nn.relu(h, name="relu")
-                    h = self.batch_norm_wrapper(h, decay=0.95, is_training=self.phase)
-
-                    prev_dim = out_dim
-                    if i != len(embedding_sizes) - 1:
-                        with tf.name_scope("dropout-%s" % i):
-                            h = tf.nn.dropout(h, self.dropout_keep_prob)
-
-            # Softmax
-            with tf.variable_scope("output"):
-                w = tf.get_variable("w", shape=[prev_dim, num_classes], initializer=tf.contrib.layers.xavier_initializer())
+            with tf.variable_scope('output'):
+                w = tf.get_variable('w', shape=[512, num_classes], initializer=tf.contrib.layers.xavier_initializer())
                 b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
 
                 scores = tf.nn.xw_plus_b(h, w, b, name="scores")
@@ -126,25 +154,25 @@ class Model(object):
                 self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
 
         with tf.Session(graph=self.graph, config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
-            print("Start initializing x-vector graph")
+            print("Start initializing ResNet34-vector graph")
             sess.run(tf.global_variables_initializer())
             Model.save_model(sess, output_dir)
 
-        print("X-vector building finished")
+        print("ResNet34-vector building finished")
 
     @staticmethod
     def save_model(sess, output_dir):
-        print("Start saving x-vector graph")
+        print("Start saving ResNet34-vector graph")
         saver = tf.train.Saver()
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         save_path = saver.save(sess, os.path.join(output_dir, 'model'))
         with open(os.path.join(output_dir, 'done'), 'wt') as fid:
             fid.write('done')
-        print("X-vector graph saved in path: %s" % save_path)
+        print("ResNet34-vector graph saved in path: %s" % save_path)
 
     def load_model(self, sess, input_dir):
-        print("Start loading x-vector graph ...")
+        print("Start loading ResNet34-vector graph ...")
         saver = tf.train.import_meta_graph(os.path.join(input_dir, 'model.meta'))
         saver.restore(sess, os.path.join(input_dir, 'model'))
         self.graph = sess.graph
@@ -157,10 +185,8 @@ class Model(object):
         self.loss = self.graph.get_tensor_by_name("loss:0")
         self.optimizer = self.graph.get_operation_by_name("optimizer")
         self.accuracy = self.graph.get_tensor_by_name("accuracy/accuracy:0")
-        self.embedding = [None] * 2  # TODO make this more general
-        self.embedding[0] = self.graph.get_tensor_by_name("embed_layer-0/scores:0")
-        self.embedding[1] = self.graph.get_tensor_by_name("embed_layer-1/scores:0")
-        print("X-vector graph restored from path: %s" % input_dir)
+        self.embedding = self.graph.get_tensor_by_name("fc/scores:0")
+        print("ResNet34-vector graph restored from path: %s" % input_dir)
 
     def create_one_hot_output_matrix(self, labels):
         minibatch_size = len(labels)
@@ -169,53 +195,11 @@ class Model(object):
             one_hot_matrix[i, lab] = 1
         return one_hot_matrix
 
-    def print_models_params(self, input_dir):
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
-            self.load_model(sess, input_dir)
-            print('\n\nThe x-vector components are:\n')
-            for v in self.graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
-                print(v.name)
-            print('\n')
-
-    def get_models_weights(self, input_dir):
-        import h5py
-        h5file = os.path.join(input_dir, 'model.h5')
-        if os.path.exists(h5file):
-            name2weights = {}
-
-            def add2weights(name, mat):
-                if not isinstance(mat, h5py.Group):
-                    name2weights[name] = mat.value
-
-            with h5py.File(h5file, 'r') as hf:
-                hf.visititems(add2weights)
-            return name2weights
-
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
-            self.load_model(sess, input_dir)
-            name2weights = {}
-            for v in self.graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
-                name2weights[v.name] = sess.run(v)
-                print('%s  shape: %s' % (v.name, str(name2weights[v.name].shape)))
-            for i in range(5):
-                for scope_name in ("frame_level_info_layer-%s" % i, "embed_layer-%s" % i):
-                    for var_name in ("mean", "variance"):
-                        name = '%s/%s:0' % (scope_name, var_name)
-                        try:
-                            name2weights[name] = sess.run(self.graph.get_tensor_by_name(name))
-                            print('%s  shape: %s' % (name, str(name2weights[name].shape)))
-                        except:
-                            pass
-            with h5py.File(h5file, 'w') as hf:
-                for name, mat in name2weights.iteritems():
-                    hf.create_dataset(name, data=mat.astype(np.float32))
-            return name2weights
-
     def train_model(self, filterbanks_generator, n_epochs, n_steps_per_epoch, learning_rate, dropout_proportion, print_interval, output_dir):
         with tf.Session(config=tf.ConfigProto(allow_soft_placement=False, log_device_placement=False)) as sess:
             self.load_model(sess, output_dir)
 
-            print("Start training x-vector model")
+            print("Start training ResNet34-vector model")
             for epoch in range(n_epochs):
                 print('Epoch', epoch, '/', n_epochs)
 
@@ -263,7 +247,7 @@ class Model(object):
                 print()
                 Model.save_model(sess, output_dir)
 
-            print("X-vector model trained")
+            print("ResNet34-vector model trained")
 
     def extract_embs(self, filterbanks_generator, n_steps_per_epochs, input_dir, embs_output_path, embs_size, min_chunk_size, chunk_size, start_index=0):
         start_time = time.time()

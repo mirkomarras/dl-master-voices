@@ -14,7 +14,7 @@ class Model(object):
         self.var2std_epsilon = 0.00001
         self.reuse = False
 
-    def build_model(self, num_classes, nspec, output_dir):
+    def build_model(self, num_classes, output_dir):
         print("Start building vgg-vector model")
 
         tf.reset_default_graph()
@@ -30,47 +30,57 @@ class Model(object):
             self.phase = tf.placeholder(tf.bool, name="phase")
 
             # Placeholders for regular data
-            self.input_x = tf.placeholder(tf.float32, [None, None, nspec], name="input_x")
+            self.input_x = tf.placeholder(tf.float32, [None, 512, 300, 1], name="input_x")
             self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
 
-            input_x = tf.layers.batch_normalization(self.input_x, training=is_training, name='bbn0', reuse=self.reuse)
+            input_x = tf.layers.batch_normalization(self.input_x, training=self.phase, name='bbn0', reuse=self.reuse)
 
             with tf.variable_scope('conv1'):
                 conv1_1 = tf.layers.conv2d(input_x, filters=96, kernel_size=[7, 7], strides=[2, 2], padding='SAME', reuse=self.reuse, name='cc1')
-                conv1_1 = tf.layers.batch_normalization(conv1_1, training=is_training, name='bbn1', reuse=self.reuse)
+                conv1_1 = tf.layers.batch_normalization(conv1_1, training=self.phase, name='bbn1', reuse=self.reuse)
                 conv1_1 = tf.nn.relu(conv1_1)
                 conv1_1 = tf.layers.max_pooling2d(conv1_1, pool_size=[3, 3], strides=[2, 2], name='mpool1')
 
             with tf.variable_scope('conv2'):
                 conv2_1 = tf.layers.conv2d(conv1_1, filters=256, kernel_size=[5, 5], strides=[2, 2], padding='SAME', reuse=self.reuse, name='cc2')
-                conv2_1 = tf.layers.batch_normalization(conv2_1, training=is_training, name='bbn2', reuse=self.reuse)
+                conv2_1 = tf.layers.batch_normalization(conv2_1, training=self.phase, name='bbn2', reuse=self.reuse)
                 conv2_1 = tf.nn.relu(conv2_1)
                 conv2_1 = tf.layers.max_pooling2d(conv2_1, pool_size=[3, 3], strides=[2, 2], name='mpool2')
 
             with tf.variable_scope('conv3'):
                 conv3_1 = tf.layers.conv2d(conv2_1, filters=384, kernel_size=[3, 3], strides=[1, 1], padding='SAME', reuse=self.reuse, name='cc3_1')
-                conv3_1 = tf.layers.batch_normalization(conv3_1, training=is_training, name='bbn3', reuse=self.reuse)
+                conv3_1 = tf.layers.batch_normalization(conv3_1, training=self.phase, name='bbn3', reuse=self.reuse)
                 conv3_1 = tf.nn.relu(conv3_1)
 
                 conv3_2 = tf.layers.conv2d(conv3_1, filters=256, kernel_size=[3, 3], strides=[1, 1], padding='SAME', reuse=self.reuse, name='cc3_2')
-                conv3_2 = tf.layers.batch_normalization(conv3_2, training=is_training, name='bbn4', reuse=self.reuse)
+                conv3_2 = tf.layers.batch_normalization(conv3_2, training=self.phase, name='bbn4', reuse=self.reuse)
                 conv3_2 = tf.nn.relu(conv3_2)
 
                 conv3_3 = tf.layers.conv2d(conv3_2, filters=256, kernel_size=[3, 3], strides=[1, 1], padding='SAME', reuse=self.reuse, name='cc3_3')
-                conv3_3 = tf.layers.batch_normalization(conv3_3, training=is_training, name='bbn5', reuse=self.reuse)
+                conv3_3 = tf.layers.batch_normalization(conv3_3, training=self.phase, name='bbn5', reuse=self.reuse)
                 conv3_3 = tf.nn.relu(conv3_3)
                 conv3_3 = tf.layers.max_pooling2d(conv3_3, pool_size=[5, 3], strides=[3, 2], name='mpool3')
 
             with tf.variable_scope('conv4'):
                 conv4_3 = tf.layers.conv2d(conv3_3, filters=4096, kernel_size=[9, 1], strides=[1, 1], padding='VALID', reuse=self.reuse, name='cc4_1')
-                conv4_3 = tf.layers.batch_normalization(conv4_3, training=is_training, name='bbn6', reuse=self.reuse)
+                conv4_3 = tf.layers.batch_normalization(conv4_3, training=self.phase, name='bbn6', reuse=self.reuse)
                 conv4_3 = tf.nn.relu(conv4_3)
                 conv4_3 = tf.layers.average_pooling2d(conv4_3, pool_size=[1, conv4_3.shape[2]], strides=[1,1], name='apool4')
                 conv4_3 = tf.reduce_mean(conv4_3, axis=[1, 2], name='apool4')
+                conv4_3 = tf.nn.dropout(conv4_3, 0.5)
 
-            with tf.variable_scope('fc_audio_vgg'):
-                flattened = tf.nn.l2_normalize(conv4_3)
-                h = tf.layers.dense(flattened, 1024, reuse=self.reuse, name="scores")
+            with tf.variable_scope('fc'):
+                flattened = tf.contrib.layers.flatten(conv4_3)
+                flattened = tf.nn.l2_normalize(flattened)
+                w = tf.Variable(tf.truncated_normal([4096, 1024], stddev=0.1), name="w")
+                b = tf.Variable(tf.constant(0.1, shape=[1024]), name="b")
+
+                h = tf.nn.xw_plus_b(flattened, w, b, name="scores")
+
+                h = tf.nn.relu(h, name="relu")
+
+                with tf.name_scope("dropout"):
+                    h = tf.nn.dropout(h, self.dropout_keep_prob)
 
             with tf.variable_scope('output'):
                 w = tf.get_variable('w', shape=[1024, num_classes], initializer=tf.contrib.layers.xavier_initializer())
@@ -101,7 +111,7 @@ class Model(object):
 
     @staticmethod
     def save_model(sess, output_dir):
-        print("Start saving x-vector graph")
+        print("Start saving vgg-vector graph")
         saver = tf.train.Saver()
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
@@ -124,7 +134,7 @@ class Model(object):
         self.loss = self.graph.get_tensor_by_name("loss:0")
         self.optimizer = self.graph.get_operation_by_name("optimizer")
         self.accuracy = self.graph.get_tensor_by_name("accuracy/accuracy:0")
-        self.embedding = self.graph.get_tensor_by_name("fc_audio_vgg/scores:0")
+        self.embedding = self.graph.get_tensor_by_name("fc/scores:0")
         print("VGG-vector graph restored from path: %s" % input_dir)
 
     def create_one_hot_output_matrix(self, labels):
@@ -186,7 +196,7 @@ class Model(object):
                 print()
                 Model.save_model(sess, output_dir)
 
-            print("X-vector model trained")
+            print("VGG-vector model trained")
 
     def extract_embs(self, filterbanks_generator, n_steps_per_epochs, input_dir, embs_output_path, embs_size, min_chunk_size, chunk_size, start_index=0):
         start_time = time.time()
