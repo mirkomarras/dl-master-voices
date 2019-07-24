@@ -26,13 +26,13 @@ celebrities, extracted from videos uploaded to YouTube.
 
 ### Step 2: Train Speaker Verification Algorithms
 
-VGGVox - [Tensorflow Pre-Trained Model]()
-
 XVector - [Tensorflow Pre-Trained Model]()
 
-ResNetVox - [Tensorflow Pre-Trained Model]()
+VGGVox - [Tensorflow Pre-Trained Model]()
 
-...
+ResNet34Vox - [Tensorflow Pre-Trained Model]()
+
+ResNet50Vox - [Tensorflow Pre-Trained Model]()
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
