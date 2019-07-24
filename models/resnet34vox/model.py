@@ -121,9 +121,13 @@ class Model(object):
             with tf.variable_scope('fc'):
                 pooling_output = tf.layers.max_pooling2d(x4, (3, 1), strides=(2, 2), name='voice_mpool2')
                 pooling_output = tf.layers.conv2d(pooling_output, filters=512, kernel_size=[7, 1], strides=[1, 1], padding='SAME', activation=tf.nn.relu, name='fc_block1')
-                flattened = tf.contrib.layers.flatten(pooling_output)
+                fc1 = tf.layers.conv2d(pooling_output, filters=512, kernel_size=[7, 1], strides=[1, 1], padding='SAME', activation=tf.nn.relu, name='fc_block1_conv')
+                pooling_output = tf.reduce_mean(fc1, [1, 2], name='gap')
+                fc2 = tf.layers.dense(pooling_output, 512, activation=tf.nn.relu, name='fc2')
+
+                flattened = tf.contrib.layers.flatten(fc2)
                 flattened = tf.nn.l2_normalize(flattened)
-                w = tf.Variable(tf.truncated_normal([76800, 512], stddev=0.1), name="w")
+                w = tf.Variable(tf.truncated_normal([512, 512], stddev=0.1), name="w")
                 b = tf.Variable(tf.constant(0.1, shape=[512]), name="b")
 
                 h = tf.nn.xw_plus_b(flattened, w, b, name="scores")
