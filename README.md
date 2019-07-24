@@ -4,6 +4,11 @@
 [![Dependency Status](https://david-dm.org/boennemann/badges.svg)](https://david-dm.org/boennemann/badges)
 [![Open Source Love](https://badges.frapsoft.com/os/gpl/gpl.svg?v=102)](https://github.com/ellerbrock/open-source-badge/)
 
+Authors: [Mirko Marras](https://www.mirkomarras.com/)<sup>1</sup>, [Paweł Korus](http://kt.agh.edu.pl/~korus/)<sup>2,3</sup>, 
+[Nasir Memon](https://engineering.nyu.edu/faculty/nasir-memon)<sup>2</sup>, [Gianni Fenu](http://people.unica.it/giannifenu/)<sup>1</sup>
+
+<sup>1</sup> University of Cagliari, <sup>2</sup>New York University, <sup>3</sup>AGH University of Science and Technology
+
 A Python toolbox for creating and testing impersonation capabilities of a potentially large family of adversarial audio
 samples called **Master Voices** (MVs) which match large populations of speakers by chance with high probability. 
 
