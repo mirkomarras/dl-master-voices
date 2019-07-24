@@ -46,7 +46,7 @@ $ python ./train/train_x-vector_model.py
   --vad True 
 ```
 
-Please find the resulting pre-trained model in *./models/xvector/pre-trained*. 
+Please find the resulting pre-trained model trained on 1,024,292 utterances from 5,205 users in *./models/xvector/pre-trained*. 
 
 #### VGGVox Model Training 
 
