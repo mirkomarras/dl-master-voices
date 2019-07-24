@@ -4,8 +4,8 @@
 [![Dependency Status](https://david-dm.org/boennemann/badges.svg)](https://david-dm.org/boennemann/badges)
 [![Open Source Love](https://badges.frapsoft.com/os/gpl/gpl.svg?v=102)](https://github.com/ellerbrock/open-source-badge/)
 
-A Python toolbox for creating and testing impersonation capabilities of a potentially large family of **Master Voices** (MVs) 
-which match large populations of speakers by chance with high probability. 
+A Python toolbox for creating and testing impersonation capabilities of a potentially large family of adversarial audio
+samples called **Master Voices** (MVs) which match large populations of speakers by chance with high probability. 
 
 ## Setup 
 
