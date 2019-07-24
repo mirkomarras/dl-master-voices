@@ -1,4 +1,4 @@
-from helpers.audioutils import get_fft_spectrum_unpack
+from helpers.audioutils import get_fft_spectrum_unpack, get_fft_filterbank_unpack
 from multiprocessing import Pool
 import numpy as np
 import random

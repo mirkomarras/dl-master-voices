@@ -34,7 +34,7 @@ def main():
     parser.add_argument('--data_source_vox1', dest='data_source_vox1', default='', type=str, action='store', help='Base VoxCeleb1 path of the training datasets')
     parser.add_argument('--data_source_vox2', dest='data_source_vox2', default='', type=str, action='store', help='Base VoxCeleb2 path of the training datasets')
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Number of training epochs')
-    parser.add_argument('--batch_size', dest='batch_size', default=512, type=int, action='store', help='Size of training batches')
+    parser.add_argument('--batch_size', dest='batch_size', default=32, type=int, action='store', help='Size of training batches')
     parser.add_argument('--learning_rate', dest='learning_rate', default=1e-1, type=float, action='store', help='Batch size for training')
     parser.add_argument('--shuffle', dest='shuffle', default=True, type=bool, action='store', help='Shuffling training data')
     parser.add_argument('--dropout_proportion', dest='dropout_proportion', default=0.1, type=float, action='store', help='Batch size for training')
