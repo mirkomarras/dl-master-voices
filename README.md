@@ -31,11 +31,10 @@ from users involved in master voice analysis. Both data sources must point to a 
 
 The available verifiers are *xvector*, *vggvox*, *resnet34vox*, and *resnet50vox*. By default, xvector models
 are trained on *300x24*-sized filterbanks and return vectors of size *1024*, while the other models are trained on 
-*512x300x1*-sized spectrograms and return vectors of size *512*. Each model is trained for *n_epochs=40* on *batch_size=32* with *learning_rate=1e-1*. 
+*512x300x1*-sized spectrograms and return vectors of size *512*. Each model is trained for *n_epochs=40* on *batch_size=32* with *learning_rate=1e-1*.
+The script saves the pre-trained model into the folder *model_dir*.
 
-Voice activity detection (*vad=[True|False]*) and data augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. 
-
-The script saves the model into the folder *model_dir*.
+Voice detection (*vad=[True|False]*) and augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. 
 
 A sample training command is provided below: 
 
@@ -45,12 +44,12 @@ $ python ./train/train_speaker_verifier.py
   --data_source_vox1 "/beegfs/mm10572/voxceleb1" 
   --data_source_vox2 "/beegfs/mm10572/voxceleb2" 
   --noises_dir "./data/noise"
-  --model_dir "./models/pre-trained-resnet50vox"
+  --model_dir "./models/xvector/model"
   --aug 3 
   --vad True 
 ```
 
-Please find the resulting pre-trained models trained on 1,024,292 utterances from 5,205 users in *./models/*. 
+Please find the resulting pre-trained models trained on 1,024,292 utterances from 5,205 users in *./models/{verifier}/model*. 
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
