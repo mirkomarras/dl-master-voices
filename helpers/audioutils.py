@@ -167,29 +167,32 @@ def vad_func(samples, sample_rate, window_duration_ms=30):
     if sample_rate != 16000:
         raise ValueError('Code has been tested for 16kHz sampling')
 
-    window_duration = window_duration_ms / 1000
+    try:
+        window_duration = window_duration_ms / 1000
 
-    vad_model = webrtcvad.Vad()
-    vad_model.set_mode(3)
+        vad_model = webrtcvad.Vad()
+        vad_model.set_mode(3)
 
-    samples_per_window = int(window_duration * sample_rate + 0.5)
-    bytes_per_sample = 2
+        samples_per_window = int(window_duration * sample_rate + 0.5)
+        bytes_per_sample = 2
 
-    segments = []
-    raw_samples = struct.pack("%dd" % len(samples), *samples)
+        segments = []
+        raw_samples = struct.pack("%dd" % len(samples), *samples)
 
-    for start in np.arange(0, len(samples), samples_per_window):
-        stop = min(start + samples_per_window, len(samples))
-        if stop - start < samples_per_window:
-            break
-        try:
-            is_speech = vad_model.is_speech(raw_samples[start * bytes_per_sample: stop * bytes_per_sample], sample_rate=sample_rate)
-        except Exception as e:
-            raise RuntimeError('Error processing frame starting at {}: {}'.format(start, e))
-        segments.append(dict(start=start, stop=stop, is_speech=is_speech))
+        for start in np.arange(0, len(samples), samples_per_window):
+            stop = min(start + samples_per_window, len(samples))
+            if stop - start < samples_per_window:
+                break
+            try:
+                is_speech = vad_model.is_speech(raw_samples[start * bytes_per_sample: stop * bytes_per_sample], sample_rate=sample_rate)
+            except Exception as e:
+                raise RuntimeError('Error processing frame starting at {}: {}'.format(start, e))
+            segments.append(dict(start=start, stop=stop, is_speech=is_speech))
 
-    speech_samples = np.concatenate([samples[segment['start']:segment['stop']] for segment in segments if segment['is_speech']])
-    return speech_samples
+        speech_samples = np.concatenate([samples[segment['start']:segment['stop']] for segment in segments if segment['is_speech']])
+        return speech_samples
+    except:
+        return samples
 
 def get_fft_filterbank_unpack(args):
     return get_fft_filterbank(*args)
@@ -202,6 +205,11 @@ def get_fft_filterbank(filename, sample_rate, nfilt, noises, num_fft=512, frame_
         signal = vad_func(signal, sample_rate)
 
     assert aug <= 3, 'Only augmentation modes equal or less than 2 supported'
+
+    max_signal_dim = sample_rate * 4
+    if len(signal) > max_signal_dim:
+        start = random.choice(range(len(signal) - max_signal_dim))
+        signal = signal[start: start + max_signal_dim]
 
     # Augmentation
     if aug == 1:
@@ -266,8 +274,7 @@ def get_fft_filterbank(filename, sample_rate, nfilt, noises, num_fft=512, frame_
 
     filter_banks /= np.abs(filter_banks).max()
 
-    start = random.choice(range(filter_banks.shape[0] - 300))
-    return filter_banks[start: start + 300, :]
+    return filter_banks[:300, :]
 
 def get_fft_spectrum_unpack(args):
     return get_fft_spectrum(*args)
@@ -280,6 +287,10 @@ def get_fft_spectrum(filename, sample_rate, nfilt, noises, num_fft=512, frame_si
         signal = vad_func(signal, sample_rate)
 
     assert aug <= 3, 'Only augmentation modes equal or less than 2 supported'
+
+    max_signal_dim = sample_rate * 3
+    start = random.choice(range(len(signal) - max_signal_dim))
+    signal = signal[start: start + max_signal_dim]
 
     # Augmentation
     if aug == 1:

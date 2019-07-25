@@ -157,7 +157,7 @@ class Model(object):
         self.loss = self.graph.get_tensor_by_name("loss:0")
         self.optimizer = self.graph.get_operation_by_name("optimizer")
         self.accuracy = self.graph.get_tensor_by_name("accuracy/accuracy:0")
-        self.embedding = [None] * 2  # TODO make this more general
+        self.embedding = [None] * 2
         self.embedding[0] = self.graph.get_tensor_by_name("embed_layer-0/scores:0")
         self.embedding[1] = self.graph.get_tensor_by_name("embed_layer-1/scores:0")
         print("X-vector graph restored from path: %s" % input_dir)
@@ -216,7 +216,7 @@ class Model(object):
                     total_accuracy += accuracy
 
                     if minibatch_idx % print_interval == 0:
-                        print("\rStep %4.0f / %4.0f | AvgLoss: %3.4f | AvgAcc: %3.7f | AvgDiskTime: %3.1f | AvgGPUTime: %3.1f | ElapsedTime: %3.1f" % (minibatch_idx+1, minibatch_count, total_loss / (minibatch_idx+1), total_accuracy / (minibatch_idx+1), curr_disk_waiting, curr_gpu_waiting, time.time() - start_time), end='')
+                        print("\rStep %4.0f / %4.0f | AvgLoss: %3.4f | AvgAcc: %3.7f | AvgCPUTime: %3.1f | AvgGPUTime: %3.1f | ElapsedTime: %3.1f" % (minibatch_idx+1, minibatch_count, total_loss / (minibatch_idx+1), total_accuracy / (minibatch_idx+1), curr_disk_waiting, curr_gpu_waiting, time.time() - start_time), end='')
 
                 print()
                 Model.save_model(sess, output_dir)

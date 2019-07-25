@@ -80,4 +80,3 @@ if __name__ == "__main__":
 # python ./train/train_x-vector_model.py --data_source_vox1 "/beegfs/mm10572/voxceleb1" --data_source_vox2 "/beegfs/mm10572/voxceleb2" --aug 3 --vad True --noises_dir "./data/noise" --model_dir "./models/xvector/pre-trained"
 
 
-

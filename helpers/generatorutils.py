@@ -22,7 +22,7 @@ class FilterbankGenerator():
         self.aug = aug
         self.prefilter = prefilter
         self.normalize = normalize
-        self.pool = Pool(processes=n_proc)
+        self.pool = Pool(processes=32)
         self.on_epoch_end()
 
     def len(self):
@@ -45,11 +45,8 @@ class FilterbankGenerator():
         params = [[path, self.sample_rate, self.nfilt, self.noises, self.num_fft, self.frame_size, self.frame_stride, self.preemphasis_alpha, self.vad, self.aug, self.prefilter, self.normalize] for path in list_IDs_temp]
         filterbanks = np.array(self.pool.map(get_fft_filterbank_unpack, params))
         for _, (sp, label) in enumerate(zip(filterbanks,list_Labels)):
-            try:
-                X.append(sp)
-                y.append(label)
-            except:
-                continue
+            X.append(sp)
+            y.append(label)
         X = np.array(X)
         y = np.array(y)
         return X, y
@@ -96,11 +93,9 @@ class SpectrumGenerator():
         params = [[path, self.sample_rate, self.nfilt, self.noises, self.num_fft, self.frame_size, self.frame_stride, self.preemphasis_alpha, self.vad, self.aug, self.prefilter, self.normalize] for path in list_IDs_temp]
         spectrums = np.array(self.pool.map(get_fft_spectrum_unpack, params))
         for _, (sp, label) in enumerate(zip(spectrums,list_Labels)):
-            try:
-                X.append(sp)
-                y.append(label)
-            except:
-                continue
+            X.append(sp)
+            y.append(label)
         X = np.array(X)
         y = np.array(y)
         return X, y
+
