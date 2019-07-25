@@ -26,12 +26,18 @@ celebrities, extracted from videos uploaded to YouTube.
 
 ### Step 2: Train Speaker Verification Algorithms
 
-The training script looks for utterances in *data_source_vox1* and *data_source_vox2* folders, excluding the ones from users 
-used for master voice analysis. Both data sources should point to a folder containing *dev* and *test* VoxCeleb folders. The
-available verifiers are the following ones: xvector, vggvox, resnet34vox, and resnet50vox. By 
-default, the model is trained for *n_epochs=40* on *512x300*-sized spectrograms grouped in batches of size *batch_size=32* with a learning rate of 
-*learning_rate=1e-1*. For each utterance, a resnet50-vector of size *512* is returned. On each utterance, voice activity detection (*vad=[True|False]*) and data augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. This step saves a x-vector model on the folder 
-*model_dir*.
+The training script looks for utterances in *data_source_vox1* and *data_source_vox2* folders, excluding the utterances 
+coming from VoxCeleb2 users involved in master voice analysis. Both data sources should point to a folder containing *dev* 
+and *test* VoxCeleb folders. 
+
+The available verifiers are the following ones: *xvector*, *vggvox*, *resnet34vox*, and *resnet50vox*. By default, xvector models
+are trained on *300x24*-sized filterbanks and return vectors of size *1024*, while the other models are trained on 
+*512x300x1*-sized spectrograms and return vectors of size *512*. Each model is trained for *n_epochs=40* on batches of 
+size *batch_size=32* with a learning rate of *learning_rate=1e-1*. 
+
+On each utterance, voice activity detection (*vad=[True|False]*) and data augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. 
+
+The script saves the model into the folder *model_dir*.
 
 A sample training command is provided below: 
 
