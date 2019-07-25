@@ -2,9 +2,12 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from helpers.generatorutils import FilterbankGenerator
+from helpers.generatorutils import FilterbankGenerator, SpectrumGenerator
 from helpers.datasetutils import getData
 import models.xvector.model as XVector
+import models.resnet34vox.model as ResNet34Vector
+import models.resnet50vox.model as ResNet50Vector
+import models.vggvox.model as VGGVector
 from scipy.signal import lfilter
 import tensorflow as tf
 import numpy as np
@@ -29,6 +32,7 @@ def main():
     parser = argparse.ArgumentParser(description='X-Vector Generation')
 
     parser.add_argument('--mode', dest='mode', default='train', type=str, action='store', help='Usage mode for x-vector model [train/extract].')
+    parser.add_argument('--verifier', dest='mode', default='', type=str, action='store', help='Type of verifier [xvector|vggvox|resnet34vox|resnet50vox].')
 
     # Training parameters
     parser.add_argument('--data_source_vox1', dest='data_source_vox1', default='', type=str, action='store', help='Base VoxCeleb1 path of the training datasets')
@@ -67,9 +71,25 @@ def main():
             noises[type].append(os.path.join(args.noises_dir, type, file))
 
     data = getData(args.data_source_vox1, args.data_source_vox2)
-    training_generator = FilterbankGenerator(data['paths'], data['labels'], args.max_chunk_size, args.batch_size, args.shuffle, args.sample_rate, args.nfilt, noises, args.num_fft, args.frame_size, args.frame_stride, args.preemphasis, args.vad, args.aug, args.prefilter, args.normalize)
 
-    model = XVector.Model()
+    if args.verifier == 'xvector':
+        training_generator = FilterbankGenerator(data['paths'], data['labels'], args.max_chunk_size, args.batch_size, args.shuffle, args.sample_rate, args.nfilt, noises, args.num_fft, args.frame_size, args.frame_stride, args.preemphasis, args.vad, args.aug, args.prefilter, args.normalize)
+    else:
+        training_generator = SpectrumGenerator(data['paths'], data['labels'], args.max_chunk_size, args.batch_size, args.shuffle, args.sample_rate, args.nfilt, noises, args.num_fft, args.frame_size, args.frame_stride, args.preemphasis, args.vad, args.aug, args.prefilter, args.normalize)
+
+    model = None
+    if args.verifier == 'xvector':
+        model = XVector.Model()
+    elif args.verifier == 'vggvox':
+        model = VGGVector.Model()
+    elif args.verifier == 'resnet34vox':
+        model = ResNet34Vector.Model()
+    elif args.verifier == 'resnet50vox':
+        model = ResNet50Vector.Model()
+    else:
+        print('Unsupported verifier.')
+        exit(1)
+
     model.build_model(len(np.unique(data['labels'])), args.nfilt, args.model_dir)
     model.train_model(training_generator, args.n_epochs, len(data['paths']) // args.batch_size, args.learning_rate, args.dropout_proportion, args.print_interval, args.model_dir)
 
@@ -77,6 +97,6 @@ if __name__ == "__main__":
     main()
 
 
-# python ./train/train_x-vector_model.py --data_source_vox1 "/beegfs/mm10572/voxceleb1" --data_source_vox2 "/beegfs/mm10572/voxceleb2" --aug 3 --vad True --noises_dir "./data/noise" --model_dir "./models/xvector/pre-trained"
+# python ./train/train_speaker_verifier.py --verifier "xvector" --data_source_vox1 "/beegfs/mm10572/voxceleb1" --data_source_vox2 "/beegfs/mm10572/voxceleb2" --aug 3 --vad True --noises_dir "./data/noise" --model_dir "./models/xvector/pre-trained"
 
 
