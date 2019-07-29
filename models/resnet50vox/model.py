@@ -564,6 +564,45 @@ class Model(object):
         self.embedding = self.graph.get_tensor_by_name("fc/scores:0")
         print("ResNet50-vector graph restored from path: %s" % input_dir)
 
+    def get_emb(self, mat, sess, min_chunk_size, max_chunk_size):
+
+        num_rows = mat.shape[0]
+        if num_rows == 0:
+            print("Zero-length utterance: '%s'" % path)
+            exit(1)
+
+        if num_rows < min_chunk_size:
+            print("Minimum chunk size of %d is greater than the number of rows in utterance: %s" % (min_chunk_size, path))
+            exit(1)
+
+        this_chunk_size = max_chunk_size
+
+        if num_rows < max_chunk_size:
+            print("Chunk size of %d is greater than the number of rows in utterance: %s, using chunk size of %d" % (max_chunk_size, path, num_rows))
+            this_chunk_size = num_rows
+        elif max_chunk_size == -1:
+            this_chunk_size = num_rows
+
+        num_chunks = int(np.ceil(num_rows / float(this_chunk_size)))
+
+        xvector_avg = 0
+        tot_weight = 0.0
+
+        for chunk_idx in range(num_chunks):
+            offset = min(this_chunk_size, num_rows - chunk_idx * this_chunk_size)
+            if offset < min_chunk_size:
+                continue
+            sub_mat = mat[chunk_idx * this_chunk_size: chunk_idx * this_chunk_size + offset, :]
+            data = np.reshape(sub_mat, (1, sub_mat.shape[0], sub_mat.shape[1]))
+            feed_dict = {self.input_x: data, self.dropout_keep_prob: 1.0, self.phase: False}
+            xvector = sess.run(self.embedding[0], feed_dict=feed_dict)
+            xvector = xvector[0]
+            tot_weight += offset
+            xvector_avg += offset * xvector
+
+        xvector_avg /= tot_weight
+        return xvector_avg
+
     def create_one_hot_output_matrix(self, labels):
         minibatch_size = len(labels)
         one_hot_matrix = np.zeros((minibatch_size, self.num_classes), dtype=np.int32)
