@@ -93,7 +93,7 @@ Please find the resulting pre-trained models in the table below.
 
 Please find the resulting pre-trained models in the table below.
  
-| Generator | Seed | Train | Master Voice Set | Any10 Impersonation Rate  | AVG10 Impersonation Rate  |
+| Generator | Seed | Train | Master Voice Set | Any10 Impersonation Rate  | Avg10 Impersonation Rate  |
 |:----:|:----------------:|:----------------:|:----------------:|:----------------:|:----------------:|
 |  Spectrogram    | M | M |     [Link]()           |         ||
 |  Spectrogram  |  F | F |   [Link]()              |          ||    
