@@ -84,7 +84,7 @@ Please find the resulting pre-trained models in the table below.
 Please find the resulting pre-trained models in the table below.
  
 | Name | Seed | Pre-Trained Model | 
-|:----:|:----------------:|
+|:----:|:----------------:|:----------------:|
 |  WaveGAN    | M+F |      [Link]()           |         
 |  WaveGAN   |   M |   [Link]()              |              
 |  WaveGAN    |  F |     [Link]()             |        
