@@ -13,6 +13,7 @@ samples called **Master Voices** (MVs) which match large populations of speakers
 
 ## Table of Contents
 - [Master Voice Toolbox](#master-voice-toolbox)
+  * [Table of Contents](#table-of-contents)
   * [Setup](#setup)
     + [Step 1: Install Python3](#step-1--install-python3)
     + [Step 2: Create a Virtual Environment](#step-2--create-a-virtual-environment)
@@ -26,7 +27,12 @@ samples called **Master Voices** (MVs) which match large populations of speakers
       - [Step 2.3: Extract](#step-23--extract)
       - [Step 2.4: Use Pre-Trained Speaker Verifiers](#step-24--use-pre-trained-speaker-verifiers)
     + [Step 3: Train a Generative Adversarial Network (GAN)](#step-3--train-a-generative-adversarial-network--gan-)
+      - [Step 3.1: Train](#step-31--train)
+      - [Step 3.2: Use Pre-Trained GANs](#step-32--use-pre-trained-gans)
     + [Step 4: Generate and Evaluate a Master Voice](#step-4--generate-and-evaluate-a-master-voice)
+      - [Step 4.1: By Spectrogram Changes](#step-41--by-spectrogram-changes)
+      - [Step 4.2: By Generative Adversarial Networks (GANs)](#step-42--by-generative-adversarial-networks--gans-)
+      - [Step 4.3: Use Pre-Computed Master Voice Sets](#step-43--use-pre-computed-master-voice-sets)
   * [Contribution](#contribution)
   * [Citations](#citations)
   * [License](#license)
@@ -190,6 +196,9 @@ Please find the resulting pre-trained models in the table below.
 
 ### Step 3: Train a Generative Adversarial Network (GAN)
 
+#### Step 3.1: Train
+
+#### Step 3.2: Use Pre-Trained GANs
 Please find the resulting pre-trained models in the table below.
  
 | Name | Seed | Pre-Trained Model | 
@@ -199,6 +208,12 @@ Please find the resulting pre-trained models in the table below.
 |  WaveGAN    |  F |     [Link]()             |        
 
 ### Step 4: Generate and Evaluate a Master Voice
+
+#### Step 4.1: By Spectrogram Changes
+
+#### Step 4.2: By Generative Adversarial Networks (GANs)
+
+#### Step 4.3: Use Pre-Computed Master Voice Sets
 
 Please find the resulting pre-trained models in the table below.
  
