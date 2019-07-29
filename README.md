@@ -24,7 +24,7 @@ celebrities, extracted from videos uploaded to YouTube.
 [VoxCeleb2](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html) contains over 1 million utterances for 6,112 
 celebrities, extracted from videos uploaded to YouTube.
 
-### Step 2: Train Speaker Verification Algorithms
+### Step 2: Train and Evaluate a Speaker Verifier
 
 The training script looks for utterances in *data_source_vox1* and *data_source_vox2* folders, excluding the utterances 
 from users involved in master voice analysis. Both data sources must point to a folder including *dev* and *test* subfolders. 
@@ -49,7 +49,39 @@ $ python ./train/train_speaker_verifier.py
   --vad True 
 ```
 
-Please find the resulting pre-trained models trained on 1,024,292 utterances from 5,205 users in *./models/{verifier}/model*. 
+Please find the resulting pre-trained models in the table below.
+ 
+| Name | Pre-Trained Model | EER |
+|:----:|:----------------:|
+|  X-Vector    |       [Link]()           |        |        
+|  VGGVox-Vector    |      [Link]()              |    |            
+|  ResNet34Vox-Vector    |       [Link]()             |   |             
+|  ResNet50Vox-Vector    |      [Link]()              |    |            
+
+### Step 3: Train a Generative Adversarial Network (GAN)
+
+Please find the resulting pre-trained models in the table below.
+ 
+| Name | Pre-Trained Model | 
+|:----:|:----------------:|
+|  Std WaveGAN    |       [Link]()           |         
+|  Men WaveGAN   |      [Link]()              |              
+|  Women WaveGAN    |       [Link]()             |        
+
+### Step 4: Generate and Evaluate a Master Voice
+
+Please find the resulting pre-trained models in the table below.
+ 
+| Generator | Seed | Train | Master Voice Set | 
+|:----:|:----------------:|:----------------:|:----------------:|
+|  SGD    | M | M |     [Link]()           |         
+|  SGD  |  F | F |   [Link]()              |              
+|  GAN   | M+F  | M |    [Link]()             |       
+|  GAN   | M+F  | F |    [Link]()             |       
+|  GAN   | M  | M |    [Link]()             |       
+|  GAN   | M  | F |    [Link]()             |       
+|  GAN   | F  | M |    [Link]()             |       
+|  GAN   | F  | F |    [Link]()             |  
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
