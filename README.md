@@ -13,7 +13,6 @@ samples called **Master Voices** (MVs) which match large populations of speakers
 
 ## Table of Contents
 - [Master Voice Toolbox](#master-voice-toolbox)
-  * [Table of Contents](#table-of-contents)
   * [Setup](#setup)
     + [Step 1: Install Python3](#step-1--install-python3)
     + [Step 2: Create a Virtual Environment](#step-2--create-a-virtual-environment)
