@@ -30,11 +30,11 @@ def getData(source_vox1, source_vox2):
 
 def get_excluded_users():
     train_paths = load_obj('./data/vox2_mv/train_vox2_abspaths_1000_users')
-    train_users = np.unique([p.split('/')[1] for p in train_paths])
+    train_users = np.unique([p.split('/')[5] for p in train_paths])
     print('Found mv train users', len(train_users))
 
     test_paths = load_obj('./data/vox2_mv/test_vox2_abspaths_1000_users')
-    test_users = np.unique([p.split('/')[1] for p in test_paths])
+    test_users = np.unique([p.split('/')[4] for p in test_paths])
     print('Found mv test users', len(test_users))
 
     excluded_users = list(train_users) + list(test_users)

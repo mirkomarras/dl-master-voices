@@ -12,35 +12,10 @@ class Model(object):
     def __init__(self):
         self.graph = None
         self.var2std_epsilon = 0.00001
+        self.reuse = False
 
-    def __get_variable(self, name, shape, initializer, trainable=True):
-        return tf.get_variable(name, shape, initializer=initializer, dtype=tf.float32, trainable=trainable)
-
-    def batch_norm_wrapper(self, inputs, is_training, decay=0.99, epsilon=1e-3, name_prefix=''):
-        gamma = self.__get_variable(name_prefix + 'gamma', inputs.get_shape()[-1], tf.constant_initializer(1.0))
-        beta = self.__get_variable(name_prefix + 'beta', inputs.get_shape()[-1], tf.constant_initializer(0.0))
-        pop_mean = self.__get_variable(name_prefix + 'mean', inputs.get_shape()[-1], tf.constant_initializer(0.0), trainable=False)
-        pop_var = self.__get_variable(name_prefix + 'variance', inputs.get_shape()[-1], tf.constant_initializer(1.0), trainable=False)
-        axis = list(range(len(inputs.get_shape()) - 1))
-
-        def in_training():
-            batch_mean, batch_var = tf.nn.moments(inputs, axis)
-            train_mean = tf.assign(pop_mean, pop_mean * decay + batch_mean * (1 - decay))
-            train_var = tf.assign(pop_var, pop_var * decay + batch_var * (1 - decay))
-            with tf.control_dependencies([train_mean, train_var]):
-                return tf.nn.batch_normalization(inputs, batch_mean, batch_var, beta, gamma, epsilon)
-
-        def in_evaluation():
-            return tf.nn.batch_normalization(inputs, pop_mean, pop_var, beta, gamma, epsilon)
-
-        return tf.cond(is_training, lambda: in_training(), lambda: in_evaluation())
-
-    def build_model(self, num_classes, nfilt, output_dir):
-        layer_sizes = [512, 512, 512, 512, 3 * 512]
-        kernel_sizes = [5, 5, 7, 1, 1]
-        embedding_sizes = [512, 512]
-
-        print("Start building x-vector model")
+    def build_model(self, num_classes, output_dir):
+        print("Start building ResNet50-vector model")
 
         tf.reset_default_graph()
         self.graph = tf.Graph()
@@ -55,58 +30,487 @@ class Model(object):
             self.phase = tf.placeholder(tf.bool, name="phase")
 
             # Placeholders for regular data
-            self.input_x = tf.placeholder(tf.float32, [None, None, nfilt], name="input_x")
+            self.input_x = tf.placeholder(tf.float32, [None, 512, 300, 1], name="input_x")
             self.input_y = tf.placeholder(tf.float32, [None, num_classes], name="input_y")
 
-            h = self.input_x
+            with tf.name_scope('block0'):
+                conv0_1 = tf.layers.conv2d(self.input_x, filters=64, kernel_size=[7, 7], strides=[2, 2], padding='SAME',
+                                           reuse=self.reuse, name='conv1')
+                conv0_1 = tf.layers.batch_normalization(conv0_1, training=self.phase, name='bbn0', reuse=self.reuse)
+                conv0_1 = tf.nn.relu(conv0_1)
+                conv0_1 = tf.layers.max_pooling2d(conv0_1, pool_size=[3, 3], strides=[2, 2], name='mpool1')
 
-            # Frame level information Layer
-            prev_dim = nfilt
-            for i, (kernel_size, layer_size) in enumerate(zip(kernel_sizes, layer_sizes)):
-                with tf.variable_scope("frame_level_info_layer-%s" % i):
-                    kernel_shape = [kernel_size, prev_dim, layer_size]
-                    w = tf.Variable(tf.truncated_normal(kernel_shape, stddev=0.1), name="w")
-                    b = tf.Variable(tf.constant(0.1, shape=[layer_size]), name="b")
+            with tf.name_scope('block1'):
+                with tf.variable_scope('block1_conv1') as scope:
+                    conv_block1_conv1_shortcut = tf.layers.conv2d(conv0_1, filters=256, kernel_size=[1, 1],
+                                                                  strides=[1, 1], padding='VALID', reuse=self.reuse,
+                                                                  name='conv_block1_conv1_shortcut_conv')
+                    conv_block1_conv1_shortcut = tf.layers.batch_normalization(conv_block1_conv1_shortcut,
+                                                                               training=self.phase,
+                                                                               name='conv_block1_conv1_shortcut_bn',
+                                                                               reuse=self.reuse)
 
-                    conv = tf.nn.conv1d(h, w, stride=1, padding="SAME", name="conv-layer-%s" % i)
-                    h = tf.nn.bias_add(conv, b)
+                    conv_block1_conv1_1 = tf.layers.conv2d(conv0_1, filters=64, kernel_size=[1, 1], strides=[1, 1],
+                                                           padding='VALID', reuse=self.reuse, name='conv_block1_conv1_1')
+                    conv_block1_conv1_1 = tf.layers.batch_normalization(conv_block1_conv1_1, training=self.phase,
+                                                                        name='conv_block1_conv1_1_bn', reuse=self.reuse)
+                    conv_block1_conv1_1 = tf.nn.relu(conv_block1_conv1_1)
 
-                    # Apply nonlinearity and BN
-                    h = tf.nn.relu(h, name="relu")
-                    h = self.batch_norm_wrapper(h, decay=0.95, is_training=self.phase)
+                    conv_block1_conv1_2 = tf.layers.conv2d(conv_block1_conv1_1, filters=64, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block1_conv1_2')
+                    conv_block1_conv1_2 = tf.layers.batch_normalization(conv_block1_conv1_2, training=self.phase,
+                                                                        name='conv_block1_conv1_2_bn', reuse=self.reuse)
+                    conv_block1_conv1_2 = tf.nn.relu(conv_block1_conv1_2)
 
-                    prev_dim = layer_size
+                    conv_block1_conv1_3 = tf.layers.conv2d(conv_block1_conv1_2, filters=256, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='VALID', reuse=self.reuse,
+                                                           name='conv_block1_conv1_3')
+                    conv_block1_conv1_3 = tf.layers.batch_normalization(conv_block1_conv1_3, training=self.phase,
+                                                                        name='conv_block1_conv1_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block1_output1 = conv_block1_conv1_shortcut + conv_block1_conv1_3
+                    conv_block1_output1 = tf.nn.relu(conv_block1_output1)
 
-                    # Apply dropout
-                    if i != len(kernel_sizes) - 1:
-                        with tf.name_scope("dropout-%s" % i):
-                            h = tf.nn.dropout(h, self.dropout_keep_prob)
+                with tf.variable_scope('block1_conv2') as scope:
+                    # conv_block1_conv2_shortcut = conv_block1_output1
+                    # conv_block1_conv2_shortcut = tf.layers.batch_normalization(conv_block1_conv1_shortcut, training=self.phase, name='conv_block1_conv1_shortcut_bn', reuse=self.reuse)
 
-            # Statistic pooling
-            tf_mean, tf_var = tf.nn.moments(h, 1)
-            h = tf.concat([tf_mean, tf.sqrt(tf_var + self.var2std_epsilon)], 1)
-            prev_dim = prev_dim * 2
+                    conv_block1_conv2_1 = tf.layers.conv2d(conv_block1_output1, filters=64, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block1_conv2_1')
+                    conv_block1_conv2_1 = tf.layers.batch_normalization(conv_block1_conv2_1, training=self.phase,
+                                                                        name='conv_block1_conv2_1_bn', reuse=self.reuse)
+                    conv_block1_conv2_1 = tf.nn.relu(conv_block1_conv2_1)
 
-            # Embedding layers
-            for i, out_dim in enumerate(embedding_sizes):
+                    conv_block1_conv2_2 = tf.layers.conv2d(conv_block1_conv2_1, filters=64, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block1_conv2_2')
+                    conv_block1_conv2_2 = tf.layers.batch_normalization(conv_block1_conv2_2, training=self.phase,
+                                                                        name='conv_block1_conv2_2_bn', reuse=self.reuse)
+                    conv_block1_conv2_2 = tf.nn.relu(conv_block1_conv2_2)
 
-                with tf.variable_scope("embed_layer-%s" % i):
-                    w = tf.Variable(tf.truncated_normal([prev_dim, out_dim], stddev=0.1), name="w")
-                    b = tf.Variable(tf.constant(0.1, shape=[out_dim]), name="b")
+                    conv_block1_conv2_3 = tf.layers.conv2d(conv_block1_conv2_2, filters=256, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block1_conv2_3')
+                    conv_block1_conv2_3 = tf.layers.batch_normalization(conv_block1_conv2_3, training=self.phase,
+                                                                        name='conv_block1_conv2_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block1_output2 = conv_block1_output1 + conv_block1_conv2_3
+                    conv_block1_output2 = tf.nn.relu(conv_block1_output2)
 
-                    h = tf.nn.xw_plus_b(h, w, b, name="scores")
+                with tf.variable_scope('block1_conv3') as scope:
+                    # conv_block1_conv2_shortcut = conv_block1_output1
+                    # conv_block1_conv2_shortcut = tf.layers.batch_normalization(conv_block1_conv1_shortcut, training=self.phase, name='conv_block1_conv1_shortcut_bn', reuse=self.reuse)
 
-                    h = tf.nn.relu(h, name="relu")
-                    h = self.batch_norm_wrapper(h, decay=0.95, is_training=self.phase)
+                    conv_block1_conv3_1 = tf.layers.conv2d(conv_block1_output2, filters=64, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block1_conv3_1')
+                    conv_block1_conv3_1 = tf.layers.batch_normalization(conv_block1_conv3_1, training=self.phase,
+                                                                        name='conv_block1_conv3_1_bn', reuse=self.reuse)
+                    conv_block1_conv3_1 = tf.nn.relu(conv_block1_conv3_1)
 
-                    prev_dim = out_dim
-                    if i != len(embedding_sizes) - 1:
-                        with tf.name_scope("dropout-%s" % i):
-                            h = tf.nn.dropout(h, self.dropout_keep_prob)
+                    conv_block1_conv3_2 = tf.layers.conv2d(conv_block1_conv3_1, filters=64, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block1_conv3_2')
+                    conv_block1_conv3_2 = tf.layers.batch_normalization(conv_block1_conv3_2, training=self.phase,
+                                                                        name='conv_block1_conv3_2_bn', reuse=self.reuse)
+                    conv_block1_conv3_2 = tf.nn.relu(conv_block1_conv3_2)
 
-            # Softmax
-            with tf.variable_scope("output"):
-                w = tf.get_variable("w", shape=[prev_dim, num_classes], initializer=tf.contrib.layers.xavier_initializer())
+                    conv_block1_conv3_3 = tf.layers.conv2d(conv_block1_conv3_2, filters=256, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block1_conv3_3')
+                    conv_block1_conv3_3 = tf.layers.batch_normalization(conv_block1_conv3_3, training=self.phase,
+                                                                        name='cconv_block1_conv3_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block1_output3 = conv_block1_output2 + conv_block1_conv3_3
+                    conv_block1_output3 = tf.nn.relu(conv_block1_output2)
+
+            with tf.name_scope('block2'):
+                with tf.variable_scope('block2_conv1') as scope:
+                    conv_block2_conv1_shortcut = tf.layers.conv2d(conv_block1_output3, filters=512, kernel_size=[1, 1],
+                                                                  strides=[2, 2], padding='SAME', reuse=self.reuse,
+                                                                  name='conv_block2_conv1_shortcut_conv')
+                    conv_block2_conv1_shortcut = tf.layers.batch_normalization(conv_block2_conv1_shortcut,
+                                                                               training=self.phase,
+                                                                               name='conv_block2_conv1_shortcut_bn',
+                                                                               reuse=self.reuse)
+                    conv_block2_conv1_1 = tf.layers.conv2d(conv_block1_output3, filters=128, kernel_size=[1, 1],
+                                                           strides=[2, 2], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block2_conv1_1')
+                    conv_block2_conv1_1 = tf.layers.batch_normalization(conv_block2_conv1_1, training=self.phase,
+                                                                        name='conv_block2_conv1_1_bn', reuse=self.reuse)
+                    conv_block2_conv1_1 = tf.nn.relu(conv_block2_conv1_1)
+
+                    conv_block2_conv1_2 = tf.layers.conv2d(conv_block2_conv1_1, filters=128, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block2_conv1_2')
+                    conv_block2_conv1_2 = tf.layers.batch_normalization(conv_block2_conv1_2, training=self.phase,
+                                                                        name='conv_block2_conv1_2_bn', reuse=self.reuse)
+                    conv_block2_conv1_2 = tf.nn.relu(conv_block2_conv1_2)
+
+                    conv_block2_conv1_3 = tf.layers.conv2d(conv_block2_conv1_2, filters=512, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block2_conv1_3')
+                    conv_block2_conv1_3 = tf.layers.batch_normalization(conv_block2_conv1_3, training=self.phase,
+                                                                        name='conv_block2_conv1_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block2_output1 = conv_block2_conv1_shortcut + conv_block2_conv1_3
+                    conv_block2_output1 = tf.nn.relu(conv_block2_output1)
+
+                with tf.variable_scope('block2_conv2') as scope:
+                    # conv_block2_conv1_shortcut = tf.layers.conv2d(conv_block1_output3, filters=512, kernel_size=[1,1], strides=[1,1], padding='SAME', reuse=self.reuse, name='conv_block2_conv1_shortcut_conv')
+                    # conv_block2_conv1_shortcut = tf.layers.batch_normalization(conv_block2_conv1_shortcut, training=self.phase, name='conv_block2_conv1_shortcut_bn', reuse=self.reuse)
+
+                    conv_block2_conv2_1 = tf.layers.conv2d(conv_block2_output1, filters=128, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block2_conv2_1')
+                    conv_block2_conv2_1 = tf.layers.batch_normalization(conv_block2_conv2_1, training=self.phase,
+                                                                        name='conv_block2_conv2_1_bn', reuse=self.reuse)
+                    conv_block2_conv2_1 = tf.nn.relu(conv_block2_conv2_1)
+
+                    conv_block2_conv2_2 = tf.layers.conv2d(conv_block2_conv2_1, filters=128, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block2_conv2_2')
+                    conv_block2_conv2_2 = tf.layers.batch_normalization(conv_block2_conv2_2, training=self.phase,
+                                                                        name='conv_block2_conv2_2_bn', reuse=self.reuse)
+                    conv_block2_conv2_2 = tf.nn.relu(conv_block2_conv2_2)
+
+                    conv_block2_conv2_3 = tf.layers.conv2d(conv_block2_conv2_2, filters=512, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block2_conv2_3')
+                    conv_block2_conv2_3 = tf.layers.batch_normalization(conv_block2_conv2_3, training=self.phase,
+                                                                        name='conv_block2_conv2_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block2_output2 = conv_block2_output1 + conv_block2_conv2_3
+                    conv_block2_output2 = tf.nn.relu(conv_block2_output2)
+
+                with tf.variable_scope('block2_conv3') as scope:
+                    # conv_block2_conv1_shortcut = tf.layers.conv2d(conv_block1_output3, filters=512, kernel_size=[1,1], strides=[1,1], padding='SAME', reuse=self.reuse, name='conv_block2_conv1_shortcut_conv')
+                    # conv_block2_conv1_shortcut = tf.layers.batch_normalization(conv_block2_conv1_shortcut, training=self.phase, name='conv_block2_conv1_shortcut_bn', reuse=self.reuse)
+
+                    conv_block2_conv3_1 = tf.layers.conv2d(conv_block2_output2, filters=128, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block2_conv3_1')
+                    conv_block2_conv3_1 = tf.layers.batch_normalization(conv_block2_conv3_1, training=self.phase,
+                                                                        name='conv_block2_conv3_1_bn', reuse=self.reuse)
+                    conv_block2_conv3_1 = tf.nn.relu(conv_block2_conv3_1)
+
+                    conv_block2_conv3_2 = tf.layers.conv2d(conv_block2_conv3_1, filters=128, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block2_conv3_2')
+                    conv_block2_conv3_2 = tf.layers.batch_normalization(conv_block2_conv3_2, training=self.phase,
+                                                                        name='conv_block2_conv3_2_bn', reuse=self.reuse)
+                    conv_block2_conv3_2 = tf.nn.relu(conv_block2_conv3_2)
+
+                    conv_block2_conv3_3 = tf.layers.conv2d(conv_block2_conv3_2, filters=512, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block2_conv3_3')
+                    conv_block2_conv3_3 = tf.layers.batch_normalization(conv_block2_conv3_3, training=self.phase,
+                                                                        name='conv_block2_conv3_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block2_output3 = conv_block2_output2 + conv_block2_conv3_3
+                    conv_block2_output3 = tf.nn.relu(conv_block2_output3)
+
+                with tf.variable_scope('block2_conv4') as scope:
+                    # conv_block2_conv1_shortcut = tf.layers.conv2d(conv_block1_output3, filters=512, kernel_size=[1,1], strides=[1,1], padding='SAME', reuse=self.reuse, name='conv_block2_conv1_shortcut_conv')
+                    # conv_block2_conv1_shortcut = tf.layers.batch_normalization(conv_block2_conv1_shortcut, training=self.phase, name='conv_block2_conv1_shortcut_bn', reuse=self.reuse)
+
+                    conv_block2_conv4_1 = tf.layers.conv2d(conv_block2_output3, filters=128, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block2_conv4_1')
+                    conv_block2_conv4_1 = tf.layers.batch_normalization(conv_block2_conv4_1, training=self.phase,
+                                                                        name='conv_block2_conv4_1_bn', reuse=self.reuse)
+                    conv_block2_conv4_1 = tf.nn.relu(conv_block2_conv4_1)
+
+                    conv_block2_conv4_2 = tf.layers.conv2d(conv_block2_conv4_1, filters=128, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block2_conv4_2')
+                    conv_block2_conv4_2 = tf.layers.batch_normalization(conv_block2_conv4_2, training=self.phase,
+                                                                        name='conv_block2_conv4_2_bn', reuse=self.reuse)
+                    conv_block2_conv4_2 = tf.nn.relu(conv_block2_conv4_2)
+
+                    conv_block2_conv4_3 = tf.layers.conv2d(conv_block2_conv4_2, filters=512, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block2_conv4_3')
+                    conv_block2_conv4_3 = tf.layers.batch_normalization(conv_block2_conv4_3, training=self.phase,
+                                                                        name='conv_block2_conv4_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block2_output4 = conv_block2_output3 + conv_block2_conv4_3
+                    conv_block2_output4 = tf.nn.relu(conv_block2_output4)
+
+            with tf.name_scope('block3'):
+                with tf.variable_scope('block3_conv1') as scope:
+                    conv_block3_conv1_shortcut = tf.layers.conv2d(conv_block2_output4, filters=1024, kernel_size=[1, 1],
+                                                                  strides=[2, 2], padding='SAME', reuse=self.reuse,
+                                                                  name='conv_block3_conv1_shortcut')
+                    conv_block3_conv1_shortcut = tf.layers.batch_normalization(conv_block3_conv1_shortcut,
+                                                                               training=self.phase,
+                                                                               name='conv_block3_conv1_shortcut_bn',
+                                                                               reuse=self.reuse)
+
+                    conv_block3_conv1_1 = tf.layers.conv2d(conv_block2_output4, filters=256, kernel_size=[1, 1],
+                                                           strides=[2, 2], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv1_1')
+                    conv_block3_conv1_1 = tf.layers.batch_normalization(conv_block3_conv1_1, training=self.phase,
+                                                                        name='conv_block3_conv1_1_bn', reuse=self.reuse)
+                    conv_block3_conv1_1 = tf.nn.relu(conv_block3_conv1_1)
+
+                    conv_block3_conv1_2 = tf.layers.conv2d(conv_block3_conv1_1, filters=256, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv1_2')
+                    conv_block3_conv1_2 = tf.layers.batch_normalization(conv_block3_conv1_2, training=self.phase,
+                                                                        name='conv_block3_conv1_2_bn', reuse=self.reuse)
+                    conv_block3_conv1_2 = tf.nn.relu(conv_block3_conv1_2)
+
+                    conv_block3_conv1_3 = tf.layers.conv2d(conv_block3_conv1_2, filters=1024, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv1_3')
+                    conv_block3_conv1_3 = tf.layers.batch_normalization(conv_block3_conv1_3, training=self.phase,
+                                                                        name='conv_block3_conv1_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block3_output1 = conv_block3_conv1_shortcut + conv_block3_conv1_3
+                    conv_block3_output1 = tf.nn.relu(conv_block3_output1)
+
+                with tf.variable_scope('block3_conv2') as scope:
+                    # conv_block3_conv1_shortcut = tf.layers.conv2d(conv_block2_output4, filters=1024, kernel_size=[1,1], strides=[1,1], padding='SAME', reuse=self.reuse, name='conv_block3_conv1_shortcut')
+                    # conv_block3_conv1_shortcut = tf.layers.batch_normalization(conv_block3_conv1_shortcut, training=self.phase, name='conv_block3_conv1_shortcut_bn', reuse=self.reuse)
+
+                    conv_block3_conv2_1 = tf.layers.conv2d(conv_block3_output1, filters=256, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv2_1')
+                    conv_block3_conv2_1 = tf.layers.batch_normalization(conv_block3_conv2_1, training=self.phase,
+                                                                        name='conv_block3_conv2_1_bn', reuse=self.reuse)
+                    conv_block3_conv2_1 = tf.nn.relu(conv_block3_conv2_1)
+
+                    conv_block3_conv2_2 = tf.layers.conv2d(conv_block3_conv2_1, filters=256, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv2_2')
+                    conv_block3_conv2_2 = tf.layers.batch_normalization(conv_block3_conv2_2, training=self.phase,
+                                                                        name='conv_block3_conv2_2_bn', reuse=self.reuse)
+                    conv_block3_conv2_2 = tf.nn.relu(conv_block3_conv2_2)
+
+                    conv_block3_conv2_3 = tf.layers.conv2d(conv_block3_conv2_2, filters=1024, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv2_3')
+                    conv_block3_conv2_3 = tf.layers.batch_normalization(conv_block3_conv1_3, training=self.phase,
+                                                                        name='conv_block3_conv2_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block3_output2 = conv_block3_output1 + conv_block3_conv2_3
+                    conv_block3_output2 = tf.nn.relu(conv_block3_output2)
+
+                with tf.variable_scope('block3_conv3') as scope:
+                    # conv_block3_conv1_shortcut = tf.layers.conv2d(conv_block2_output4, filters=1024, kernel_size=[1,1], strides=[1,1], padding='SAME', reuse=self.reuse, name='conv_block3_conv1_shortcut')
+                    # conv_block3_conv1_shortcut = tf.layers.batch_normalization(conv_block3_conv1_shortcut, training=self.phase, name='conv_block3_conv1_shortcut_bn', reuse=self.reuse)
+
+                    conv_block3_conv3_1 = tf.layers.conv2d(conv_block3_output2, filters=256, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv3_1')
+                    conv_block3_conv3_1 = tf.layers.batch_normalization(conv_block3_conv3_1, training=self.phase,
+                                                                        name='conv_block3_conv3_1_1_bn', reuse=self.reuse)
+                    conv_block3_conv3_1 = tf.nn.relu(conv_block3_conv3_1)
+
+                    conv_block3_conv3_2 = tf.layers.conv2d(conv_block3_conv3_1, filters=256, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv3_2')
+                    conv_block3_conv3_2 = tf.layers.batch_normalization(conv_block3_conv3_2, training=self.phase,
+                                                                        name='conv_block3_conv3_2_bn', reuse=self.reuse)
+                    conv_block3_conv3_2 = tf.nn.relu(conv_block3_conv3_2)
+
+                    conv_block3_conv3_3 = tf.layers.conv2d(conv_block3_conv3_2, filters=1024, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv3_3')
+                    conv_block3_conv3_3 = tf.layers.batch_normalization(conv_block3_conv3_3, training=self.phase,
+                                                                        name='conv_block3_conv3_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block3_output3 = conv_block3_output2 + conv_block3_conv3_3
+                    conv_block3_output3 = tf.nn.relu(conv_block3_output3)
+
+                with tf.variable_scope('block3_conv4') as scope:
+                    # conv_block3_conv1_shortcut = tf.layers.conv2d(conv_block2_output4, filters=1024, kernel_size=[1,1], strides=[1,1], padding='SAME', reuse=self.reuse, name='conv_block3_conv1_shortcut')
+                    # conv_block3_conv1_shortcut = tf.layers.batch_normalization(conv_block3_conv1_shortcut, training=self.phase, name='conv_block3_conv1_shortcut_bn', reuse=self.reuse)
+
+                    conv_block3_conv4_1 = tf.layers.conv2d(conv_block3_output3, filters=256, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv4_1')
+                    conv_block3_conv4_1 = tf.layers.batch_normalization(conv_block3_conv4_1, training=self.phase,
+                                                                        name='conv_block3_conv4_1_bn', reuse=self.reuse)
+                    conv_block3_conv4_1 = tf.nn.relu(conv_block3_conv4_1)
+
+                    conv_block3_conv4_2 = tf.layers.conv2d(conv_block3_conv4_1, filters=256, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv4_2')
+                    conv_block3_conv4_2 = tf.layers.batch_normalization(conv_block3_conv4_2, training=self.phase,
+                                                                        name='conv_block3_conv4_2_bn', reuse=self.reuse)
+                    conv_block3_conv4_2 = tf.nn.relu(conv_block3_conv4_2)
+
+                    conv_block3_conv4_3 = tf.layers.conv2d(conv_block3_conv4_2, filters=1024, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv4_3')
+                    conv_block3_conv4_3 = tf.layers.batch_normalization(conv_block3_conv3_3, training=self.phase,
+                                                                        name='conv_block3_conv4_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block3_output4 = conv_block3_output3 + conv_block3_conv4_3
+                    conv_block3_output4 = tf.nn.relu(conv_block3_output4)
+
+                with tf.variable_scope('block3_conv5') as scope:
+                    # conv_block3_conv1_shortcut = tf.layers.conv2d(conv_block2_output4, filters=1024, kernel_size=[1,1], strides=[1,1], padding='SAME', reuse=self.reuse, name='conv_block3_conv1_shortcut')
+                    # conv_block3_conv1_shortcut = tf.layers.batch_normalization(conv_block3_conv1_shortcut, training=self.phase, name='conv_block3_conv1_shortcut_bn', reuse=self.reuse)
+
+                    conv_block3_conv5_1 = tf.layers.conv2d(conv_block3_output4, filters=256, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv5_1')
+                    conv_block3_conv5_1 = tf.layers.batch_normalization(conv_block3_conv5_1, training=self.phase,
+                                                                        name='conv_block3_conv5_1_bn', reuse=self.reuse)
+                    conv_block3_conv5_1 = tf.nn.relu(conv_block3_conv5_1)
+
+                    conv_block3_conv5_2 = tf.layers.conv2d(conv_block3_conv5_1, filters=256, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv5_2')
+                    conv_block3_conv5_2 = tf.layers.batch_normalization(conv_block3_conv5_2, training=self.phase,
+                                                                        name='conv_block3_conv5_2_bn', reuse=self.reuse)
+                    conv_block3_conv5_2 = tf.nn.relu(conv_block3_conv5_2)
+
+                    conv_block3_conv5_3 = tf.layers.conv2d(conv_block3_conv5_2, filters=1024, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv5_3')
+                    conv_block3_conv5_3 = tf.layers.batch_normalization(conv_block3_conv5_3, training=self.phase,
+                                                                        name='conv_block3_conv5_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block3_output5 = conv_block3_output4 + conv_block3_conv5_3
+                    conv_block3_output5 = tf.nn.relu(conv_block3_output5)
+
+                with tf.variable_scope('block3_conv6') as scope:
+                    # conv_block3_conv1_shortcut = tf.layers.conv2d(conv_block2_output4, filters=1024, kernel_size=[1,1], strides=[1,1], padding='SAME', reuse=self.reuse, name='conv_block3_conv1_shortcut')
+                    # conv_block3_conv1_shortcut = tf.layers.batch_normalization(conv_block3_conv1_shortcut, training=self.phase, name='conv_block3_conv1_shortcut_bn', reuse=self.reuse)
+
+                    conv_block3_conv6_1 = tf.layers.conv2d(conv_block3_output5, filters=256, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv6_1')
+                    conv_block3_conv6_1 = tf.layers.batch_normalization(conv_block3_conv6_1, training=self.phase,
+                                                                        name='conv_block3_conv6_1_bn', reuse=self.reuse)
+                    conv_block3_conv6_1 = tf.nn.relu(conv_block3_conv6_1)
+
+                    conv_block3_conv6_2 = tf.layers.conv2d(conv_block3_conv5_1, filters=256, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv6_2')
+                    conv_block3_conv6_2 = tf.layers.batch_normalization(conv_block3_conv6_2, training=self.phase,
+                                                                        name='conv_block3_conv6_2_bn', reuse=self.reuse)
+                    conv_block3_conv6_2 = tf.nn.relu(conv_block3_conv6_2)
+
+                    conv_block3_conv6_3 = tf.layers.conv2d(conv_block3_conv6_2, filters=1024, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block3_conv6_3')
+                    conv_block3_conv6_3 = tf.layers.batch_normalization(conv_block3_conv6_3, training=self.phase,
+                                                                        name='conv_block3_conv6_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block3_output6 = conv_block3_output5 + conv_block3_conv6_3
+                    conv_block3_output6 = tf.nn.relu(conv_block3_output6)
+
+            with tf.name_scope('block4'):
+                with tf.variable_scope('block4_conv1') as scope:
+                    conv_block4_conv1_shortcut = tf.layers.conv2d(conv_block3_output6, filters=2048, kernel_size=[1, 1],
+                                                                  strides=[2, 2], padding='SAME', reuse=self.reuse,
+                                                                  name='conv_block4_conv1_shortcut')
+                    conv_block4_conv1_shortcut = tf.layers.batch_normalization(conv_block4_conv1_shortcut,
+                                                                               training=self.phase,
+                                                                               name='conv_block4_conv1_shortcut_bn',
+                                                                               reuse=self.reuse)
+
+                    conv_block4_conv1_1 = tf.layers.conv2d(conv_block3_output6, filters=512, kernel_size=[1, 1],
+                                                           strides=[2, 2], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block4_conv1_1')
+                    conv_block4_conv1_1 = tf.layers.batch_normalization(conv_block4_conv1_1, training=self.phase,
+                                                                        name='conv_block4_conv1_1_bn', reuse=self.reuse)
+                    conv_block4_conv1_1 = tf.nn.relu(conv_block4_conv1_1)
+
+                    conv_block4_conv1_2 = tf.layers.conv2d(conv_block4_conv1_1, filters=512, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block4_conv1_2')
+                    conv_block4_conv1_2 = tf.layers.batch_normalization(conv_block4_conv1_2, training=self.phase,
+                                                                        name='conv_block4_conv1_2_bn', reuse=self.reuse)
+                    conv_block4_conv1_2 = tf.nn.relu(conv_block4_conv1_2)
+
+                    conv_block4_conv1_3 = tf.layers.conv2d(conv_block4_conv1_2, filters=2048, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block4_conv1_3')
+                    conv_block4_conv1_3 = tf.layers.batch_normalization(conv_block4_conv1_3, training=self.phase,
+                                                                        name='conv_block4_conv1_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block4_output1 = conv_block4_conv1_shortcut + conv_block4_conv1_3
+                    conv_block4_output1 = tf.nn.relu(conv_block4_output1)
+
+                with tf.variable_scope('block4_conv2') as scope:
+                    # conv_block4_conv1_shortcut = tf.layers.conv2d(conv_block3_output6, filters=2048, kernel_size=[1,1], strides=[1,1], padding='SAME', reuse=self.reuse, name='conv_block4_conv1_shortcut')
+                    # conv_block4_conv1_shortcut = tf.layers.batch_normalization(conv_block4_conv1_shortcut, training=self.phase, name='conv_block4_conv1_shortcut_bn', reuse=self.reuse)
+
+                    conv_block4_conv2_1 = tf.layers.conv2d(conv_block4_output1, filters=512, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block4_conv2_1')
+                    conv_block4_conv2_1 = tf.layers.batch_normalization(conv_block4_conv2_1, training=self.phase,
+                                                                        name='conv_block4_conv2_1_bn', reuse=self.reuse)
+                    conv_block4_conv2_1 = tf.nn.relu(conv_block4_conv2_1)
+
+                    conv_block4_conv2_2 = tf.layers.conv2d(conv_block4_conv2_1, filters=512, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block4_conv2_2')
+                    conv_block4_conv2_2 = tf.layers.batch_normalization(conv_block4_conv2_2, training=self.phase,
+                                                                        name='conv_block4_conv2_2_bn', reuse=self.reuse)
+                    conv_block4_conv2_2 = tf.nn.relu(conv_block4_conv2_2)
+
+                    conv_block4_conv2_3 = tf.layers.conv2d(conv_block4_conv2_2, filters=2048, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block4_conv2_3')
+                    conv_block4_conv2_3 = tf.layers.batch_normalization(conv_block4_conv2_3, training=self.phase,
+                                                                        name='conv_block4_conv2_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block4_output2 = conv_block4_output1 + conv_block4_conv2_3
+                    conv_block4_output2 = tf.nn.relu(conv_block4_output2)
+
+                with tf.variable_scope('block4_conv3') as scope:
+                    # conv_block4_conv1_shortcut = tf.layers.conv2d(conv_block3_output6, filters=2048, kernel_size=[1,1], strides=[1,1], padding='SAME', reuse=self.reuse, name='conv_block4_conv1_shortcut')
+                    # conv_block4_conv1_shortcut = tf.layers.batch_normalization(conv_block4_conv1_shortcut, training=self.phase, name='conv_block4_conv1_shortcut_bn', reuse=self.reuse)
+
+                    conv_block4_conv3_1 = tf.layers.conv2d(conv_block4_output2, filters=512, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block4_conv3_1')
+                    conv_block4_conv3_1 = tf.layers.batch_normalization(conv_block4_conv3_1, training=self.phase,
+                                                                        name='conv_block4_conv3_1_bn', reuse=self.reuse)
+                    conv_block4_conv3_1 = tf.nn.relu(conv_block4_conv3_1)
+
+                    conv_block4_conv3_2 = tf.layers.conv2d(conv_block4_conv3_1, filters=512, kernel_size=[3, 3],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block4_conv3_2')
+                    conv_block4_conv3_2 = tf.layers.batch_normalization(conv_block4_conv3_2, training=self.phase,
+                                                                        name='conv_block4_conv3_2_bn', reuse=self.reuse)
+                    conv_block4_conv3_2 = tf.nn.relu(conv_block4_conv3_2)
+
+                    conv_block4_conv3_3 = tf.layers.conv2d(conv_block4_conv3_2, filters=2048, kernel_size=[1, 1],
+                                                           strides=[1, 1], padding='SAME', reuse=self.reuse,
+                                                           name='conv_block4_conv3_3')
+                    conv_block4_conv3_3 = tf.layers.batch_normalization(conv_block4_conv3_3, training=self.phase,
+                                                                        name='conv_block4_conv3_3_bn', reuse=self.reuse)
+                    # conv_block1_conv1_3 = tf.nn.relu(conv_block1_conv1_3)
+                    conv_block4_output3 = conv_block4_output2 + conv_block4_conv3_3
+                    conv_block4_output3 = tf.nn.relu(conv_block4_output3)
+
+            with tf.variable_scope('fc'):
+                fc1 = tf.layers.conv2d(conv_block4_output3, filters=2048, kernel_size=[16, 1], strides=[1, 1], padding='VALID', reuse=self.reuse, name='fc1')
+                fc2 = tf.reduce_mean(fc1, axis=[1, 2], name='avgpool')
+                flattened = tf.contrib.layers.flatten(fc2)
+                flattened = tf.nn.l2_normalize(flattened)
+                w = tf.Variable(tf.truncated_normal([2048, 1024], stddev=0.1), name="w")
+                b = tf.Variable(tf.constant(0.1, shape=[1024]), name="b")
+
+                h = tf.nn.xw_plus_b(flattened, w, b, name="scores")
+
+                h = tf.nn.relu(h, name="relu")
+
+                with tf.name_scope("dropout"):
+                    h = tf.nn.dropout(h, self.dropout_keep_prob)
+
+            with tf.variable_scope('output'):
+                w = tf.get_variable('w', shape=[1024, num_classes], initializer=tf.contrib.layers.xavier_initializer())
                 b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
 
                 scores = tf.nn.xw_plus_b(h, w, b, name="scores")
@@ -126,25 +530,25 @@ class Model(object):
                 self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
 
         with tf.Session(graph=self.graph, config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
-            print("Start initializing x-vector graph")
+            print("Start initializing ResNet50-vector graph")
             sess.run(tf.global_variables_initializer())
             Model.save_model(sess, output_dir)
 
-        print("X-vector building finished")
+        print("ResNet50-vector building finished")
 
     @staticmethod
     def save_model(sess, output_dir):
-        print("Start saving x-vector graph")
+        print("Start saving ResNet50-vector graph")
         saver = tf.train.Saver()
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
         save_path = saver.save(sess, os.path.join(output_dir, 'model'))
         with open(os.path.join(output_dir, 'done'), 'wt') as fid:
             fid.write('done')
-        print("X-vector graph saved in path: %s" % save_path)
+        print("ResNet50-vector graph saved in path: %s" % save_path)
 
     def load_model(self, sess, input_dir):
-        print("Start loading x-vector graph ...")
+        print("Start loading ResNet50-vector graph ...")
         saver = tf.train.import_meta_graph(os.path.join(input_dir, 'model.meta'))
         saver.restore(sess, os.path.join(input_dir, 'model'))
         self.graph = sess.graph
@@ -157,10 +561,47 @@ class Model(object):
         self.loss = self.graph.get_tensor_by_name("loss:0")
         self.optimizer = self.graph.get_operation_by_name("optimizer")
         self.accuracy = self.graph.get_tensor_by_name("accuracy/accuracy:0")
-        self.embedding = [None] * 2  # TODO make this more general
-        self.embedding[0] = self.graph.get_tensor_by_name("embed_layer-0/scores:0")
-        self.embedding[1] = self.graph.get_tensor_by_name("embed_layer-1/scores:0")
-        print("X-vector graph restored from path: %s" % input_dir)
+        self.embedding = self.graph.get_tensor_by_name("fc/scores:0")
+        print("ResNet50-vector graph restored from path: %s" % input_dir)
+
+    def get_emb(self, mat, sess, min_chunk_size, max_chunk_size):
+
+        num_rows = mat.shape[0]
+        if num_rows == 0:
+            print("Zero-length utterance: '%s'" % path)
+            exit(1)
+
+        if num_rows < min_chunk_size:
+            print("Minimum chunk size of %d is greater than the number of rows in utterance: %s" % (min_chunk_size, path))
+            exit(1)
+
+        this_chunk_size = max_chunk_size
+
+        if num_rows < max_chunk_size:
+            print("Chunk size of %d is greater than the number of rows in utterance: %s, using chunk size of %d" % (max_chunk_size, path, num_rows))
+            this_chunk_size = num_rows
+        elif max_chunk_size == -1:
+            this_chunk_size = num_rows
+
+        num_chunks = int(np.ceil(num_rows / float(this_chunk_size)))
+
+        xvector_avg = 0
+        tot_weight = 0.0
+
+        for chunk_idx in range(num_chunks):
+            offset = min(this_chunk_size, num_rows - chunk_idx * this_chunk_size)
+            if offset < min_chunk_size:
+                continue
+            sub_mat = mat[chunk_idx * this_chunk_size: chunk_idx * this_chunk_size + offset, :]
+            data = np.reshape(sub_mat, (1, sub_mat.shape[0], sub_mat.shape[1]))
+            feed_dict = {self.input_x: data, self.dropout_keep_prob: 1.0, self.phase: False}
+            xvector = sess.run(self.embedding[0], feed_dict=feed_dict)
+            xvector = xvector[0]
+            tot_weight += offset
+            xvector_avg += offset * xvector
+
+        xvector_avg /= tot_weight
+        return xvector_avg
 
     def create_one_hot_output_matrix(self, labels):
         minibatch_size = len(labels)
@@ -169,53 +610,11 @@ class Model(object):
             one_hot_matrix[i, lab] = 1
         return one_hot_matrix
 
-    def print_models_params(self, input_dir):
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
-            self.load_model(sess, input_dir)
-            print('\n\nThe x-vector components are:\n')
-            for v in self.graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
-                print(v.name)
-            print('\n')
-
-    def get_models_weights(self, input_dir):
-        import h5py
-        h5file = os.path.join(input_dir, 'model.h5')
-        if os.path.exists(h5file):
-            name2weights = {}
-
-            def add2weights(name, mat):
-                if not isinstance(mat, h5py.Group):
-                    name2weights[name] = mat.value
-
-            with h5py.File(h5file, 'r') as hf:
-                hf.visititems(add2weights)
-            return name2weights
-
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
-            self.load_model(sess, input_dir)
-            name2weights = {}
-            for v in self.graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES):
-                name2weights[v.name] = sess.run(v)
-                print('%s  shape: %s' % (v.name, str(name2weights[v.name].shape)))
-            for i in range(5):
-                for scope_name in ("frame_level_info_layer-%s" % i, "embed_layer-%s" % i):
-                    for var_name in ("mean", "variance"):
-                        name = '%s/%s:0' % (scope_name, var_name)
-                        try:
-                            name2weights[name] = sess.run(self.graph.get_tensor_by_name(name))
-                            print('%s  shape: %s' % (name, str(name2weights[name].shape)))
-                        except:
-                            pass
-            with h5py.File(h5file, 'w') as hf:
-                for name, mat in name2weights.iteritems():
-                    hf.create_dataset(name, data=mat.astype(np.float32))
-            return name2weights
-
     def train_model(self, filterbanks_generator, n_epochs, n_steps_per_epoch, learning_rate, dropout_proportion, print_interval, output_dir):
         with tf.Session(config=tf.ConfigProto(allow_soft_placement=False, log_device_placement=False)) as sess:
             self.load_model(sess, output_dir)
 
-            print("Start training x-vector model")
+            print("Start training ResNet50-vector model")
             for epoch in range(n_epochs):
                 print('Epoch', epoch, '/', n_epochs)
 
@@ -263,7 +662,7 @@ class Model(object):
                 print()
                 Model.save_model(sess, output_dir)
 
-            print("X-vector model trained")
+            print("ResNet50-vector model trained")
 
     def extract_embs(self, filterbanks_generator, n_steps_per_epochs, input_dir, embs_output_path, embs_size, min_chunk_size, chunk_size, start_index=0):
         start_time = time.time()
