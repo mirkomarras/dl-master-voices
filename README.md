@@ -88,7 +88,7 @@ $ python ./code/train_speaker_verificator.py
 ```
 
 #### Step 2.2: Evaluate
-The testing scripts looks for trial pairs in *trials_file* on the dataset *data_source*. Such pairs are compared by the
+The testing script looks for trial pairs in *trials_file* on the dataset *data_source*. Such pairs are compared by the
 *verifier* available at *model_dir* through a *comparison_metric=["euclidean_dist","cosine_similarity"]*. 
 
 The available verifiers are *xvector*, *vggvox*, *resnet34vox*, and *resnet50vox*. By default, xvector models
@@ -122,7 +122,41 @@ python ./code/test_speaker_verificator.py
 ```
 
 #### Step 2.3: Extract
+The extraction script computes embeddings for files in *test_paths* on the dataset *data_source*. Such *embs_size*-dim vectors are extracted by the
+*verifier* available at *model_dir* through a *comparison_metric=["euclidean_dist","cosine_similarity"]*. 
 
+The available verifiers are *xvector*, *vggvox*, *resnet34vox*, and *resnet50vox*. By default, xvectors
+are extracted from *300x24*-sized filterbanks, while the other vectors are extracted from *512x300x1*-sized spectrograms. The script 
+saves the embeddings into the file *embs_path*.
+
+Voice detection (*vad=[True|False]*) and augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. 
+
+A sample extraction command is provided below: 
+``` 
+python ./code/extract_speaker_verificator.py
+  --verifier "xvector"
+  --data_source "/beegfs/mm10572"
+  --model_dir "./models/xvector/model"
+  --embs_path "./data/vox2_embs/embs_xvector.csv"
+  --embs_size 512
+  --test_paths "./data/vox2_mv/test_vox2_abspaths_1000_users"
+  --noises_dir "./data/noise"
+  --start_index 0
+  --sample_rate 16000
+  --preemphasis 0.97
+  --frame_stride 0.01
+  --frame_size 0.025
+  --num_fft 512
+  --min_chunk_size 10
+  --max_chunk_size 300
+  --aug 0
+  --vad False
+  --prefilter True
+  --normalize True
+  --nfilt 24
+```
+
+#### Step 2.4: Use Pre-Trained Speaker Verifiers
 Please find the resulting pre-trained models in the table below.
  
 | Name | Pre-Trained Model | Equal Error Rate  |

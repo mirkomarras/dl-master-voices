@@ -4,6 +4,7 @@ from __future__ import print_function
 
 from helpers.generatorutils import FilterbankGenerator, SpectrumGenerator
 from helpers.datasetutils import getData
+from helpers.coreutils import *
 import models.xvector.model as XVector
 from sklearn.metrics import roc_curve, auc
 from helpers.audioutils import *
@@ -29,45 +30,28 @@ import time
 import os
 import csv
 
-def findThresholdAtFAR(far, value):
-    return np.argmin(np.abs(value - far))
-
-def evaluate(args, model, noises):
+def extract_vecs(args, model, noises):
+    paths = load_obj(args.test_paths)
+    paths = [p.replace('../data', args.data_source) for p in paths]
 
     config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
     with tf.Session(config=config) as sess:
         model.load_model(sess, args.model_dir)
 
-        pairs = pd.read_csv(args.trials_file, names=['type', 'frame_1', 'frame_2'], delimiter=' ')
+        output_dict = np.empty((len(paths), args.embs_size))
 
-        identical = []
-        distances = []
-        similarities = []
+        if os.path.exists(args.embs_path):
+            print('Load pre-computed file')
+            output_dict = np.load(args.embs_path)
 
-        with open(args.result_file, mode='w') as result_file:
-            result_writer = csv.writer(result_file, delimiter=',')
-            for index, row in pairs.iterrows():
-                path_1 = os.path.join(args.data_source, row['frame_1'])
-                path_2 = os.path.join(args.data_source, row['frame_2'])
-                f_1 = get_fft_filterbank(path_1, args.sample_rate, args.nfilt, noises, args.num_fft, args.frame_size, args.frame_stride, args.preemphasis, args.vad, args.aug, args.prefilter, args.normalize)
-                f_2 = get_fft_filterbank(path_2, args.sample_rate, args.nfilt, noises, args.num_fft, args.frame_size, args.frame_stride, args.preemphasis, args.vad, args.aug, args.prefilter, args.normalize)
-                emb_1 = model.get_emb(f_1, sess, args.min_chunk_size, args.max_chunk_size)
-                emb_2 = model.get_emb(f_2, sess, args.min_chunk_size, args.max_chunk_size)
-                distance, similarity = np.sum(np.square(emb_1 - emb_2)), 1 - spatial.distance.cosine(emb_1, emb_2)
+        for p_index, path in enumerate(paths):
 
-                result_writer.writerow([index, distance, similarity])
-                distances.append(distance)
-                similarities.append(similarity)
-                identical.append(row['type'])
+            if p_index >= args.start_index:
+                print('Emb', p_index, '/', len(paths))
+                f_1 = get_fft_filterbank(path, args.sample_rate, args.nfilt, noises, args.num_fft, args.frame_size, args.frame_stride, args.preemphasis, args.vad, args.aug, args.prefilter, args.normalize)
+                output_dict[p_index] = model.get_emb(f_1, sess, args.min_chunk_size, args.max_chunk_size)
+                np.save(args.embs_path, output_dict)
 
-                if index > 1:
-                    far, tpr, thresholds = roc_curve(np.array(identical), np.array( distances) if args.comparison_metric == 'euclidean_dist' else np.array(similarities), pos_label=0 if args.comparison_metric == 'euclidean_dist' else 1)
-                    frr = 1 - tpr
-                    idx_eer = np.argmin(np.abs(far - frr))
-                    idx_far1 = findThresholdAtFAR(frr if args.comparison_metric == 'euclidean_dist' else far, 0.01)
-                    print(index + 1, '/', len(pairs.index), '\t', row['type'], '\t', round(similarity, 2), '\t', round(distance / 1e10, 2), '\t', 'EER', round(np.mean([far[idx_eer], frr[idx_eer]]) * 100, 2), '\t', 'THR@EER', round(thresholds[idx_eer], 2), '\t', 'THR@FAR1%', round(thresholds[idx_far1], 2))
-
-        return identical, distances
 
 def main():
     parser = argparse.ArgumentParser(description='Speaker Verifier Evaluation')
@@ -78,9 +62,10 @@ def main():
     # Evaluation parameters
     parser.add_argument('--data_source', dest='data_source', default='', type=str, action='store', help='Base path testing dataset')
     parser.add_argument('--model_dir', dest='model_dir', default='', type=str, action='store', help='Output directory for the trained model')
-    parser.add_argument('--result_file', dest='result_file', default='', type=str, action='store', help='Output file for comparisons results')
-    parser.add_argument('--trials_file', dest='trials_file', default='', type=str, action='store', help='Input trials for comparison')
-    parser.add_argument('--comparison_metric', dest='comparison_metric', default='euclidean_dist', action='store', help='Parameters file path')
+    parser.add_argument('--test_paths', dest='test_paths', default='', type=str, action='store', help='Input mv extraction')
+    parser.add_argument('--embs_path', dest='embs_path', default='', type=str, action='store', help='Output embs path')
+    parser.add_argument('--embs_size', dest='embs_size', default=512, type=int, action='store', help='Vector size')
+    parser.add_argument('--start_index', dest='start_index', default=0, type=int, action='store', help='Starting index')
 
     # Acoustic parameters
     parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Audio sample rate.')
@@ -117,20 +102,21 @@ def main():
         print('Unsupported verifier.')
         exit(1)
 
-    evaluate(args, model, noises)
+    extract_vecs(args, model, noises)
 
 if __name__ == "__main__":
     main()
 
 '''
-$ python ./code/test_speaker_verificator.py
+$ python ./code/extract_speaker_verificator.py
   --verifier "xvector"
-  --data_source "/beegfs/mm10572/voxceleb1/test"
-  --noises_dir "./data/noise"
+  --data_source "/beegfs/mm10572"
   --model_dir "./models/xvector/model"
-  --result_file "./data/vox1_eer/result_pairs_voxceleb1.csv"
-  --trials_file "./data/vox1_eer/trial_pairs_voxceleb1.csv"
-  --comparison_metric "euclidean_dist"
+  --embs_path "./data/vox2_embs/embs_xvector.csv"
+  --embs_size 512
+  --test_paths "./data/vox2_mv/test_vox2_abspaths_1000_users"
+  --noises_dir "./data/noise"
+  --start_index 0
   --sample_rate 16000
   --preemphasis 0.97
   --frame_stride 0.01

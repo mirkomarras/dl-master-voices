@@ -96,6 +96,6 @@ if __name__ == "__main__":
     main()
 
 
-# python ./train/train_speaker_verificator.py --verifier "xvector" --data_source_vox1 "/beegfs/mm10572/voxceleb1" --data_source_vox2 "/beegfs/mm10572/voxceleb2" --aug 3 --vad True --noises_dir "./data/noise" --model_dir "./models/xvector/pre-trained"
+# python ./train/train_speaker_verificator.py --verifier "xvector" --data_source_vox1 "/beegfs/mm10572/voxceleb1" --data_source_vox2 "/beegfs/mm10572/voxceleb2" --aug 3 --vad True --noises_dir "./data/noise" --model_dir "./models/xvector/model"
 
 
