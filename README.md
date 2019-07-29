@@ -73,7 +73,7 @@ $ python ./train/train_speaker_verifier.py
 Please find the resulting pre-trained models in the table below.
  
 | Name | Pre-Trained Model | EER |
-|:----:|:----------------:|
+|:----:|:----------------:|:----------------:|
 |  X-Vector    |       [Link]()           |        |        
 |  VGGVox-Vector    |      [Link]()              |    |            
 |  ResNet34Vox-Vector    |       [Link]()             |   |             
