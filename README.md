@@ -225,7 +225,7 @@ Voice detection (*vad=[True|False]*) and augmentation (*aug=[0:no|1:aug_any|2:au
 A sample evaluation command is provided below: 
 
 ``` 
-$ python ./code/eval_mv.py
+$ python ./code/test_mv.py
   --verifier "xvector"
   --data_source "/beegfs/mm10572/voxceleb2"
   --noises_dir "./data/noise"
