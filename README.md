@@ -72,7 +72,7 @@ $ python ./train/train_speaker_verifier.py
 
 Please find the resulting pre-trained models in the table below.
  
-| Name | Pre-Trained Model | Equal Error Rate (EER) |
+| Name | Pre-Trained Model | Equal Error Rate  |
 |:----:|:----------------:|:----------------:|
 |  X-Vector    |       [Link]()           |        |        
 |  VGGVox-Vector    |      [Link]()              |    |            
@@ -93,7 +93,7 @@ Please find the resulting pre-trained models in the table below.
 
 Please find the resulting pre-trained models in the table below.
  
-| Generator | Seed | Train | Master Voice Set | Any10 Impersonation Rate (AnyIR) | AVG10 Impersonation Rate (AvgIR) |
+| Generator | Seed | Train | Master Voice Set | Any10 Impersonation Rate  | AVG10 Impersonation Rate  |
 |:----:|:----------------:|:----------------:|:----------------:|:----------------:|:----------------:|
 |  Spectrogram    | M | M |     [Link]()           |         ||
 |  Spectrogram  |  F | F |   [Link]()              |          ||    
