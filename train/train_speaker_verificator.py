@@ -29,9 +29,8 @@ import os
 *********************************************************************************************************************'''
 
 def main():
-    parser = argparse.ArgumentParser(description='X-Vector Generation')
+    parser = argparse.ArgumentParser(description='Speaker Verifier Generation')
 
-    parser.add_argument('--mode', dest='mode', default='train', type=str, action='store', help='Usage mode for x-vector model [train/extract].')
     parser.add_argument('--verifier', dest='mode', default='', type=str, action='store', help='Type of verifier [xvector|vggvox|resnet34vox|resnet50vox].')
 
     # Training parameters

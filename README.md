@@ -45,8 +45,9 @@ celebrities, extracted from videos uploaded to YouTube.
 [VoxCeleb2](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html) contains over 1 million utterances for 6,112 
 celebrities, extracted from videos uploaded to YouTube.
 
-### Step 2: Train and Evaluate a Speaker Verifier
+### Step 2: Prepare a Speaker Verifier
 
+#### Step 2.1: Train
 The training script looks for utterances in *data_source_vox1* and *data_source_vox2* folders, excluding the utterances 
 from users involved in master voice analysis. Both data sources must point to a folder including *dev* and *test* subfolders. 
 
@@ -66,9 +67,29 @@ $ python ./train/train_speaker_verifier.py
   --data_source_vox2 "/beegfs/mm10572/voxceleb2" 
   --noises_dir "./data/noise"
   --model_dir "./models/xvector/model"
-  --aug 3 
-  --vad True 
+  --n_epochs 1024
+  --batch_size 32
+  --learning_rate 1e-1
+  --shuffle True
+  --dropout_proportion 0.1
+  --sample_rate 16000
+  --preemphasis 0.97
+  --frame_stride 0.01
+  --frame_size 0.025
+  --num_fft 512
+  --min_chunk_size 10
+  --max_chunk_size 300
+  --aug 3
+  --vad False
+  --prefilter True
+  --normalize True
+  --nfilt 24
+  --print_interval 1
 ```
+
+#### Step 2.2: Evaluate
+
+#### Step 2.3: Extract
 
 Please find the resulting pre-trained models in the table below.
  
