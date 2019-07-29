@@ -93,16 +93,16 @@ Please find the resulting pre-trained models in the table below.
 
 Please find the resulting pre-trained models in the table below.
  
-| Generator | Seed | Train | Master Voice Set | Impersonation Rate (IR) |
-|:----:|:----------------:|:----------------:|:----------------:|:----------------:|
-|  Spectrogram    | M | M |     [Link]()           |         |
-|  Spectrogram  |  F | F |   [Link]()              |          |    
-|  WaveGAN   | M+F  | M |    [Link]()             |       |
-|  WaveGAN   | M+F  | F |    [Link]()             |       |
-|  WaveGAN   | M  | M |    [Link]()             |       |
-|  WaveGAN   | M  | F |    [Link]()             |       |
-|  WaveGAN   | F  | M |    [Link]()             |       |
-|  WaveGAN   | F  | F |    [Link]()             |  |
+| Generator | Seed | Train | Master Voice Set | Any10 Impersonation Rate (AnyIR) | AVG10 Impersonation Rate (AvgIR) |
+|:----:|:----------------:|:----------------:|:----------------:|:----------------:|:----------------:|
+|  Spectrogram    | M | M |     [Link]()           |         ||
+|  Spectrogram  |  F | F |   [Link]()              |          ||    
+|  WaveGAN   | M+F  | M |    [Link]()             |       ||
+|  WaveGAN   | M+F  | F |    [Link]()             |       ||
+|  WaveGAN   | M  | M |    [Link]()             |       ||
+|  WaveGAN   | M  | F |    [Link]()             |       ||
+|  WaveGAN   | F  | M |    [Link]()             |       ||
+|  WaveGAN   | F  | F |    [Link]()             |  ||
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
