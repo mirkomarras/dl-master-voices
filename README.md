@@ -83,11 +83,11 @@ Please find the resulting pre-trained models in the table below.
 
 Please find the resulting pre-trained models in the table below.
  
-| Name | Pre-Trained Model | 
+| Name | Seed | Pre-Trained Model | 
 |:----:|:----------------:|
-|  Std WaveGAN    |       [Link]()           |         
-|  Men WaveGAN   |      [Link]()              |              
-|  Women WaveGAN    |       [Link]()             |        
+|  WaveGAN    | M+F |      [Link]()           |         
+|  WaveGAN   |   M |   [Link]()              |              
+|  WaveGAN    |  F |     [Link]()             |        
 
 ### Step 4: Generate and Evaluate a Master Voice
 
@@ -95,14 +95,14 @@ Please find the resulting pre-trained models in the table below.
  
 | Generator | Seed | Train | Master Voice Set | 
 |:----:|:----------------:|:----------------:|:----------------:|
-|  SGD    | M | M |     [Link]()           |         
-|  SGD  |  F | F |   [Link]()              |              
-|  GAN   | M+F  | M |    [Link]()             |       
-|  GAN   | M+F  | F |    [Link]()             |       
-|  GAN   | M  | M |    [Link]()             |       
-|  GAN   | M  | F |    [Link]()             |       
-|  GAN   | F  | M |    [Link]()             |       
-|  GAN   | F  | F |    [Link]()             |  
+|  Spectrogram    | M | M |     [Link]()           |         
+|  Spectrogram  |  F | F |   [Link]()              |              
+|  WaveGAN   | M+F  | M |    [Link]()             |       
+|  WaveGAN   | M+F  | F |    [Link]()             |       
+|  WaveGAN   | M  | M |    [Link]()             |       
+|  WaveGAN   | M  | F |    [Link]()             |       
+|  WaveGAN   | F  | M |    [Link]()             |       
+|  WaveGAN   | F  | F |    [Link]()             |  
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
