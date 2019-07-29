@@ -214,7 +214,6 @@ Please find the resulting pre-trained models in the table below.
 #### Step 4.2: Train by GAN
 
 #### Step 4.3: Evaluate
-<<<<<<< HEAD
 The evaluation script computes impersonation rates for master voices in *test_mv_set* on the dataset *data_source* via
 the *test_paths* represented by *test_embs* and *test_labels*. Such rates are computed on the *verifier* available at *model_dir*. 
 
@@ -256,8 +255,6 @@ $ python ./code/eval_mv.py
   --normalize True
   --nfilt 24
 ``` 
-=======
->>>>>>> 019d0b64a4b884df8adf945a3dde40e44b7a681b
 
 #### Step 4.4: Use Pre-Computed Master Voice Sets
 
