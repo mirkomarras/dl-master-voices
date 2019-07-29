@@ -61,7 +61,7 @@ Voice detection (*vad=[True|False]*) and augmentation (*aug=[0:no|1:aug_any|2:au
 A sample training command is provided below: 
 
 ```
-$ python ./train/train_speaker_verifier.py 
+$ python ./code/train_speaker_verificator.py 
   --verifier "xvector"
   --data_source_vox1 "/beegfs/mm10572/voxceleb1" 
   --data_source_vox2 "/beegfs/mm10572/voxceleb2" 
@@ -88,6 +88,38 @@ $ python ./train/train_speaker_verifier.py
 ```
 
 #### Step 2.2: Evaluate
+The testing scripts looks for trial pairs in *trials_file* on the dataset *data_source*. Such pairs are compared by the
+*verifier* available at *model_dir* through a *comparison_metric=["euclidean_dist","cosine_similarity"]*. 
+
+The available verifiers are *xvector*, *vggvox*, *resnet34vox*, and *resnet50vox*. By default, xvector models
+are tested on *300x24*-sized filterbanks, while the other models are tested on *512x300x1*-sized spectrograms. The script 
+saves the comparison results into the file *result_file*.
+
+Voice detection (*vad=[True|False]*) and augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. 
+
+A sample testing command is provided below: 
+```
+python ./code/test_speaker_verificator.py
+  --verifier "xvector"
+  --data_source "/beegfs/mm10572/voxceleb1/test"
+  --noises_dir "./data/noise"
+  --model_dir "./models/xvector/model"
+  --result_file "./data/vox1_eer/result_pairs_voxceleb1.csv"
+  --trials_file "./data/vox1_eer/trial_pairs_voxceleb1.csv"
+  --comparison_metric "euclidean_dist"
+  --sample_rate 16000
+  --preemphasis 0.97
+  --frame_stride 0.01
+  --frame_size 0.025
+  --num_fft 512
+  --min_chunk_size 10
+  --max_chunk_size 300
+  --aug 0
+  --vad False
+  --prefilter True
+  --normalize True
+  --nfilt 24
+```
 
 #### Step 2.3: Extract
 

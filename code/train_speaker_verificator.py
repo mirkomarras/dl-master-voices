@@ -31,7 +31,7 @@ import os
 def main():
     parser = argparse.ArgumentParser(description='Speaker Verifier Generation')
 
-    parser.add_argument('--verifier', dest='mode', default='', type=str, action='store', help='Type of verifier [xvector|vggvox|resnet34vox|resnet50vox].')
+    parser.add_argument('--verifier', dest='verifier', default='', type=str, action='store', help='Type of verifier [xvector|vggvox|resnet34vox|resnet50vox].')
 
     # Training parameters
     parser.add_argument('--data_source_vox1', dest='data_source_vox1', default='', type=str, action='store', help='Base VoxCeleb1 path of the training datasets')
@@ -96,6 +96,6 @@ if __name__ == "__main__":
     main()
 
 
-# python ./train/train_speaker_verifier.py --verifier "xvector" --data_source_vox1 "/beegfs/mm10572/voxceleb1" --data_source_vox2 "/beegfs/mm10572/voxceleb2" --aug 3 --vad True --noises_dir "./data/noise" --model_dir "./models/xvector/pre-trained"
+# python ./train/train_speaker_verificator.py --verifier "xvector" --data_source_vox1 "/beegfs/mm10572/voxceleb1" --data_source_vox2 "/beegfs/mm10572/voxceleb2" --aug 3 --vad True --noises_dir "./data/noise" --model_dir "./models/xvector/pre-trained"
 
 
