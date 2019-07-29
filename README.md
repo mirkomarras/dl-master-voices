@@ -34,6 +34,7 @@ $ export PYTHONPATH=/path/to/dl-master-voices/
 ### Step 4: Install Toolbox Requirements
 ```
 $ pip install -r dl-master-voices/requirements.txt
+```
 
 ## Getting Started
 
