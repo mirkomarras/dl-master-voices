@@ -13,7 +13,27 @@ samples called **Master Voices** (MVs) which match large populations of speakers
 
 ## Setup 
 
-...
+### Step 1: Install Python3
+```
+$ sudo apt-get update
+$ sudo apt-get install python3.5
+```
+
+### Step 2: Create a Virtual Environment
+```
+$ python3 -m virtualenv venv
+$ source venv/bin/activate
+```
+
+### Step 3: Clone the Repository
+```
+$ git clone https://github.com/mirkomarras/dl-master-voices.git
+$ export PYTHONPATH=/path/to/dl-master-voices/
+```
+
+### Step 4: Install Toolbox Requirements
+```
+$ pip install -r dl-master-voices/requirements.txt
 
 ## Getting Started
 
