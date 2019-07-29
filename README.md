@@ -98,8 +98,9 @@ saves the comparison results into the file *result_file*.
 Voice detection (*vad=[True|False]*) and augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. 
 
 A sample testing command is provided below: 
+
 ```
-python ./code/test_speaker_verificator.py
+$ python ./code/test_speaker_verificator.py
   --verifier "xvector"
   --data_source "/beegfs/mm10572/voxceleb1/test"
   --noises_dir "./data/noise"
@@ -132,8 +133,9 @@ saves the embeddings into the file *embs_path*.
 Voice detection (*vad=[True|False]*) and augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. 
 
 A sample extraction command is provided below: 
+
 ``` 
-python ./code/extract_speaker_verificator.py
+$ python ./code/extract_speaker_verificator.py
   --verifier "xvector"
   --data_source "/beegfs/mm10572"
   --model_dir "./models/xvector/model"
