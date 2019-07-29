@@ -11,6 +11,26 @@
 A Python toolbox for creating and testing impersonation capabilities of a potentially large family of adversarial audio
 samples called **Master Voices** (MVs) which match large populations of speakers by chance with high probability. 
 
+## Table of Contents
+- [Master Voice Toolbox](#master-voice-toolbox)
+  * [Setup](#setup)
+    + [Step 1: Install Python3](#step-1--install-python3)
+    + [Step 2: Create a Virtual Environment](#step-2--create-a-virtual-environment)
+    + [Step 3: Clone the Repository](#step-3--clone-the-repository)
+    + [Step 4: Install Toolbox Requirements](#step-4--install-toolbox-requirements)
+  * [Getting Started](#getting-started)
+    + [Step 1: Download Source Data Sets](#step-1--download-source-data-sets)
+    + [Step 2: Prepare a Speaker Verifier](#step-2--prepare-a-speaker-verifier)
+      - [Step 2.1: Train](#step-21--train)
+      - [Step 2.2: Evaluate](#step-22--evaluate)
+      - [Step 2.3: Extract](#step-23--extract)
+      - [Step 2.4: Use Pre-Trained Speaker Verifiers](#step-24--use-pre-trained-speaker-verifiers)
+    + [Step 3: Train a Generative Adversarial Network (GAN)](#step-3--train-a-generative-adversarial-network--gan-)
+    + [Step 4: Generate and Evaluate a Master Voice](#step-4--generate-and-evaluate-a-master-voice)
+  * [Contribution](#contribution)
+  * [Citations](#citations)
+  * [License](#license)
+  
 ## Setup 
 
 ### Step 1: Install Python3
