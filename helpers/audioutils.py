@@ -274,7 +274,10 @@ def get_fft_filterbank(filename, sample_rate, nfilt, noises, num_fft=512, frame_
 
     filter_banks /= np.abs(filter_banks).max()
 
-    return filter_banks[:300, :]
+    if filter_banks.shape[0] > 300:
+        filter_banks = filter_banks[:300, :]
+
+    return filter_banks
 
 def get_fft_spectrum_unpack(args):
     return get_fft_spectrum(*args)
@@ -308,6 +311,9 @@ def get_fft_spectrum(filename, sample_rate, nfilt, noises, num_fft=512, frame_si
     frames = framesig(signal, frame_len=frame_size * sample_rate, frame_step=frame_stride * sample_rate, winfunc=np.hamming)
     fft = abs(np.fft.fft(frames,n=num_fft))
     fft_norm = normalize_frames(fft.T)
-    start = random.choice(range(fft_norm.shape[1] - 300))
-    fft_norm = fft_norm[:, start: start + 300]
-    return fft_norm.reshape((512, 300, 1))
+    if fft_norm.shape[1] > 300:
+        start = random.choice(range(fft_norm.shape[1] - 300))
+        fft_norm = fft_norm[:, start: start + 300]
+    fft_norm = fft_norm.reshape(fft_norm.shape[0], fft_norm.shape[1], 1)
+
+    return fft_norm
