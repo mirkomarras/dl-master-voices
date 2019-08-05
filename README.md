@@ -223,10 +223,13 @@ If you wish to use pre-trained models, download them into the corresponding subf
 ### Step 3: Train a Generative Adversarial Network (GAN)
 
 #### Step 3.1: Train
-The training script looks for utterances in *data_source_vox1* and *data_source_vox2* folders, excluding the utterances 
-from users involved in master voice analysis. Both data sources must point to a folder including *dev* and *test* subfolders. 
+The script loads utterances stored into the *data_source_vox1* and the *data_source_vox2* folders, excluding the ones
+pronounced by users involved in Master Voices analysis. The list of the latter utterances can be found in the files 
+```train_vox2_abspaths_1000_users.pkl``` and ```test_vox2_abspaths_1000_users.pkl``` stored into the folder ```./data/vox2_mv/```.
+By setting the *data_gender* parameter, utterances from only one gender can be considered.  
 
-The script saves the pre-trained model into the folder *train_dir*.
+The script trains a WaveGAN ([Synthesizing audio with GANs](https://openreview.net/forum?id=r1RwYIJPM))whose model will 
+be stored into the folder *train_dir*.
 
 A sample training command is provided below: 
 
@@ -248,13 +251,15 @@ python ./code/train_wavegan.py
 ``` 
 
 #### Step 3.2: Use Pre-Trained GANs
-Please find the resulting pre-trained models in the table below.
+Please find below a set of pre-trained WaveGANs:
  
 | Name | Seed | Pre-Trained Model | 
 |:----:|:----------------:|:----------------:|
 |  WaveGAN    | M+F |      [Link]()           |         
 |  WaveGAN   |   M |   [Link]()              |              
 |  WaveGAN    |  F |     [Link]()             |        
+
+If you wish to use pre-trained models, download them into the corresponding subfolder in ```./models```. 
 
 ### Step 4: Generate and Evaluate a Master Voice
 
