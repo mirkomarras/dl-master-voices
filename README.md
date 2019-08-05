@@ -8,8 +8,8 @@
 [Nasir Memon](https://engineering.nyu.edu/faculty/nasir-memon)<sup>2</sup>, [Gianni Fenu](http://people.unica.it/giannifenu/)<sup>1</sup>
 <br/><sup>1</sup> University of Cagliari, <sup>2</sup> New York University, <sup>3</sup> AGH University of Science and Technology
 
-A Python toolbox for creating and testing impersonation capabilities of a potentially large family of adversarial audio
-samples called **Master Voices** (MVs) which match large populations of speakers by chance with high probability. 
+A Python toolbox for creating and testing impersonation capabilities of **Master Voices** (MVs), a family of adversarial 
+audio samples which match large populations of speakers by chance with high probability. 
 
 ## Table of Contents
   * [Setup](#setup)
@@ -28,7 +28,7 @@ samples called **Master Voices** (MVs) which match large populations of speakers
       - [Step 3.1: Train](#step-31-train)
       - [Step 3.2: Use Pre-Trained GANs](#step-32-use-pre-trained-gans)
     + [Step 4: Generate and Evaluate a Master Voice](#step-4-generate-and-evaluate-a-master-voice)
-      - [Step 4.1: Train by Spectrogram Changes](#step-41-train-by-spectrogram-changes)
+      - [Step 4.1: Train by Spectrogram Pertubations](#step-41-train-by-spectrogram-pertubations)
       - [Step 4.2: Train by GAN](#step-42-train-by-gan)
       - [Step 4.3: Evaluate](#step-43-evaluate)
       - [Step 4.4: Use Pre-Computed Master Voice Sets](#step-44-use-pre-computed-master-voice-sets)
@@ -42,11 +42,12 @@ samples called **Master Voices** (MVs) which match large populations of speakers
 ```
 $ sudo apt-get update
 $ sudo apt-get install python3.5
+$ alias python=python3
 ```
 
 ### Step 2: Create a Virtual Environment
 ```
-$ python3 -m virtualenv venv
+$ python -m virtualenv venv
 $ source venv/bin/activate
 ```
 
@@ -64,11 +65,26 @@ $ pip install -r dl-master-voices/requirements.txt
 ## Getting Started
 
 ### Step 1: Download Source Data Sets
-[VoxCeleb1](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox1.html) contains over 100,000 utterances for 1,251 
-celebrities, extracted from videos uploaded to YouTube. 
 
-[VoxCeleb2](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html) contains over 1 million utterances for 6,112 
-celebrities, extracted from videos uploaded to YouTube.
+The presented toolbox uses the VoxCeleb data sets, one of the largest corpora for speaker verification and identification. 
+They includes unconstrained speech of celebrities, extracted from public videos, and featuring diverse acoustic environments. 
+
+- [VoxCeleb1](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox1.html) contains over *100,000* utterances for *1,251* 
+celebrities. 
+- [VoxCeleb2](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html) contains over *1 million* utterances for *6,112* 
+celebrities.
+
+Please download both the data set from the corrresponding website and ensure that each holds the following folder structure:
+```
+- voxceleb{1/2}/
+  - dev/
+    - {user-id}/ 
+      - {video-id}/ 
+        - 000001.wav  
+        - 000002.wav
+        ...
+  - test
+```
 
 ### Step 2: Prepare a Speaker Verifier
 
