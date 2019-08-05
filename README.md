@@ -143,14 +143,11 @@ $ python ./code/train_speaker_verificator.py
 ```
 
 #### Step 2.2: Evaluate
-The testing script looks for trial pairs in *trials_file* on the dataset *data_source*. Such pairs are compared by the
-*verifier* available at *model_dir* through a *comparison_metric=["euclidean_dist","cosine_similarity"]*. 
-
-The available verifiers are *xvector*, *vggvox*, *resnet34vox*, and *resnet50vox*. By default, xvector models
-are tested on *300x24*-sized filterbanks, while the other models are tested on *512x300x1*-sized spectrograms. The script 
-saves the comparison results into the file *result_file*.
-
-Voice detection (*vad=[True|False]*) and augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. 
+The script loads trial verification pairs related to the dataset stored into *data_source* from the file *trials_file*.
+Utterances from each pair are compared by the *verifier* whose trained model is stored into *model_dir*. To match them,
+the developer can select a *comparison_metric* among "euclidean_dist" and "cosine_similarity". 
+ 
+The comparison results are saved into the file *result_file*. 
 
 A sample testing command is provided below: 
 
