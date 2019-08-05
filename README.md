@@ -74,7 +74,7 @@ celebrities.
 - [VoxCeleb2](http://www.robots.ox.ac.uk/~vgg/data/voxceleb/vox2.html) contains over *1 million* utterances for *6,112* 
 celebrities.
 
-Please download both the data set from the corrresponding website and ensure that each holds the following folder structure:
+Please download both data sets and ensure that each holds the following folder structure:
 ```
 - voxceleb{1/2}/
   - dev/
