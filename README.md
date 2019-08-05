@@ -210,6 +210,7 @@ python ./code/train_wavegan.py
 --train_dir "./models/wavegan/default-model"
 --data_source_vox1 "/beegfs/mm10572/voxceleb1"
 --data_source_vox2 "/beegfs/mm10572/voxceleb2"
+--data_gender "m"
 --data_sample_rate 16000
 --data_slice_len 16384
 --data_num_channels 1
