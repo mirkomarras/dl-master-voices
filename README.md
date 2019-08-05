@@ -98,16 +98,16 @@ The script loads utterances stored into the *data_source_vox1* and the *data_sou
 pronounced by users involved in Master Voices analysis. The list of the latter utterances can be found in the files 
 ```train_vox2_abspaths_1000_users.pkl``` and ```test_vox2_abspaths_1000_users.pkl``` stored into the folder ```./data/vox2_mv/```.
 
-The toolbox includes for state-of-the-art speaker verification systems.
+The toolbox includes four state-of-the-art speaker verification systems.
 - *xvector* proposed in [xVectors: robust DNN embs for speaker recognition](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf).
 - *vggvox* proposed in [Voxceleb: a large-scale speaker identification dataset](https://arxiv.org/pdf/1706.08612).
 - *resnet34vox* proposed in [Voxceleb2: Deep speaker recognition](https://arxiv.org/pdf/1806.05622).
-- *resnet50vox* proposed in [Voxceleb2: Deep speaker recognition](https://arxiv.org/pdf/1806.05622) .
+- *resnet50vox* proposed in [Voxceleb2: Deep speaker recognition](https://arxiv.org/pdf/1806.05622).
 
 By default: 
-- filterbanks-based models are trained on *300x24*-sized filterbanks and are instructed to return embeddings of 
+- filterbanks-based models are trained on *300x24*-sized filterbanks and return embeddings of 
 size *1024*.  
-- spectrogram-based models are trained on *512x300x1*-sized spectrograms and are instructed to return vectors of size *512*. 
+- spectrogram-based models are trained on *512x300x1*-sized spectrograms and return vectors of size *512*. 
 - each model is trained for *n_epochs=40* on *batch_size=32* with *learning_rate=1e-1*.
 - no voice activity detection and data augmentation is performed. 
 
