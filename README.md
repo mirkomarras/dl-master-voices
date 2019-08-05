@@ -177,7 +177,7 @@ $ python ./code/test_speaker_verificator.py
 #### Step 2.3: Extract
 The script extracts embeddings of size *embs_size* from utterances whose paths are stored into *test_paths*. The utterances 
 belong to the dataset *data_source*. The embeddings are extracted by the *verifier* whose trained model is stored into
-the folder. 
+the folder *model_dir*. 
 
 The script saves the extracted embeddings as a numpy matrix into the file *embs_path*.
 
@@ -211,12 +211,12 @@ $ python ./code/extract_speaker_verificator.py
 
 Please find below a set of pre-trained speaker verification systems:
  
-| Name | Pre-Trained Model | Equal Error Rate  |
-|:----:|:----------------:|:----------------:|
-|  X-Vector    |       [Link]()           |        |        
+| Name | Pre-Trained Model | VoxCeleb1-Test EER  | SiTW EER  |
+|:----:|:----------------:|:----------------:|:----------------:|
+|  X-Vector    |       [Link]()           |        |   |     
 |  VGGVox-Vector    |      [Link]()              |    |            
-|  ResNet34Vox-Vector    |       [Link]()             |   |             
-|  ResNet50Vox-Vector    |      [Link]()              |    |            
+|  ResNet34Vox-Vector    |       [Link]()             |   |           |  
+|  ResNet50Vox-Vector    |      [Link]()              |    |   |         
 
 If you wish to use pre-trained models, download them into the corresponding subfolder in ```./models```. 
 
