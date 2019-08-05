@@ -197,6 +197,28 @@ Please find the resulting pre-trained models in the table below.
 ### Step 3: Train a Generative Adversarial Network (GAN)
 
 #### Step 3.1: Train
+The training script looks for utterances in *data_source_vox1* and *data_source_vox2* folders, excluding the utterances 
+from users involved in master voice analysis. Both data sources must point to a folder including *dev* and *test* subfolders. 
+
+The script saves the pre-trained model into the folder *train_dir*.
+
+A sample training command is provided below: 
+
+``` 
+python ./code/train_wavegan.py
+--mode "train"
+--train_dir "./models/wavegan/default-model"
+--data_source_vox1 "/beegfs/mm10572/voxceleb1"
+--data_source_vox2 "/beegfs/mm10572/voxceleb2"
+--data_sample_rate 16000
+--data_slice_len 16384
+--data_num_channels 1
+--data_overlap_ratio 0.025
+--wavegan_latent_dim 100
+--train_batch_size 64
+--incept_metagraph_fp "./models/wavegan/default-model/eval/inception/infer.meta"
+--incept_ckpt_fp "./models/wavegan/default-model/eval/inception/best_acc-103005"
+``` 
 
 #### Step 3.2: Use Pre-Trained GANs
 Please find the resulting pre-trained models in the table below.
