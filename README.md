@@ -175,14 +175,11 @@ $ python ./code/test_speaker_verificator.py
 ```
 
 #### Step 2.3: Extract
-The extraction script computes embeddings for files in *test_paths* on the dataset *data_source*. Such *embs_size*-dim vectors are extracted by the
-*verifier* available at *model_dir* through a *comparison_metric=["euclidean_dist","cosine_similarity"]*. 
+The script extracts embeddings of size *embs_size* from utterances whose paths are stored into *test_paths*. The utterances 
+belong to the dataset *data_source*. The embeddings are extracted by the *verifier* whose trained model is stored into
+the folder. 
 
-The available verifiers are *xvector*, *vggvox*, *resnet34vox*, and *resnet50vox*. By default, xvectors
-are extracted from *300x24*-sized filterbanks, while the other vectors are extracted from *512x300x1*-sized spectrograms. The script 
-saves the embeddings into the file *embs_path*.
-
-Voice detection (*vad=[True|False]*) and augmentation (*aug=[0:no|1:aug_any|2:aug_seq|3:aug_prob]*) can be performed. 
+The script saves the extracted embeddings as a numpy matrix into the file *embs_path*.
 
 A sample extraction command is provided below: 
 
@@ -211,7 +208,8 @@ $ python ./code/extract_speaker_verificator.py
 ```
 
 #### Step 2.4: Use Pre-Trained Speaker Verifiers
-Please find the resulting pre-trained models in the table below.
+
+Please find below a set of pre-trained speaker verification systems:
  
 | Name | Pre-Trained Model | Equal Error Rate  |
 |:----:|:----------------:|:----------------:|
@@ -219,6 +217,8 @@ Please find the resulting pre-trained models in the table below.
 |  VGGVox-Vector    |      [Link]()              |    |            
 |  ResNet34Vox-Vector    |       [Link]()             |   |             
 |  ResNet50Vox-Vector    |      [Link]()              |    |            
+
+If you wish to use pre-trained models, download them into the corresponding subfolder in ```./models```. 
 
 ### Step 3: Train a Generative Adversarial Network (GAN)
 
