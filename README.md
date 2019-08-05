@@ -55,6 +55,7 @@ $ source venv/bin/activate
 ```
 $ git clone https://github.com/mirkomarras/dl-master-voices.git
 $ export PYTHONPATH=/path/to/dl-master-voices/
+$ cd dl-master-voices
 ```
 
 ### Step 4: Install Toolbox Requirements
@@ -87,6 +88,10 @@ Please download both data sets and ensure that each holds the following folder s
 ```
 
 ### Step 2: Prepare a Speaker Verifier
+
+The toolbox aims to test Master Voices against state-of-the-art speaker verification systems. If you wish to train your
+own speaker verification systems, please follow steps 2.1 and 2.2. Otherwise, skip to step 2.4 and download pre-trained
+models into the corresponding subfolder in ```./models```. 
 
 #### Step 2.1: Train
 The training script looks for utterances in *data_source_vox1* and *data_source_vox2* folders, excluding the utterances 
