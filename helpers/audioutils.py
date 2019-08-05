@@ -116,7 +116,17 @@ def remove_dc_and_dither(sin, sample_rate):
     return sout
 
 def normalize_frames(m,epsilon=1e-12):
-    return np.array([(v - np.mean(v)) / max(np.std(v),epsilon) for v in m])
+    frames = []
+    means = []
+    stds = []
+    for v in m:
+        means.append(np.mean(v))
+        stds.append(np.std(v))
+        frames.append((v - np.mean(v)) / max(np.std(v), epsilon))
+    return np.array(frames), np.array(means), np.array(stds)
+
+def denormalize_frames(m, means, stds, epsilon=1e-12):
+    return np.array([z * max(stds[i],epsilon) + means[i] for i, z in enumerate(m)])
 
 def min_max_frames(m):
     return 2 * (m - m.min())/(m.max() - m.min()) - 1
@@ -291,10 +301,6 @@ def get_fft_spectrum(filename, sample_rate, nfilt, noises, num_fft=512, frame_si
 
     assert aug <= 3, 'Only augmentation modes equal or less than 2 supported'
 
-    max_signal_dim = sample_rate * 3
-    start = random.choice(range(len(signal) - max_signal_dim))
-    signal = signal[start: start + max_signal_dim]
-
     # Augmentation
     if aug == 1:
         signal = augment_any(signal, sample_rate, noises)
@@ -306,14 +312,7 @@ def get_fft_spectrum(filename, sample_rate, nfilt, noises, num_fft=512, frame_si
     assert signal.ndim == 1, 'Only 1-dim signals supported'
 
     # get FFT spectrum
-    signal = remove_dc_and_dither(signal, sample_rate)
-    signal = preemphasis(signal, coeff=preemphasis_alpha)
     frames = framesig(signal, frame_len=frame_size * sample_rate, frame_step=frame_stride * sample_rate, winfunc=np.hamming)
     fft = abs(np.fft.fft(frames,n=num_fft))
-    fft_norm = normalize_frames(fft.T)
-    if fft_norm.shape[1] > 300:
-        start = random.choice(range(fft_norm.shape[1] - 300))
-        fft_norm = fft_norm[:, start: start + 300]
-    fft_norm = fft_norm.reshape(fft_norm.shape[0], fft_norm.shape[1], 1)
-
-    return fft_norm
+    fft_norm, fft_mean, fft_std = normalize_frames(fft.T)
+    return fft_norm, fft_mean, fft_std
