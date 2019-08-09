@@ -315,4 +315,5 @@ def get_fft_spectrum(filename, sample_rate, nfilt, noises, num_fft=512, frame_si
     frames = framesig(signal, frame_len=frame_size * sample_rate, frame_step=frame_stride * sample_rate, winfunc=np.hamming)
     fft = abs(np.fft.fft(frames,n=num_fft))
     fft_norm, fft_mean, fft_std = normalize_frames(fft.T)
-    return fft_norm, fft_mean, fft_std
+    # TODO This should probably only return the spectrograms...
+    return fft_norm #, fft_mean, fft_std

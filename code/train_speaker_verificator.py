@@ -23,6 +23,7 @@ import queue
 import math
 import time
 import os
+import sys
 
 '''*********************************************************************************************************************
                                                 MAIN LOOP
@@ -34,8 +35,7 @@ def main():
     parser.add_argument('--verifier', dest='verifier', default='', type=str, action='store', help='Type of verifier [xvector|vggvox|resnet34vox|resnet50vox].')
 
     # Training parameters
-    parser.add_argument('--data_source_vox1', dest='data_source_vox1', default='', type=str, action='store', help='Base VoxCeleb1 path of the training datasets')
-    parser.add_argument('--data_source_vox2', dest='data_source_vox2', default='', type=str, action='store', help='Base VoxCeleb2 path of the training datasets')
+    parser.add_argument('--source', dest='source', default=[], action='append', help='Base path to VoxCeleb1 datasets - repeat if needed')
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Number of training epochs')
     parser.add_argument('--batch_size', dest='batch_size', default=32, type=int, action='store', help='Size of training batches')
     parser.add_argument('--learning_rate', dest='learning_rate', default=1e-1, type=float, action='store', help='Batch size for training')
@@ -69,7 +69,7 @@ def main():
         for file in os.listdir(os.path.join(args.noises_dir, type)):
             noises[type].append(os.path.join(args.noises_dir, type, file))
 
-    data = getData(args.data_source_vox1, args.data_source_vox2)
+    data = getData(args.source)
 
     if args.verifier == 'xvector':
         training_generator = FilterbankGenerator(data['paths'], data['labels'], args.max_chunk_size, args.batch_size, args.shuffle, args.sample_rate, args.nfilt, noises, args.num_fft, args.frame_size, args.frame_stride, args.preemphasis, args.vad, args.aug, args.prefilter, args.normalize)
@@ -86,8 +86,8 @@ def main():
     elif args.verifier == 'resnet50vox':
         model = ResNet50Vector.Model()
     else:
-        print('Unsupported verifier.')
-        exit(1)
+        print('Unsupported SV model')
+        sys.exit(1)
 
     model.build_model(len(np.unique(data['labels'])), args.nfilt, args.model_dir)
     model.train_model(training_generator, args.n_epochs, len(data['paths']) // args.batch_size, args.learning_rate, args.dropout_proportion, args.print_interval, args.model_dir)
