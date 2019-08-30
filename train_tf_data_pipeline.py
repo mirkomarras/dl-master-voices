@@ -57,7 +57,7 @@ class SG(object):
 
 # %%
 
-def generator(files):
+def generator(files, labels):
 
     index = 0
     for r in range(16):
@@ -66,6 +66,7 @@ def generator(files):
         f_speaker = random.sample(noises['ir_speaker'], 1)[0]
         f_room = random.sample(noises['ir_room'], 1)[0]
         f_mic = random.sample(noises['ir_mic'], 1)[0]
+        label = labels[index]
 
         index = (index + 1) % len(files)
 
@@ -79,21 +80,20 @@ def generator(files):
         room= room.reshape((-1, 1, 1))
         mic = mic.reshape((-1, 1, 1))
 
-        yield {'speech': speech, 'speaker': speaker, 'room': room, 'mic': mic}
+        yield speech, label, speaker, room, mic
 
     raise StopIteration()
 
-for x in generator(data['paths']):
-    for k, v in x.items():
-        print(k, v.shape)
+for x in generator(data['paths'], data['labels']):
+    print(x[0].shape, x[1], x[2].shape)
 
 # %% Measure processing time
 
 with tf.device('/cpu:0'):
 
     dataset = tf.data.Dataset.from_generator(
-            lambda : generator(data['paths']),
-            {'speech': tf.float32, 'speaker': tf.float32, 'room': tf.float32, 'mic': tf.float32}
+            lambda : generator(data['paths'], data['labels']),
+            (tf.float32, tf.int32, tf.float32, tf.float32, tf.float32)
             )
     
     # dataset = dataset.map(speech_only)
@@ -101,7 +101,7 @@ with tf.device('/cpu:0'):
     dataset = dataset.map(spectrogram, num_parallel_calls=4)
     # dataset = dataset.map(clip)
     # dataset = dataset.map(mfcc)
-    dataset = dataset.map(lambda x: tf.squeeze(x, axis=0))
+    dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y))
     dataset = dataset.batch(4)
     dataset = dataset.prefetch(1)
     
@@ -115,6 +115,8 @@ with tf.device('/cpu:0'):
             x = sess.run(next_element)
             if isinstance(x, dict):
                 print({k: v.shape for k, v in x.items()})
+            elif isinstance(x, tuple):
+                print(*[v.shape if len(v.shape) > 1 else v for v in x])
             else:
                 print('>>', x.shape, x.min(), x.max())
     
@@ -122,11 +124,35 @@ with tf.device('/cpu:0'):
     
     print('Elapsed {}'.format(t2-t1))
 
-# model = Model()
+# %%
 
-# model.build_model(next_element, len(np.unique(data['labels'])), './tmp')
-# model.train_model(gen, 1000, len(data['paths']) // batch,
-#                   1e-4, 0.1, True, './tmp')
+tf.reset_default_graph()
+
+with tf.device('/cpu:0'):
+
+    dataset = tf.data.Dataset.from_generator(
+            lambda : generator(data['paths'], data['labels']),
+            (tf.float32, tf.int32, tf.float32, tf.float32, tf.float32)
+            )
+    
+    # dataset = dataset.map(speech_only)
+    dataset = dataset.map(playback_n_recording, num_parallel_calls=4)
+    dataset = dataset.map(spectrogram, num_parallel_calls=4)
+    # dataset = dataset.map(clip)
+    # dataset = dataset.map(mfcc)
+    dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y))
+    dataset = dataset.batch(4)
+    dataset = dataset.prefetch(1)
+    
+    # Get data from
+    iterator = dataset.make_one_shot_iterator()
+    next_element = iterator.get_next()
+
+
+model = Model(tf.get_default_graph())
+
+model.build_model(*next_element, len(np.unique(data['labels'])), './tmp')
+model.train_model(1000, len(data['paths']) // batch, 1e-4, 0.1, True, './tmp')
 
 # %%
 

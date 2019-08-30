@@ -25,7 +25,7 @@ def mfcc(pcm, sample_rate=16000):
     mfccs = tf.contrib.signal.mfccs_from_log_mel_spectrograms( log_mel_spectrograms)[..., :13]
     return mfccs
 
-def spectrogram(audio, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
+def spectrogram(audio, label, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
 
     audio = tf.reshape(audio, (-1, ))
     # print(audio)
@@ -52,17 +52,10 @@ def spectrogram(audio, sample_rate=16000, frame_size=0.025, frame_stride=0.01, n
     spec_norm = tf.expand_dims(spec_norm, 0)
     spec_norm = tf.expand_dims(spec_norm, 3)
 
-    return spec_norm
+    return spec_norm, label
 
 
-def setup_room():
-    pass
-
-def playback_n_recording(samples, max_length=48000):
-    speech = samples['speech']
-    speaker = samples['speaker']
-    room = samples['room']
-    mic = samples['mic']
+def playback_n_recording(speech, label, speaker, room, mic, max_length=48000):
 
     speech = speech[:, :max_length, :]
 
@@ -72,11 +65,11 @@ def playback_n_recording(samples, max_length=48000):
     room_out = tf.nn.conv1d(speaker_out, room, 1, padding="SAME")
     audio_out = tf.nn.conv1d(room_out, mic, 1, padding="SAME")
     
-    return audio_out
+    return audio_out, label
 
-def speech_only(samples, max_length=48000):
-    return samples['speech'][:, :max_length, :]
+def speech_only(speech, label, speaker, room, mic, max_length=48000):
+    return speech[:, :max_length, :], label
 
 
-def clip(samples, length=300):
-    return samples[:, :, :length, :]
+def clip(samples, label, length=300):
+    return samples[:, :, :length, :], label
