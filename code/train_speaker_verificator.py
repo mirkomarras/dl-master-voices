@@ -89,6 +89,10 @@ def main():
         print('Unsupported SV model')
         sys.exit(1)
 
+    batch = training_generator.getitem(0)
+    # print('!', batch)
+    print('#', batch[0].shape, batch[1].shape)
+
     model.build_model(len(np.unique(data['labels'])), args.nfilt, args.model_dir)
     model.train_model(training_generator, args.n_epochs, len(data['paths']) // args.batch_size, args.learning_rate, args.dropout_proportion, args.print_interval, args.model_dir)
 

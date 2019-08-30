@@ -207,7 +207,7 @@ def vad_func(samples, sample_rate, window_duration_ms=30):
 def get_fft_filterbank_unpack(args):
     return get_fft_filterbank(*args)
 
-def get_fft_filterbank(filename, sample_rate, nfilt, noises, num_fft=512, frame_size=0.025, frame_stride=0.01, preemphasis_alpha=0.97, vad=False, aug=0, prefilter=True, normalize=True):
+def get_fft_filterbank(filename, sample_rate, nfilt=24, noises=None, num_fft=512, frame_size=0.025, frame_stride=0.01, preemphasis_alpha=0.97, vad=False, aug=0, prefilter=True, normalize=True):
     signal = load_wav(filename, sample_rate)
 
     # Voice activity detection
@@ -292,7 +292,7 @@ def get_fft_filterbank(filename, sample_rate, nfilt, noises, num_fft=512, frame_
 def get_fft_spectrum_unpack(args):
     return get_fft_spectrum(*args)
 
-def get_fft_spectrum(filename, sample_rate, nfilt, noises, num_fft=512, frame_size=0.025, frame_stride=0.01, preemphasis_alpha=0.97, vad=False, aug=0, prefilter=True, normalize=True):
+def get_fft_spectrum(filename, sample_rate, nfilt=None, noises=None, num_fft=512, frame_size=0.025, frame_stride=0.01, preemphasis_alpha=0.97, vad=False, aug=0, prefilter=True, normalize=True):
     signal = load_wav(filename, sample_rate)
 
     # Voice activity detection

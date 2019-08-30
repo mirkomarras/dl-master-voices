@@ -94,10 +94,11 @@ class SpectrumGenerator():
 
 
         spectrums = get_fft_spectrum(*params[0])
+        print('>', spectrums.shape)
 
         pool_Out = self.pool.map(get_fft_spectrum_unpack, params)
-        spectrums = np.array()
-        for _, (sp, label) in enumerate(zip(spectrums,list_Labels)):
+        # spectrums = np.array()
+        for sp, label in zip(spectrums,list_Labels):
             X.append(sp)
             y.append(label)
         X = np.array(X)
