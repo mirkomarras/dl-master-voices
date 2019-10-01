@@ -21,6 +21,8 @@ aug = 0
 noise_dir = './data/noise'
 sources = ['./data/voxceleb1']
 batch = 32
+t_batches = 10
+processing = 'verbatim'
 
 data = getData(sources)
 
@@ -30,37 +32,16 @@ for n_type in os.listdir(noise_dir):
     for file in os.listdir(os.path.join(noise_dir, n_type)):
         noises[n_type].append(os.path.join(noise_dir, n_type, file))
 
-# gen = FilterbankGenerator(data['paths'], data['labels'], 300, batch, True, 16000, 24, noises, 512, 0.025, 0.01, 0.97, False, aug, True, True)
-# gen = SpectrumGenerator(data['paths'], data['labels'], 300, batch, True, 16000, 24, noises, 512, 0.025, 0.01, 0.97, False, aug, True, True)
-
-
-class SG(object):
-
-    def __init__(self, files):
-        self._files = files
-        self._index = 0
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        if self._index >= len(self._files) - 1:
-            raise StopIteration()
-        # self._index = (self._index + 1) % len(self._files)
-        self._index = self._index + 1
-        return self._files[self._index]
-
-
-# gen = SG(data['paths'])
-
-# for x in gen: print(x)
+print('Found impulse responses:')
+for k, v in noises.items():
+    print('  {} ({}) -> {:.60s}...'.format(k, len(v), str(v)))
 
 # %%
 
 def generator(files, labels):
 
     index = 0
-    for r in range(16):
+    for r in range(len(files)):
         # The files
         f_speech = files[index]
         f_speaker = random.sample(noises['ir_speaker'], 1)[0]
@@ -84,7 +65,7 @@ def generator(files, labels):
 
     raise StopIteration()
 
-for x in generator(data['paths'], data['labels']):
+for x in generator(data['paths'][:20], data['labels'][:20]):
     print(x[0].shape, x[1], x[2].shape)
 
 # %% Measure processing time
@@ -96,33 +77,42 @@ with tf.device('/cpu:0'):
             (tf.float32, tf.int32, tf.float32, tf.float32, tf.float32)
             )
     
-    # dataset = dataset.map(speech_only)
-    dataset = dataset.map(playback_n_recording, num_parallel_calls=4)
+
+    if processing == 'playback':
+        dataset = dataset.map(playback_n_recording, num_parallel_calls=4)
+    elif processing == 'verbatim':
+        dataset = dataset.map(speech_only)
+    else:
+        raise ValueError('ERROR Unknown processing!')
+
     dataset = dataset.map(spectrogram, num_parallel_calls=4)
     # dataset = dataset.map(clip)
     # dataset = dataset.map(mfcc)
     dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y))
-    dataset = dataset.batch(4)
+    dataset = dataset.batch(batch)
     dataset = dataset.prefetch(1)
     
     # Get data from
-    iterator = dataset.make_one_shot_iterator()
+    iterator = dataset.make_initializable_iterator()
     next_element = iterator.get_next()
     
     t1 = datetime.now()
     with tf.Session() as sess:
-        for i in range(4):
+
+        sess.run(iterator.initializer)
+
+        for i in range(t_batches):
             x = sess.run(next_element)
-            if isinstance(x, dict):
-                print({k: v.shape for k, v in x.items()})
-            elif isinstance(x, tuple):
-                print(*[v.shape if len(v.shape) > 1 else v for v in x])
-            else:
-                print('>>', x.shape, x.min(), x.max())
-    
+            # if isinstance(x, dict):
+            #     print({k: v.shape for k, v in x.items()})
+            # elif isinstance(x, tuple):
+            #     print(*[v.shape if len(v.shape) > 1 else v for v in x])
+            # else:
+            #     print('>>', x.shape, x.min(), x.max())
+
     t2 = datetime.now()
     
-    print('Elapsed {}'.format(t2-t1))
+    print('Iteration time [{} batches of {} elem.] {}'.format(t_batches, batch, t2-t1))
 
 # %%
 
@@ -141,19 +131,19 @@ with tf.device('/cpu:0'):
     # dataset = dataset.map(clip)
     # dataset = dataset.map(mfcc)
     dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y))
-    dataset = dataset.batch(4)
+    dataset = dataset.batch(batch)
     dataset = dataset.prefetch(1)
     
     # Get data from
-    iterator = dataset.make_one_shot_iterator()
+    iterator = dataset.make_initializable_iterator()
     next_element = iterator.get_next()
-
 
 model = Model(tf.get_default_graph())
 
 model.build_model(*next_element, len(np.unique(data['labels'])), './tmp')
-model.train_model(1000, len(data['paths']) // batch, 1e-4, 0.1, True, './tmp')
+model.train_model(1000, len(data['paths']) // batch, 1e-4, 0.1, True, './tmp', iterator.initializer)
 
 # %%
 
 # plt.imshow(get_fft_spectrum(data['paths'][4], 16000))
+

@@ -85,9 +85,11 @@ class Model(object):
 
                 scores = tf.nn.xw_plus_b(h, w, b, name="scores")
 
-                predictions = tf.argmax(scores, 1, name="predictions")
+                print('>>', self.input_y, self.input_y.shape, self.input_y.dtype)
 
-            losses = tf.nn.softmax_cross_entropy_with_logits_v2(logits=scores, labels=self.input_y)
+                predictions = tf.argmax(scores, 1, name="predictions", output_type=tf.int32)
+
+            losses = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=scores, labels=self.input_y)
 
             self.loss = tf.reduce_mean(losses, name="loss")
 
@@ -96,7 +98,7 @@ class Model(object):
                 self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss, name="optimizer")
 
             with tf.name_scope("accuracy"):
-                correct_predictions = tf.equal(predictions, tf.argmax(self.input_y, 1))
+                correct_predictions = tf.equal(predictions, self.input_y)
                 self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, "float"), name="accuracy")
 
         with tf.Session(graph=self.graph, config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
@@ -180,7 +182,8 @@ class Model(object):
         xvector_avg /= tot_weight
         return xvector_avg
 
-    def train_model(self, n_epochs, n_steps_per_epoch, learning_rate, dropout_proportion, print_interval, output_dir):
+    def train_model(self, n_epochs, n_steps_per_epoch, learning_rate, dropout_proportion, print_interval, output_dir, initializer):
+        
         with tf.Session(config=tf.ConfigProto(allow_soft_placement=False, log_device_placement=False)) as sess:
             # self.load_model(sess, output_dir)
 
@@ -188,6 +191,9 @@ class Model(object):
 
             print("Start training vgg-vector model")
             for epoch in range(n_epochs):
+
+                sess.run(initializer)
+
                 print('Epoch', epoch, '/', n_epochs)
 
                 minibatch_count = n_steps_per_epoch
