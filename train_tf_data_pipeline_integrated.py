@@ -43,14 +43,12 @@ for k, v in noises.items():
 
 # %%
 
-cached = {}
+ir_cache = {}
 for k, files in noises.items():
     for fi in files:
-        cached[fi] = librosa.load(fi, sr=16000, mono=True)[0].reshape((-1, 1, 1))
+        ir_cache[fi] = librosa.load(fi, sr=16000, mono=True)[0].reshape((-1, 1, 1))
 
 # %%
-
-batch = 4
 
 def generator(files, labels):
 
@@ -58,44 +56,35 @@ def generator(files, labels):
     for r in range(len(files)):
         # The files
         f_speech = files[index]
-        if index % batch == 0:
-            f_speaker = random.sample(noises['ir_speaker'], 1)[0]
-            f_room = random.sample(noises['ir_room'], 1)[0]
-            f_mic = random.sample(noises['ir_mic'], 1)[0]
         label = labels[index]
 
         index = (index + 1) % len(files)
 
         speech = load_wav(f_speech, 16000)
-        speaker = cached[f_speaker]
-        room = cached[f_room]
-        mic = cached[f_mic]
 
         speech = speech.reshape((1, -1, 1))
         speech = speech[:, :48000, :]
 
-        yield speech, label, speaker, room, mic
+        yield speech, label
 
     raise StopIteration()
 
 for x in generator(data['paths'][:20], data['labels'][:20]):
-    print(x[0].shape, x[2].shape, x[3].shape, x[4].shape)
+    print(x[0].shape, x[1])
 
 # %% Measure processing time
-
-batch = 4
 
 with tf.device('/cpu:0'):
 
     dataset = tf.data.Dataset.from_generator(
             lambda : generator(data['paths'], data['labels']),
-            (tf.float32, tf.int32, tf.float32, tf.float32, tf.float32)
+            (tf.float32, tf.int32)
             )
 
     # dataset = dataset.map(spectrogram, num_parallel_calls=4)
     # dataset = dataset.map(clip)
     # dataset = dataset.map(mfcc)
-    # dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y))
+    dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y))
     dataset = dataset.batch(batch)
     dataset = dataset.prefetch(1)
     
@@ -110,12 +99,12 @@ with tf.device('/cpu:0'):
 
         for i in range(t_batches):
             x = sess.run(next_element)
-            # if isinstance(x, dict):
-            #     print({k: v.shape for k, v in x.items()})
-            # elif isinstance(x, tuple):
-            #     print(*[v.shape if len(v.shape) > 1 else v for v in x])
-            # else:
-            #     print('>>', x.shape, x.min(), x.max())
+            if isinstance(x, dict):
+                print({k: v.shape for k, v in x.items()})
+            elif isinstance(x, tuple):
+                print(*[v.shape if len(v.shape) > 1 else v for v in x])
+            else:
+                print('>>', x.shape, x.min(), x.max())
 
     t2 = datetime.now()
     
@@ -129,25 +118,12 @@ with tf.device('/cpu:0'):
 
     dataset = tf.data.Dataset.from_generator(
             lambda : generator(data['paths'], data['labels']),
-            (tf.float32, tf.int32, tf.float32, tf.float32, tf.float32)
+            (tf.float32, tf.int32)
             )
     
-    # dataset = dataset.map(speech_only)
-    # dataset = dataset.map(playback_n_recording, num_parallel_calls=4)
-    
-    if processing == 'playback':
-        dataset = dataset.map(playback_n_recording, num_parallel_calls=4)
-    elif processing == 'verbatim':
-        dataset = dataset.map(speech_only)
-    else:
-        raise ValueError('ERROR Unknown processing!')    
-    
-    dataset = dataset.map(spectrogram, num_parallel_calls=4)
-    # dataset = dataset.map(clip)
-    # dataset = dataset.map(mfcc)
     dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y))
     dataset = dataset.batch(batch)
-    dataset = dataset.prefetch(1)
+    dataset = dataset.prefetch(1024)
     
     # Get data from
     iterator = dataset.make_initializable_iterator()
@@ -155,7 +131,7 @@ with tf.device('/cpu:0'):
 
 model = Model(tf.get_default_graph())
 
-model.build_model(*next_element, len(np.unique(data['labels'])), './tmp')
+model.build_model(*next_element, noises, ir_cache, len(np.unique(data['labels'])), './tmp')
 model.train_model(1000, len(data['paths']) // batch, 1e-4, 0.1, True, './tmp', iterator.initializer)
 
 # %%

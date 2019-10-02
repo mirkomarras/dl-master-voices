@@ -6,35 +6,29 @@ import numpy as np
 import queue
 import time
 import os
+import random
 
+def spectrogram(audio, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
 
-def spectrogram(audio, label, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
+    frames = tf.contrib.signal.frame(audio, frame_length=int(frame_size * sample_rate), frame_step=int(frame_stride * sample_rate), pad_end=True, name="Frames", axis=1)
+    hw = tf.contrib.signal.hamming_window(int(frame_size * sample_rate), periodic=True)
+    frames = frames * tf.reshape(hw, [1, 1, -1, 1])
+    pad_amount = int(num_fft) - int(frame_size * sample_rate)
+    frames = tf.pad(frames, [[0, 0], [0, 0], [0, pad_amount], [0, 0]])
+    frames = tf.transpose(frames, perm=[0, 1, 3, 2])
 
-    audio = tf.reshape(audio, (-1, ))
-    # print(audio)
-    # print(audio.shape)
-    frames = tf.contrib.signal.frame(audio, frame_length=int(frame_size * sample_rate), frame_step=int(frame_stride * sample_rate), pad_end=True, name="Frames")
-    frames = frames * tf.contrib.signal.hamming_window(int(frame_size * sample_rate), periodic=True)
-    frames = tf.transpose(frames)
-    t = tf.shape(frames)
-    pad_amount = tf.zeros([int(num_fft) - int(frame_size * sample_rate), t[1]], tf.float32)
-    frames_pad = tf.concat([frames, pad_amount], axis=0)
-    
     # Computing the FFT of the audio tensor
-    y = tf.cast(frames_pad, tf.complex64)
-    y = tf.transpose(y)
-    spec = tf.cast(tf.abs(tf.spectral.fft(y, name="FFT")), tf.float32)
-    mag_spec = tf.transpose(spec)
-    
-    # Normalizing the spectrogram
-    mean_tensor, variance_tensor = tf.nn.moments(mag_spec, axes=[1])
-    std_tensor = tf.math.sqrt(variance_tensor)
-    m_shape = tf.shape(mean_tensor)
-    s_shape = tf.shape(std_tensor)
-    spec_norm = (mag_spec - tf.reshape(mean_tensor, [m_shape[0], 1])) / tf.maximum(tf.reshape(std_tensor, [s_shape[0], 1]), 1e-8)
-    spec_norm = tf.expand_dims(spec_norm, 0)
-    spec_norm = tf.expand_dims(spec_norm, 3)
+    frames = tf.cast(frames, tf.complex64)
+    spec = tf.cast(tf.abs(tf.spectral.fft(frames, name="FFT")), tf.float32)
+    mag_spec = tf.transpose(spec, perm=[0, 3, 1, 2])
 
+    # Normalizing the spectrogram
+    #mean_tensor, variance_tensor = tf.nn.moments(mag_spec, axes=[1, 2])
+    #std_tensor = tf.math.sqrt(variance_tensor)
+    #m_shape = tf.shape(mean_tensor)
+    #s_shape = tf.shape(std_tensor)
+
+    spec_norm = mag_spec
     return spec_norm
 
 
@@ -45,7 +39,10 @@ class Model(object):
         self.var2std_epsilon = 0.00001
         self.reuse = False
 
-    def build_model(self, input_x, input_y, speaker, room, mic, num_classes, output_dir):
+    def build_model(self, input_x, input_y, noises, ir_cache, num_classes, output_dir):
+        
+        self.noises = noises
+        self.ir_cache = ir_cache
         print("Start building vgg-vector model")
 
         with self.graph.as_default():
@@ -61,22 +58,25 @@ class Model(object):
             self.input_x = input_x if input_x is not None else tf.placeholder(tf.float32, [None, 48000, 1], name="input_x")
             self.input_y = input_y if input_y is not None else tf.placeholder(tf.float32, [None, num_classes], name="input_y")
 
-            self.speaker = speaker if speaker is not None else tf.placeholder(tf.float32, [None, 1, 1], name="ir_speaker")
-            self.room    = room if room is not None else tf.placeholder(tf.float32, [None, 1, 1], name="ir_room")
-            self.mic     = mic if mic is not None else tf.placeholder(tf.float32, [None, 1, 1], name="ir_mic")
+            self.speaker = tf.placeholder(tf.float32, [None, 1, 1], name="ir_speaker")
+            self.room    = tf.placeholder(tf.float32, [None, 1, 1], name="ir_room")
+            self.mic     = tf.placeholder(tf.float32, [None, 1, 1], name="ir_mic")
 
             # input_x = tf.layers.batch_normalization(self.input_x, training=self.phase, name='bbn0', reuse=self.reuse)
 
+            noise_strength = tf.clip_by_value(tf.random.normal((1,), 0, 5e-3), 0, 10)
             speaker_out = tf.nn.conv1d(self.input_x, self.speaker, 1, padding="SAME")
-            noise_tensor = tf.random.normal(tf.shape(self.input_x), mean=0, stddev=5e-3, dtype=tf.float32)
+            noise_tensor = tf.random.normal(tf.shape(self.input_x), mean=0, stddev=noise_strength, dtype=tf.float32)
             speaker_out = tf.add(speaker_out, noise_tensor)
             room_out = tf.nn.conv1d(speaker_out, self.room, 1, padding="SAME")
             audio_out = tf.nn.conv1d(room_out, self.mic, 1, padding="SAME")
 
+            self.input_a = audio_out
             spec = spectrogram(audio_out)
+            self.input_s = tf.identity(spec, name='spectrogram')
 
             with tf.variable_scope('conv1'):
-                conv1_1 = tf.layers.conv2d(spec, filters=96, kernel_size=[7, 7], strides=[2, 2], padding='SAME', reuse=self.reuse, name='cc1')
+                conv1_1 = tf.layers.conv2d(self.input_s, filters=96, kernel_size=[7, 7], strides=[2, 2], padding='SAME', reuse=self.reuse, name='cc1')
                 conv1_1 = tf.layers.batch_normalization(conv1_1, training=self.phase, name='bbn1', reuse=self.reuse)
                 conv1_1 = tf.nn.relu(conv1_1)
                 conv1_1 = tf.layers.max_pooling2d(conv1_1, pool_size=[3, 3], strides=[2, 2], name='mpool1')
@@ -100,6 +100,7 @@ class Model(object):
                 conv3_3 = tf.layers.batch_normalization(conv3_3, training=self.phase, name='bbn5', reuse=self.reuse)
                 conv3_3 = tf.nn.relu(conv3_3)
                 conv3_3 = tf.layers.max_pooling2d(conv3_3, pool_size=[5, 3], strides=[3, 2], name='mpool3')
+                self.conv3_3 = conv3_3
 
             with tf.variable_scope('conv4'):
                 conv4_3 = tf.layers.conv2d(conv3_3, filters=4096, kernel_size=[9, 1], strides=[1, 1], padding='VALID', reuse=self.reuse, name='cc4_1')
@@ -131,6 +132,8 @@ class Model(object):
                 print('>>', self.input_y, self.input_y.shape, self.input_y.dtype)
 
                 predictions = tf.argmax(scores, 1, name="predictions", output_type=tf.int32)
+                
+            self.logits = scores
 
             losses = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=scores, labels=self.input_y)
 
@@ -268,8 +271,20 @@ class Model(object):
                     # total_segments += batch_data.shape[0]
                     # total_segments_len += batch_data.shape[1]
 
-                    feed_dict = {self.dropout_keep_prob: dropout_keep_prob, self.learning_rate: learning_rate, self.phase: True}
+                    f_speaker = random.sample(self.noises['ir_speaker'], 1)[0]
+                    f_room = random.sample(self.noises['ir_room'], 1)[0]
+                    f_mic = random.sample(self.noises['ir_mic'], 1)[0]
+
+                    feed_dict = {
+                        self.speaker: self.ir_cache[f_speaker],
+                        self.room: self.ir_cache[f_room],
+                        self.mic: self.ir_cache[f_mic],
+                        self.dropout_keep_prob: dropout_keep_prob, 
+                        self.learning_rate: learning_rate, 
+                        self.phase: True
+                    }
                     gpu_waiting = time.time()
+                    
                     _, loss, accuracy = sess.run([self.optimizer, self.loss, self.accuracy], feed_dict=feed_dict)
                     curr_gpu_waiting = time.time() - gpu_waiting
                     total_gpu_waiting += curr_gpu_waiting
