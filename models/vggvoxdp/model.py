@@ -84,9 +84,6 @@ class Model(object):
                 b = tf.Variable(tf.constant(0.1, shape=[num_classes]), name="b")
 
                 scores = tf.nn.xw_plus_b(h, w, b, name="scores")
-
-                print('>>', self.input_y, self.input_y.shape, self.input_y.dtype)
-
                 predictions = tf.argmax(scores, 1, name="predictions", output_type=tf.int32)
 
             losses = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=scores, labels=self.input_y)
@@ -184,8 +181,14 @@ class Model(object):
 
     def train_model(self, n_epochs, n_steps_per_epoch, learning_rate, dropout_proportion, print_interval, output_dir, initializer):
         
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=False, log_device_placement=False)) as sess:
+        config = tf.ConfigProto(allow_soft_placement=False, log_device_placement=False)
+        config.graph_options.rewrite_options.layout_optimizer = 2  # RewriterConfig.OFF        
+        
+        with tf.Session(config=config) as sess:
             # self.load_model(sess, output_dir)
+            
+            writer  = tf.summary.FileWriter('./log/')
+            saver   = tf.train.Saver()
 
             sess.run(tf.global_variables_initializer())
 

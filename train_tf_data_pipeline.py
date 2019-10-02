@@ -3,6 +3,7 @@
 import random
 import numpy as np
 import os
+import sys
 import librosa
 from datetime import datetime
 
@@ -21,8 +22,12 @@ aug = 0
 noise_dir = './data/noise'
 sources = ['./data/voxceleb1']
 batch = 32
-t_batches = 10
-processing = 'verbatim'
+t_batches = 3
+
+if len(sys.argv) == 1:
+    processing = 'verbatim'
+else:
+    processing = sys.argv[-1]
 
 data = getData(sources)
 
@@ -38,6 +43,11 @@ for k, v in noises.items():
 
 # %%
 
+cached = {}
+for k, files in noises.items():
+    for fi in files:
+        cached[fi] = librosa.load(fi, sr=16000, mono=True)[0].reshape((-1, 1, 1))
+
 def generator(files, labels):
 
     index = 0
@@ -52,87 +62,109 @@ def generator(files, labels):
         index = (index + 1) % len(files)
 
         speech = load_wav(f_speech, 16000)
-        speaker, _ = librosa.load(f_speaker, sr=16000, mono=True)
-        room, _ = librosa.load(f_room, sr=16000, mono=True)
-        mic, _ = librosa.load(f_mic, sr=16000, mono=True)
+        speaker = cached[f_speaker]
+        room = cached[f_room]
+        mic = cached[f_mic]
 
         speech = speech.reshape((1, -1, 1))
-        speaker = speaker.reshape((-1, 1, 1))
-        room= room.reshape((-1, 1, 1))
-        mic = mic.reshape((-1, 1, 1))
+        speech = speech[:, :48000, :]
 
         yield speech, label, speaker, room, mic
 
     raise StopIteration()
 
-for x in generator(data['paths'][:20], data['labels'][:20]):
+for x in generator(data['paths'][:5], data['labels'][:5]):
     print(x[0].shape, x[1], x[2].shape)
 
-# %% Measure processing time
+# %% MEASUREMENT ------------------------------------------------------------------------------------------------
 
-with tf.device('/cpu:0'):
+config = tf.ConfigProto(allow_soft_placement=False, log_device_placement=True)
+config.graph_options.rewrite_options.layout_optimizer = 2  # RewriterConfig.OFF    
+
+run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+run_metadata = tf.RunMetadata()
+
+if True:
+
+    with tf.device('/cpu:0'):
+
+        dataset = tf.data.Dataset.from_generator(
+                lambda : generator(data['paths'], data['labels']),
+                (tf.float32, tf.int32, tf.float32, tf.float32, tf.float32)
+                )
+        
+        dataset = dataset.prefetch(batch)
+        
+        #dataset = dataset.map(clip)
+        #dataset = dataset.batch(batch)
+
+    #with tf.device('/cpu:0'):
+
+        if processing == 'playback':
+            dataset = dataset.map(playback_n_recording)
+        elif processing == 'verbatim':
+            dataset = dataset.map(speech_only)
+        else:
+            raise ValueError('ERROR Unknown processing!')
+
+        dataset = dataset.map(spectrogram)
+        dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y))
+        dataset = dataset.batch(batch)
+
+        #dataset = dataset.prefetch(1)
+
+    #with tf.device('/cpu:0'):
+        
+        # Get data from
+        iterator = dataset.make_initializable_iterator()
+        next_element = iterator.get_next()
+
+    t1 = datetime.now()
+    with tf.Session(config=config) as sess:
+
+        sess.run(iterator.initializer)
+
+        for i in range(t_batches):
+            x = sess.run(next_element, options=run_options, run_metadata=run_metadata)
+            
+            if isinstance(x, dict):
+                print({k: v.shape for k, v in x.items()})
+            elif isinstance(x, tuple):
+                print(*[v.shape if len(v.shape) > 1 else v for v in x])
+            else:
+                print('>>', x.shape, x.min(), x.max())
+
+    t2 = datetime.now()
+
+    print('Iteration time [{}/{} batches of {} elem.] {}'.format(processing, t_batches, batch, t2-t1))
+
+# %% TRAINING ------------------------------------------------------------------------------------------------
+
+tf.reset_default_graph()
+
+#with tf.Graph().as_default(), tf.device('/cpu:0'):
+ 
+with tf.device('/gpu:0'):
 
     dataset = tf.data.Dataset.from_generator(
             lambda : generator(data['paths'], data['labels']),
             (tf.float32, tf.int32, tf.float32, tf.float32, tf.float32)
             )
     
-
+    dataset = dataset.prefetch(1024*16)
+                
     if processing == 'playback':
         dataset = dataset.map(playback_n_recording, num_parallel_calls=4)
     elif processing == 'verbatim':
         dataset = dataset.map(speech_only)
     else:
-        raise ValueError('ERROR Unknown processing!')
-
+        raise ValueError('ERROR Unknown processing!')    
+    
     dataset = dataset.map(spectrogram, num_parallel_calls=4)
-    # dataset = dataset.map(clip)
-    # dataset = dataset.map(mfcc)
     dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y))
     dataset = dataset.batch(batch)
-    dataset = dataset.prefetch(1)
-    
-    # Get data from
-    iterator = dataset.make_initializable_iterator()
-    next_element = iterator.get_next()
-    
-    t1 = datetime.now()
-    with tf.Session() as sess:
-
-        sess.run(iterator.initializer)
-
-        for i in range(t_batches):
-            x = sess.run(next_element)
-            # if isinstance(x, dict):
-            #     print({k: v.shape for k, v in x.items()})
-            # elif isinstance(x, tuple):
-            #     print(*[v.shape if len(v.shape) > 1 else v for v in x])
-            # else:
-            #     print('>>', x.shape, x.min(), x.max())
-
-    t2 = datetime.now()
-    
-    print('Iteration time [{} batches of {} elem.] {}'.format(t_batches, batch, t2-t1))
-
-# %%
-
-tf.reset_default_graph()
 
 with tf.device('/cpu:0'):
-
-    dataset = tf.data.Dataset.from_generator(
-            lambda : generator(data['paths'], data['labels']),
-            (tf.float32, tf.int32, tf.float32, tf.float32, tf.float32)
-            )
-    
-    # dataset = dataset.map(speech_only)
-    dataset = dataset.map(playback_n_recording, num_parallel_calls=4)
-    dataset = dataset.map(spectrogram, num_parallel_calls=4)
-    # dataset = dataset.map(clip)
-    # dataset = dataset.map(mfcc)
-    dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y))
-    dataset = dataset.batch(batch)
-    dataset = dataset.prefetch(1)
     
     # Get data from
     iterator = dataset.make_initializable_iterator()
