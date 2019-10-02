@@ -58,18 +58,17 @@ def spectrogram(audio, label, sample_rate=16000, frame_size=0.025, frame_stride=
 def playback_n_recording(speech, label, speaker, room, mic, max_length=48000):
 
     speech = speech[:, :max_length, :]
-
+    
     speaker_out = tf.nn.conv1d(speech, speaker, 1, padding="SAME")
     noise_tensor = tf.random.normal(tf.shape(speech), mean=0, stddev=5e-3, dtype=tf.float32)
     speaker_out = tf.add(speaker_out, noise_tensor)
-    room_out = tf.nn.conv1d(speaker_out, room, 1, padding="SAME")
-    audio_out = tf.nn.conv1d(room_out, mic, 1, padding="SAME")
+    #room_out = tf.nn.conv1d(speaker_out, room, 1, padding="SAME")
+    #audio_out = tf.nn.conv1d(room_out, mic, 1, padding="SAME")
     
-    return audio_out, label
+    return speaker_out, label
 
 def speech_only(speech, label, speaker, room, mic, max_length=48000):
     return speech[:, :max_length, :], label
 
-
-def clip(samples, label, length=300):
-    return samples[:, :, :length, :], label
+def clip(speech, label, speaker, room, mic, max_length=48000):
+    return speech[:, :max_length, :], label, speaker, room, mic
