@@ -1,14 +1,16 @@
 #!/bin/bash
 
 # Load modules
+echo "Loading modules"
 module unload cuda/8.0.44
 module load cuda/9.0.176
 module load cudnn/9.0v7.3.0.29
 module load ffmpeg/intel/3.2.2
 
 # Activate env
+echo "Loading venv"
 source ../mvenv/bin/activate
 
 # Train
+echo "Start training"
 python ./src/core/verifier/tf/train.py --audio_dir "/beegfs/mm10572/voxceleb1/dev" --val_base_path "/beegfs/mm10572/voxceleb1/test" --net "vggvox" --augment 1
-
