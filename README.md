@@ -34,6 +34,8 @@ chmod +x ./bash/train.sh
 ./bash/train.sh
 ``` 
 
+The model is saved at ``` /beegfs/mm10572/dl-master-voices/data/pt_models/{net_type}/tf/{version_id} ```.  
+
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
 in this direction. We have done our best to document, refactor, and test the code before publication.
