@@ -21,7 +21,7 @@ chmod +x ./bash/install.sh
 ./bash/install.sh
 ``` 
 
-This creates a virtual env ``` mvenv ``` named ```mvenv``` in ```/beegfs/{id}``` folder, with all the needed Python packages.
+This creates a virtual env ``` mvenv ``` in ```/beegfs/{id}``` folder, with all the needed Python packages.
 It also downloads project data in ```/beegfs/{id}/dl-master-voices/data``` folder. 
 
 ## Getting Started
