@@ -11,6 +11,29 @@
 A Python toolbox for creating and testing impersonation capabilities of **Master Voices** (MVs), a family of adversarial 
 audio samples which match large populations of speakers by chance with high probability. 
 
+## Installation
+Please go a to ```/beegfs/{id}``` directory, then:
+
+``` 
+git clone --single-branch --branch mv_fwk https://github.com/mirkomarras/dl-master-voices.git
+cd dl-master-voices
+chmod +x ./bash/install.sh
+./bash/install.sh
+``` 
+
+This creates a virtual env ``` mvenv ```  in ```/beegfs/{id}``` folder, with all the needed Python packages.
+It also downloads project data in ```/beegfs/{id}/dl-master-voices``` folder. 
+
+## Getting Started
+To start training a sample speaker verification model, from the project folder, please run:
+
+``` 
+screen -S mv_train
+srun --time=120:00:00 --ntasks-per-node=1 --mem=64000 --gres=gpu:1 --pty /bin/bash
+chmod +x ./bash/train.sh
+./bash/train.sh
+``` 
+
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
 in this direction. We have done our best to document, refactor, and test the code before publication.

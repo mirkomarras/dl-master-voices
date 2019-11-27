@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# Request resource
-srun --time=120:00:00 --ntasks-per-node=1 --mem=64000 --gres=gpu:1 --pty /bin/bash
-
 # Load modules
 module unload cuda/8.0.44
 module load cuda/9.0.176
