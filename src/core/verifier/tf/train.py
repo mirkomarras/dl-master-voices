@@ -111,5 +111,5 @@ if __name__ == '__main__':
     print('Creating model')
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
     model = available_nets[args.net](tf.get_default_graph())
-    model.build(*next_element, len(np.unique(y_train)), n_filters=args.n_filters, noises=noise_paths, cache=noise_cache, augment=args.augment, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
+    model.build(*next_element, n_classes=len(np.unique(y_train)), n_filters=args.n_filters, noises=noise_paths, cache=noise_cache, augment=args.augment, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
     model.train(n_epochs=args.n_epochs, n_steps_per_epoch=len(x_train)//args.batch, validation_data=validation_data, validation_interval=args.val_interval, learning_rate=args.learning_rate, dropout_proportion=args.drop_prop, initializer=iterator.initializer)
