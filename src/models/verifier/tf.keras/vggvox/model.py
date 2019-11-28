@@ -29,35 +29,35 @@ class VggVox(Model):
             self.input_s = tf.identity(get_tf_spectrum(self.input_a, self.sample_rate, self.frame_size, self.frame_stride, self.num_fft), name='input_s')
 
             with tf.variable_scope('conv1'):
-                conv1_1 = tf.layers.conv2d(self.input_s, filters=96, kernel_size=[7, 7], strides=[2, 2], padding='SAME', reuse=self.reuse, name='cc1')
-                conv1_1 = tf.layers.batch_normalization(conv1_1, training=self.phase, name='bbn1', reuse=self.reuse)
+                conv1_1 = tf.keras.layers.Conv2D(filters=96, kernel_size=[7, 7], strides=[2, 2], padding='SAME', reuse=self.reuse, name='cc1')(self.input_s)
+                conv1_1 = tf.keras.layers.BatchNormalization(training=self.phase, name='bbn1', reuse=self.reuse)(conv1_1)
                 conv1_1 = tf.nn.relu(conv1_1)
-                conv1_1 = tf.layers.max_pooling2d(conv1_1, pool_size=[3, 3], strides=[2, 2], name='mpool1')
+                conv1_1 = tf.keras.layers.MaxPool2D(pool_size=[3, 3], strides=[2, 2], name='mpool1')(conv1_1)
 
             with tf.variable_scope('conv2'):
-                conv2_1 = tf.layers.conv2d(conv1_1, filters=256, kernel_size=[5, 5], strides=[2, 2], padding='SAME', reuse=self.reuse, name='cc2')
-                conv2_1 = tf.layers.batch_normalization(conv2_1, training=self.phase, name='bbn2', reuse=self.reuse)
+                conv2_1 = tf.keras.layers.Conv2D(filters=256, kernel_size=[5, 5], strides=[2, 2], padding='SAME', reuse=self.reuse, name='cc2')(conv1_1)
+                conv2_1 = tf.keras.layers.BatchNormalization(conv2_1, training=self.phase, name='bbn2', reuse=self.reuse)
                 conv2_1 = tf.nn.relu(conv2_1)
-                conv2_1 = tf.layers.max_pooling2d(conv2_1, pool_size=[3, 3], strides=[2, 2], name='mpool2')
+                conv2_1 = tf.keras.layers.MaxPool2D(pool_size=[3, 3], strides=[2, 2], name='mpool2')(conv2_1)
 
             with tf.variable_scope('conv3'):
-                conv3_1 = tf.layers.conv2d(conv2_1, filters=384, kernel_size=[3, 3], strides=[1, 1], padding='SAME', reuse=self.reuse, name='cc3_1')
-                conv3_1 = tf.layers.batch_normalization(conv3_1, training=self.phase, name='bbn3', reuse=self.reuse)
+                conv3_1 = tf.keras.layers.Conv2D(filters=384, kernel_size=[3, 3], strides=[1, 1], padding='SAME', reuse=self.reuse, name='cc3_1')(conv2_1)
+                conv3_1 = tf.keras.layers.BatchNormalization(training=self.phase, name='bbn3', reuse=self.reuse)(conv3_1)
                 conv3_1 = tf.nn.relu(conv3_1)
 
-                conv3_2 = tf.layers.conv2d(conv3_1, filters=256, kernel_size=[3, 3], strides=[1, 1], padding='SAME', reuse=self.reuse, name='cc3_2')
-                conv3_2 = tf.layers.batch_normalization(conv3_2, training=self.phase, name='bbn4', reuse=self.reuse)
+                conv3_2 = tf.keras.layers.Conv2D(filters=256, kernel_size=[3, 3], strides=[1, 1], padding='SAME', reuse=self.reuse, name='cc3_2')(conv3_1)
+                conv3_2 = tf.keras.layers.BatchNormalization(training=self.phase, name='bbn4', reuse=self.reuse)(conv3_2)
                 conv3_2 = tf.nn.relu(conv3_2)
 
-                conv3_3 = tf.layers.conv2d(conv3_2, filters=256, kernel_size=[3, 3], strides=[1, 1], padding='SAME', reuse=self.reuse, name='cc3_3')
-                conv3_3 = tf.layers.batch_normalization(conv3_3, training=self.phase, name='bbn5', reuse=self.reuse)
+                conv3_3 = tf.keras.layers.Conv2D(filters=256, kernel_size=[3, 3], strides=[1, 1], padding='SAME', reuse=self.reuse, name='cc3_3')(conv3_2)
+                conv3_3 = tf.keras.layers.BatchNormalization(training=self.phase, name='bbn5', reuse=self.reuse)(conv3_3)
                 conv3_3 = tf.nn.relu(conv3_3)
-                conv3_3 = tf.layers.max_pooling2d(conv3_3, pool_size=[5, 3], strides=[3, 2], name='mpool3')
+                conv3_3 = tf.keras.layers.MaxPool2D(pool_size=[5, 3], strides=[3, 2], name='mpool3')(conv3_3)
                 self.conv3_3 = conv3_3
 
             with tf.variable_scope('conv4'):
-                conv4_3 = tf.layers.conv2d(conv3_3, filters=4096, kernel_size=[9, 1], strides=[1, 1], padding='VALID', reuse=self.reuse, name='cc4_1')
-                conv4_3 = tf.layers.batch_normalization(conv4_3, training=self.phase, name='bbn6', reuse=self.reuse)
+                conv4_3 = tf.keras.layers.Conv2D(filters=4096, kernel_size=[9, 1], strides=[1, 1], padding='VALID', reuse=self.reuse, name='cc4_1')(conv3_3)
+                conv4_3 = tf.keras.layers.BatchNormalization(training=self.phase, name='bbn6', reuse=self.reuse)(conv4_3)
                 conv4_3 = tf.nn.relu(conv4_3)
                 conv4_3 = tf.reduce_mean(conv4_3, axis=[1, 2], name='apool4')
                 conv4_3 = tf.nn.dropout(conv4_3, 0.5)
