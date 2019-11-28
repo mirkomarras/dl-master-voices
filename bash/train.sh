@@ -15,4 +15,4 @@ source ../mvenv/bin/activate
 echo "Start training"
 export PYTHONPATH="$(pwd)"
 
-python ./src/core/verifier/tf/train.py --audio_dir "/beegfs/mm10572/voxceleb1/dev,/beegfs/mm10572/voxceleb2/dev" --val_base_path "/beegfs/mm10572/voxceleb1/test" --net "resnet50" --augment 1 --prefetch 100 --buffer_size 7500
+python ./src/core/verifier/tf_keras/train.py --audio_dir "/beegfs/mm10572/voxceleb1/dev,/beegfs/mm10572/voxceleb2/dev" --val_base_path "/beegfs/mm10572/voxceleb1/test" --net "vggvox" --augment 1 --prefetch 100 --buffer_size 7500

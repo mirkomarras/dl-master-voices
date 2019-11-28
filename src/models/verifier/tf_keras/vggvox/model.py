@@ -8,7 +8,7 @@ import time
 import os
 import random
 
-from src.models.verifier.tf.model import Model
+from src.models.verifier.tf_keras.model import Model
 from src.helpers.audio import get_tf_spectrum
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
