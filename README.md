@@ -46,7 +46,7 @@ sbatch ./bash/train_wavegan_{neutral|male|female}.s
 
 The output of the job is saved at ``` ./jobs/slurm_train_wavegan_{neutral|male|female}_{job_id}.out ```.
 
-The model is saved at ```./data/pt_models/wavegan/tf{/neutral|male|female}/{latest_version_id} ```.  
+The model is saved at ```./data/pt_models/wavegan/tf/{neutral|male|female}/{latest_version_id} ```.  
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
