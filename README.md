@@ -25,6 +25,8 @@ This creates a virtual env in ```/beegfs/{id}/dl-master_voices/mvenv``` folder, 
 It also downloads project data in ```/beegfs/{id}/dl-master-voices/data``` folder. 
 
 ## Getting Started
+
+### Train a speaker verification network
 To start training a sample speaker verification model, from the project folder, please run:
 
 ``` 
@@ -34,6 +36,17 @@ sbatch ./bash/train_{net_type}.s
 The output of the job is saved at ``` ./jobs/slurm_train_{net_type}_{job_id}.out ```.
 
 The model is saved at ```./data/pt_models/{net_type}/tf/{latest_version_id} ```.  
+
+### Train a generative adversarial network
+To start training a sample generative adversarial model, from the project folder, please run:
+
+``` 
+sbatch ./bash/train_wavegan_{neutral|male|female}.s
+``` 
+
+The output of the job is saved at ``` ./jobs/slurm_train_wavegan_{neutral|male|female}_{job_id}.out ```.
+
+The model is saved at ```./data/pt_models/wavegan/tf{/neutral|male|female}/{latest_version_id} ```.  
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 

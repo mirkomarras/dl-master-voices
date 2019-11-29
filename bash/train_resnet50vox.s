@@ -5,7 +5,7 @@
 #SBATCH --time=120:00:00
 #SBATCH --mem=16000GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=VGGTrain
+#SBATCH --job-name=Res50Train
 #SBATCH --mail-type=END
 #SBATCH --mail-user=m.marras19@gmail.com
 #SBATCH --output=slurm_train_resnet50vox_%j.out

@@ -5,10 +5,10 @@
 #SBATCH --time=120:00:00
 #SBATCH --mem=16000GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=Res34Train
+#SBATCH --job-name=MWGanTrain
 #SBATCH --mail-type=END
 #SBATCH --mail-user=m.marras19@gmail.com
-#SBATCH --output=slurm_train_resnet34vox_%j.out
+#SBATCH --output=slurm_train_wavegan_male_%j.out
 
 module purge
 module unload cuda/8.0.44
@@ -26,4 +26,4 @@ export PYTHONPATH="$(SRCDIR)"
 source $ENVDIR/bin/activate
 
 cd $RUNDIR
-python $SRCDIR/src/core/verifier/tf/train.py --audio_dir "/beegfs/mm10572/voxceleb1/dev,/beegfs/mm10572/voxceleb2/dev" --val_base_path "/beegfs/mm10572/voxceleb1/test" --net "resnet34vox" --augment 1
+python $SRCDIR/src/core/gan/tf/train.py --net "wavegan" --audio_dir "/beegfs/mm10572/voxceleb1/dev/beegfs/mm10572/voxceleb2/dev" --gender "male"
