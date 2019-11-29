@@ -28,13 +28,12 @@ It also downloads project data in ```/beegfs/{id}/dl-master-voices/data``` folde
 To start training a sample speaker verification model, from the project folder, please run:
 
 ``` 
-screen -S mv_train
-srun --time=120:00:00 --ntasks-per-node=1 --mem=64000 --gres=gpu:1 --pty /bin/bash
-chmod +x ./bash/train.sh
-./bash/train.sh
+sbatch ./bash/train_{net_type}.s
 ``` 
 
-The model is saved at ```./data/pt_models/{net_type}/tf/{version_id} ```.  
+The output of the job is saved at ``` ./jobs/slurm_train_{net_type}_{job_id}.out ```.
+
+The model is saved at ```./data/pt_models/{net_type}/tf/{latest_version_id} ```.  
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
