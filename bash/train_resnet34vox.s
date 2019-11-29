@@ -17,8 +17,8 @@ module load cudnn/9.0v7.3.0.29
 module load ffmpeg/intel/3.2.2
 
 SRCDIR=/beegfs/mm10572/dl-master-voices
-ENVDIR=/beegfs/mm10572/mvenv
-RUNDIR=/beegfs/mm10572/dl-master-voices/jobs
+ENVDIR=$SRCDIR/mvenv
+RUNDIR=$SRCDIR/jobs
 
 mkdir -p $RUNDIR
 

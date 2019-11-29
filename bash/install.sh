@@ -9,15 +9,11 @@ rm -r data.zip
 # Setup environment
 echo "Prepare venv"
 module load python3/intel/3.5.3
-cd ..
 python3 -m virtualenv mvenv
 source ./mvenv/bin/activate
 
 # Install requirements
 echo "Install requirements"
-cd dl-master-voices
 pip install -r requirements.txt
-
-export PYTHONPATH="$(pwd)"
 
 
