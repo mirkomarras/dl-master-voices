@@ -37,6 +37,15 @@ The output of the job is saved at ``` ./jobs/slurm_train_{xvector|vggvox|resnet3
 
 The model is saved at ```./data/pt_models/{xvector|vggvox|resnet34vox|resnet50vox}/tf/{latest_version_id} ```.  
 
+### Test a speaker verification network
+To start testing a sample speaker verification model, from the project folder, please run:
+
+``` 
+sbatch ./bash/test_verifier.s
+``` 
+
+Please be aware that net_type and version_id parameters must be set in the slurm job script. 
+
 ### Train a generative adversarial network
 To start training a sample generative adversarial model, from the project folder, please run:
 
@@ -47,6 +56,17 @@ sbatch ./bash/train_wavegan_{neutral|male|female}.s
 The output of the job is saved at ``` ./jobs/slurm_train_wavegan_{neutral|male|female}_{job_id}.out ```.
 
 The model is saved at ```./data/pt_models/wavegan/tf/{neutral|male|female}/{latest_version_id} ```.  
+
+### Test a generative adversarial network
+To start testing a sample generative adversarial model, from the project folder, please run:
+
+``` 
+sbatch ./bash/test_wavegan.s
+``` 
+
+Please be aware that gender and version_id parameters must be set in the slurm job script. 
+
+Preview samples are saved at ```./data/pt_models/wavegan/tf/{neutral|male|female}/{version_id}/preview ```.  
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
