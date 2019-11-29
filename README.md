@@ -30,12 +30,12 @@ It also downloads project data in ```/beegfs/{id}/dl-master-voices/data``` folde
 To start training a sample speaker verification model, from the project folder, please run:
 
 ``` 
-sbatch ./bash/train_{net_type}.s
+sbatch ./bash/train_{xvector|vggvox|resnet34vox|resnet50vox}.s
 ``` 
 
-The output of the job is saved at ``` ./jobs/slurm_train_{net_type}_{job_id}.out ```.
+The output of the job is saved at ``` ./jobs/slurm_train_{xvector|vggvox|resnet34vox|resnet50vox}_{job_id}.out ```.
 
-The model is saved at ```./data/pt_models/{net_type}/tf/{latest_version_id} ```.  
+The model is saved at ```./data/pt_models/{xvector|vggvox|resnet34vox|resnet50vox}/tf/{latest_version_id} ```.  
 
 ### Train a generative adversarial network
 To start training a sample generative adversarial model, from the project folder, please run:
