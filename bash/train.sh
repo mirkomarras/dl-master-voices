@@ -1,5 +1,7 @@
 #!/bin/bash
 
+srun --time=120:00:00 --ntasks-per-node=1 --mem=16000 --gres=gpu:1 --pty /bin/bash
+
 # Load modules
 echo "Loading modules"
 module unload cuda/8.0.44
@@ -15,4 +17,4 @@ source ../mvenv/bin/activate
 echo "Start training"
 export PYTHONPATH="$(pwd)"
 
-python ./src/core/verifier/tf_keras/train.py --audio_dir "/beegfs/mm10572/voxceleb1/dev,/beegfs/mm10572/voxceleb2/dev" --val_base_path "/beegfs/mm10572/voxceleb1/test" --net "vggvox" --augment 1 --prefetch 100 --buffer_size 7500
+python ./src/core/verifier/tf/train.py --audio_dir "/beegfs/mm10572/voxceleb2/dev" --val_base_path "/beegfs/mm10572/voxceleb1/test" --net "vggvox" --augment 1

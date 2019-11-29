@@ -73,30 +73,6 @@ if __name__ == '__main__':
     # CREATE DATA PIPELINE
     n_samples = 10
 
-    # Generator output test
-    print('Checking generator output')
-    t1 = time.time()
-    for x in data_pipeline_generator(x_train[:n_samples], y_train[:n_samples], sample_rate=args.sample_rate, n_seconds=args.n_seconds):
-        t2 = time.time()
-        print('>', x[0].shape, x[1], t2-t1)
-        t1 = t2
-
-    # Data pipeline output test
-    print('Checking data pipeline output')
-
-    # Load data pipeline
-    iterator = data_pipeline_verifier(x_train, y_train, sample_rate=args.sample_rate, n_seconds=args.n_seconds, buffer_size=args.buffer_size, batch=args.batch, prefetch=args.prefetch)
-    next_element = iterator.get_next()
-
-    with tf.Session() as sess:
-        sess.run(iterator.initializer)
-        t1 = time.time()
-        for i in range(n_samples):
-            x = sess.run(next_element)
-            t2 = time.time()
-            print('>', x[0].shape, x[1][:10], t2-t1)
-            t1 = t2
-
     # Data pipeline creation
     tf.reset_default_graph()
 

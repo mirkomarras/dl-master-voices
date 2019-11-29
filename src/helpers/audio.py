@@ -3,15 +3,14 @@
 
 from scipy.io.wavfile import read as wavread
 import tensorflow as tf
+import soundfile as sf
 import numpy as np
-import librosa
 import sys
 import os
 
 def decode_audio(fp, sample_rate=None):
-    signal, sr = librosa.load(fp, sr=sample_rate, mono=True)
-    signal = signal.flatten()
-    return signal
+    audio_sf, audio_sr = sf.read(fp)
+    return audio_sf
 
 def load_noise_paths(noise_dir):
     assert os.path.exists(noise_dir)

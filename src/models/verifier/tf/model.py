@@ -147,7 +147,7 @@ class Model(object):
                     total_accuracy += accuracy
 
                     if batch_id % print_interval == 0:
-                        print('\r>', 'step %4.0f / %4.0f - eta: %4.0fm - loss: %3.5f - acc: %3.5f - time/step: %3.1fs' % (batch_id+1, batch_count, (batch_count - (batch_id+1)) * (total_gpu_waiting/(batch_id+1)) // 60, total_loss/(batch_id+1), total_accuracy/(batch_id+1), total_gpu_waiting/(batch_id+1)), end='')
+                        print('\r>', 'step %4.0f / %4.0f - eta: %4.0fm - loss: %3.5f - acc: %3.5f - time/step: %3.1fs' % (batch_id+1, batch_count, (batch_count - (batch_id+1)) * curr_gpu_waiting // 60, total_loss/(batch_id+1), total_accuracy/(batch_id+1), curr_gpu_waiting), end='')
 
                 if validation_data and (epoch+1) % validation_interval == 0:
                     print()

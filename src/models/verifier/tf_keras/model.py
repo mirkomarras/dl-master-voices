@@ -58,13 +58,13 @@ class Model(object):
         self.phase = tf.placeholder(tf.bool, name='phase')
 
         # Placeholders for regular data
-        self.input_x = input_x if input_x is not None else tf.placeholder(tf.float32, [None, self.sample_rate*self.n_seconds, 1], name='input_x')
-        self.input_y = input_y if input_y is not None else tf.placeholder(tf.int32, [None], name='input_y')
+        self.input_x = input_x if input_x is not None else tf.keras.Input(dtype=tf.float32, shape=[None, self.sample_rate*self.n_seconds], name='input_x')
+        self.input_y = input_y if input_y is not None else tf.keras.Input(dtype=tf.int32, shape=[None], name='input_y')
 
         # Computation for playback-and-recording
-        self.speaker = tf.placeholder(tf.float32, [None, 1, 1], name='speaker')
-        self.room = tf.placeholder(tf.float32, [None, 1, 1], name='room')
-        self.microphone = tf.placeholder(tf.float32, [None, 1, 1], name='microphone')
+        self.speaker = tf.keras.Input(dtype=tf.float32, shape=[None, 1], name='speaker')
+        self.room = tf.keras.Input(dtype=tf.float32, shape=[None, 1], name='room')
+        self.microphone = tf.keras.Input(dtype=tf.float32, shape=[None, 1], name='microphone')
 
         noise_strength = tf.clip_by_value(tf.random.normal((1,), 0, 5e-3), 0, 10)
         speaker_out = tf.nn.conv1d(self.input_x, self.speaker, 1, padding="SAME")
@@ -73,26 +73,23 @@ class Model(object):
         room_out = tf.nn.conv1d(speaker_out, self.room, 1, padding="SAME")
         self.input_a = tf.nn.conv1d(room_out, self.microphone, 1, padding='SAME', name='input_a') if augment else self.input_x
 
-    def save(self, sess, out_dir=''):
+    def save(self, out_dir=''):
         print('>', 'saving', self.name, 'graph')
         if not out_dir:
             out_dir = self.dir
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
         assert os.path.exists(os.path.join(out_dir))
-        saver = tf.train.Saver()
-        out_path = saver.save(sess, os.path.join(out_dir, 'model'))
-        print('>', self.name, 'graph saved in path', out_path)
+        tf.keras.models.save_model(self.model, os.path.join(out_dir, 'model.h5'))
+        print('>', self.name, 'model saved in path', out_path)
 
-    def load(self, sess, in_dir='', verbose=1):
+    def load(self, in_dir='', verbose=1):
         if verbose:
             print('>', 'loading', self.name, 'graph')
         if not in_dir:
             in_dir = self.dir
         assert os.path.exists(in_dir)
-        saver = tf.train.import_meta_graph(os.path.join(in_dir, 'model.meta'))
-        saver.restore(sess, os.path.join(in_dir, 'model'))
-        self.graph = sess.graph
+        self.model = tf.keras.models.load_model(os.path.join(in_dir, 'model.h5'))
         if verbose:
             print('>', self.name, 'graph restored from path', in_dir)
 
@@ -108,55 +105,14 @@ class Model(object):
     def train(self, n_epochs, n_steps_per_epoch, learning_rate, dropout_proportion, initializer, validation_data=None, validation_interval=1, print_interval=1):
         assert n_epochs > 0 and n_steps_per_epoch > 0 and print_interval > 0
 
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=False, log_device_placement=False)) as sess:
-            sess.run(tf.global_variables_initializer())
+        self.model.compile(optimizer='adam', loss='categorical_crossentropy')
 
-            print('>', 'training', self.name, 'model')
-            for epoch in range(n_epochs):
-                print('>', 'epoch', epoch+1, '/', n_epochs)
-                sess.run(initializer)
-
-                batch_count = n_steps_per_epoch
-                dropout_keep_prob = 1 - dropout_proportion
-
-                total_gpu_waiting = 0.0
-                total_loss, batch_loss = 0, 0
-                total_accuracy, batch_accuracy = 0, 0
-
-                for batch_id in range(batch_count):
-
-                    f_speaker = random.sample(self.noises['speaker'], 1)[0]
-                    f_room = random.sample(self.noises['room'], 1)[0]
-                    f_mic = random.sample(self.noises['microphone'], 1)[0]
-
-                    feed_dict = {
-                        self.speaker: self.cache[f_speaker],
-                        self.room: self.cache[f_room],
-                        self.microphone: self.cache[f_mic],
-                        self.dropout_keep_prob: dropout_keep_prob,
-                        self.learning_rate: learning_rate,
-                        self.phase: True
-                    }
-
-                    gpu_waiting = time.time()
-                    _, loss, accuracy = sess.run([self.optimizer, self.loss, self.accuracy], feed_dict=feed_dict)
-                    curr_gpu_waiting = time.time() - gpu_waiting
-                    total_gpu_waiting += curr_gpu_waiting
-
-                    total_loss += loss
-                    total_accuracy += accuracy
-
-                    if batch_id % print_interval == 0:
-                        print('\r>', 'step %4.0f / %4.0f - eta: %4.0fm - loss: %3.5f - acc: %3.5f - time/step: %3.1fs' % (batch_id+1, batch_count, (batch_count - (batch_id+1)) * (total_gpu_waiting/(batch_id+1)) // 60, total_loss/(batch_id+1), total_accuracy/(batch_id+1), total_gpu_waiting/(batch_id+1)), end='')
-
-                if validation_data and (epoch+1) % validation_interval == 0:
-                    print()
-                    self.validate(sess, validation_data)
-
-                print()
-                self.save(sess)
-
-            print('>', 'trained', self.name, 'model')
+        # Train the model
+        print('>', 'training', self.name, 'model')
+        for epoch in range(n_epochs):
+            model.fit_generator(generator=training_generator, initial_epoch=epoch, epochs=epoch+1, steps_per_epoch=n_steps_per_epoch, shuffle=True, verbose=1, use_multiprocessing=True, workers=multiprocessing.cpu_count(), max_queue_size=64)
+            save()
+        print('>', 'trained', self.name, 'model')
 
     def validate(self, sess, validation_data, comp_func=lambda x, y: 1 - spatial.distance.cosine(x, y), print_interval=100):
         (x1, x2), y = validation_data
