@@ -19,4 +19,4 @@ module load ffmpeg/intel/3.2.2
 export PYTHONPATH="/beegfs/mm10572/dl-master-voices"
 source /beegfs/mm10572/dl-master-voices/mvenv/bin/activate
 
-python /beegfs/mm10572/dl-master-voices/src/core/verifier/tf/train.py --audio_dir "/beegfs/mm10572/voxceleb1/dev,/beegfs/mm10572/voxceleb2/dev" --val_base_path "/beegfs/mm10572/voxceleb1/test" --net "xvector" --augment 1
+python -u /beegfs/mm10572/dl-master-voices/src/core/verifier/tf/train.py --audio_dir "/beegfs/mm10572/voxceleb1/dev,/beegfs/mm10572/voxceleb2/dev" --val_base_path "/beegfs/mm10572/voxceleb1/test" --net "xvector" --augment 1

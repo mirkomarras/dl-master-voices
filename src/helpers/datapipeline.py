@@ -38,13 +38,13 @@ def data_pipeline_gan(fps, batch_size, slice_len, decode_fs, decode_parallel_cal
     dataset = tf.data.Dataset.from_tensor_slices(fps)
 
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=len(fps))
+        dataset = dataset.shuffle(buffer_size=10000)
 
     if repeat:
         dataset = dataset.repeat()
 
     def _decode_audio_reshaped(fp, sample_rate):
-        _wav = decode_audio(fp, sample_rate=sample_rate)
+        _wav = decode_audio(fp, sample_rate=sample_rate).astype(np.float32)
         _wav = np.reshape(_wav, [_wav.shape[0], 1, 1])
         return _wav
 
@@ -77,7 +77,7 @@ def data_pipeline_gan(fps, batch_size, slice_len, decode_fs, decode_parallel_cal
     dataset = dataset.flat_map(_slice_dataset_wrapper)
 
     if shuffle:
-        dataset = dataset.shuffle(buffer_size=shuffle_buffer_size)
+        dataset = dataset.shuffle(buffer_size=10000)
 
     dataset = dataset.batch(batch_size, drop_remainder=True)
 

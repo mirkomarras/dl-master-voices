@@ -53,6 +53,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # LOAD DATA
+    print('Loading data')
     audio_dir = map(str, args.audio_dir.split(','))
     mv_user_ids = get_mv_analysis_users(args.mv_data_path)
     x_train, y_train = load_data_set(audio_dir, mv_user_ids)

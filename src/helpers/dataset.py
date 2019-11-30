@@ -51,12 +51,12 @@ def filter_by_gender(paths, labels, meta_file, gender='neutral'):
     filtered_paths = []
     filtered_labels = []
 
-    if gender is not 'neutral':
+    if gender == 'male' or gender == 'female':
         for path, label in zip(paths, labels):
             if gender_map[path.split(os.path.sep)[-3]] == gender[0]:
                 filtered_paths.append(path)
                 filtered_labels.append(label)
-        print('>', 'remaining', len(filtered_paths), 'audio files from', len(np.unique(filtered_labels)), 'users')
+        print('>', 'filtered', len(filtered_paths), 'audio files from', len(np.unique(filtered_labels)), 'users')
         return filtered_paths, filtered_labels
 
     print('>', 'remaining', len(paths), 'audio files from', len(np.unique(labels)), 'users')
