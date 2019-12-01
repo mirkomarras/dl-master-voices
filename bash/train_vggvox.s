@@ -3,7 +3,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
 #SBATCH --time=120:00:00
-#SBATCH --mem=16GB
+#SBATCH --mem=64GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=VGGTrain
 #SBATCH --mail-type=END

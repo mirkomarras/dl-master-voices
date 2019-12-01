@@ -8,7 +8,7 @@
 #SBATCH --job-name=MWGanTrain
 #SBATCH --mail-type=END
 #SBATCH --mail-user=m.marras19@gmail.com
-#SBATCH --output=slurm_train_wavegan_male_%j.out
+#SBATCH --output=jobs/slurm_test_wavegan_%j.out
 
 module purge
 module unload cuda/8.0.44
