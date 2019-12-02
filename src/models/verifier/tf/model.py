@@ -33,9 +33,9 @@ class Model(object):
         self.sample_rate=16000
         self.n_seconds = 3
 
-    def get_version_id(self, id=''):
+    def get_version_id(self):
         tf_dir = os.path.join('.', 'data', 'pt_models', self.name, 'tf')
-        tf_v = str(len(os.listdir(tf_dir))) if not id else id
+        tf_v = str(len(os.listdir(tf_dir))) if not self.id else self.id
         out_dir = os.path.join(tf_dir, 'v' + tf_v)
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)

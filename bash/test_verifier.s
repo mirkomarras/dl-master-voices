@@ -3,12 +3,12 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
 #SBATCH --time=120:00:00
-#SBATCH --mem=16GB
+#SBATCH --mem=32GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=xVecTest
+#SBATCH --job-name=VerTest
 #SBATCH --mail-type=END
 #SBATCH --mail-user=m.marras19@gmail.com
-#SBATCH --output=jobs/slurm_train_verifier_%j.out
+#SBATCH --output=jobs/slurm_test_verifier_%j.out
 
 module purge
 module unload cuda/8.0.44
