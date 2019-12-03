@@ -12,6 +12,10 @@ def decode_audio(fp, sample_rate=None):
     audio_sf, audio_sr = sf.read(fp)
     return audio_sf
 
+def read(filename):
+    with open(filename, 'rb') as f:
+        return decode_audio(f).reshape((-1, 1, 1))
+
 def load_noise_paths(noise_dir):
     assert os.path.exists(noise_dir)
     noise_paths = {}
@@ -77,3 +81,21 @@ def get_tf_mfccs(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01,
     assert len(normalized_log_mel_spectrograms_shape) == 3 and normalized_log_mel_spectrograms_shape[2] == n_filters
 
     return normalized_log_mel_spectrograms
+
+def play_n_rec(input_x, speaker=None, room=None, microphone=None, return_placeholders=False):
+    # Computation for playback-and-recording
+    speaker = speaker or tf.placeholder(tf.float32, [None, 1, 1], name='speaker')
+    room = room or tf.placeholder(tf.float32, [None, 1, 1], name='room')
+    microphone = microphone or tf.placeholder(tf.float32, [None, 1, 1], name='microphone')
+
+    noise_strength = tf.clip_by_value(tf.random.normal((1,), 0, 5e-3), 0, 10)
+    speaker_out = tf.nn.conv1d(input_x, speaker, 1, padding="SAME")
+    noise_tensor = tf.random.normal(tf.shape(input_x), mean=0, stddev=noise_strength, dtype=tf.float32)
+    speaker_out = tf.add(speaker_out, noise_tensor)
+    room_out = tf.nn.conv1d(speaker_out, room, 1, padding="SAME")
+    output = tf.nn.conv1d(room_out, microphone, 1, padding='SAME', name='input_a')
+
+    if not return_placeholders:
+        return output
+    else:
+        return output, {'speaker': speaker, 'room': room, 'microphone': microphone}

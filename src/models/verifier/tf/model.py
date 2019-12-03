@@ -9,7 +9,7 @@ import random
 import time
 import os
 
-from src.helpers.audio import decode_audio
+from src.helpers.audio import decode_audio, play_n_rec
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -62,16 +62,13 @@ class Model(object):
         self.input_y = input_y if input_y is not None else tf.placeholder(tf.int32, [None], name='input_y')
 
         # Computation for playback-and-recording
-        self.speaker = tf.placeholder(tf.float32, [None, 1, 1], name='speaker')
-        self.room = tf.placeholder(tf.float32, [None, 1, 1], name='room')
-        self.microphone = tf.placeholder(tf.float32, [None, 1, 1], name='microphone')
-
-        noise_strength = tf.clip_by_value(tf.random.normal((1,), 0, 5e-3), 0, 10)
-        speaker_out = tf.nn.conv1d(self.input_x, self.speaker, 1, padding="SAME")
-        noise_tensor = tf.random.normal(tf.shape(self.input_x), mean=0, stddev=noise_strength, dtype=tf.float32)
-        speaker_out = tf.add(speaker_out, noise_tensor)
-        room_out = tf.nn.conv1d(speaker_out, self.room, 1, padding="SAME")
-        self.input_a = tf.nn.conv1d(room_out, self.microphone, 1, padding='SAME', name='input_a') if augment else self.input_x
+        if not augment:
+            self.input_a = self.input_x
+        else:
+            self.input_a, p = play_n_rec(self.input_x, return_placeholders=True)
+            self.speaker = p['speaker']
+            self.room = p['room']
+            self.microphone = p['microphone']
 
     def save(self, sess, out_dir=''):
         print('>', 'saving', self.name, 'graph')
