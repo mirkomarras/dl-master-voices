@@ -31,6 +31,7 @@ def load_data_set(audio_dir, mv_user_ids, include=False):
 
     user_count = 0
     for source_dir in audio_dir:
+        print('> load data from', source_dir)
         for user_id, user_dir in enumerate(os.listdir(os.path.join(source_dir))):
             if (include and user_dir in mv_user_ids) or (not include and user_dir not in mv_user_ids):
                 for video_id, video_dir in enumerate(os.listdir(os.path.join(source_dir, user_dir))):
