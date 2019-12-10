@@ -17,8 +17,8 @@ Please go a to ```/beegfs/{id}``` directory, then:
 ``` 
 git clone --single-branch --branch mv_fwk https://github.com/mirkomarras/dl-master-voices.git
 cd dl-master-voices
-chmod +x ./bash/install.sh
-./bash/install.sh
+chmod +x ./install.sh
+./install.sh
 ``` 
 
 This creates a virtual env in ```/beegfs/{id}/dl-master_voices/mvenv``` folder, with all the needed Python packages.
@@ -30,18 +30,18 @@ It also downloads project data in ```/beegfs/{id}/dl-master-voices/data``` folde
 To start training a sample speaker verification model, from the project folder, please run:
 
 ``` 
-sbatch ./bash/train_{xvector|vggvox|resnet34vox|resnet50vox}.s
+sbatch ./sbatch/train_verifier.sbatch
 ``` 
 
-The output of the job is saved at ``` ./jobs/slurm_train_{xvector|vggvox|resnet34vox|resnet50vox}_{job_id}.out ```.
+The output of the job is saved at ``` ./jobs/slurm_train_verifier_{job_id}.out ```.
 
-The model is saved at ```./data/pt_models/{xvector|vggvox|resnet34vox|resnet50vox}/tf/{latest_version_id} ```.  
+The model is saved at ```./data/pt_models/{xvector|vggvox|resnet34vox|resnet50vox}/{latest_version_id} ```.  
 
 ### Test a speaker verification network
 To start testing a sample speaker verification model, from the project folder, please run:
 
 ``` 
-sbatch ./bash/test_verifier.s
+sbatch ./sbatch/test_verifier.sbatch
 ``` 
 
 Please be aware that net_type and version_id parameters must be set in the slurm job script. 
@@ -50,23 +50,23 @@ Please be aware that net_type and version_id parameters must be set in the slurm
 To start training a sample generative adversarial model, from the project folder, please run:
 
 ``` 
-sbatch ./bash/train_wavegan_{neutral|male|female}.s
+sbatch ./sbatch/train_wavegan.sbatch
 ``` 
 
-The output of the job is saved at ``` ./jobs/slurm_train_wavegan_{neutral|male|female}_{job_id}.out ```.
+The output of the job is saved at ``` ./jobs/slurm_train_wavegan_{job_id}.out ```.
 
-The model is saved at ```./data/pt_models/wavegan/tf/{neutral|male|female}/{latest_version_id} ```.  
+The model is saved at ```./data/pt_models/wavegan/{neutral|male|female}/{latest_version_id} ```.  
 
 ### Test a generative adversarial network
 To start testing a sample generative adversarial model, from the project folder, please run:
 
 ``` 
-sbatch ./bash/test_wavegan.s
+sbatch ./sbatch/test_wavegan.sbatch
 ``` 
 
 Please be aware that gender and version_id parameters must be set in the slurm job script. 
 
-Preview samples are saved at ```./data/pt_models/wavegan/tf/{neutral|male|female}/{version_id}/preview ```.  
+Preview samples are saved at ```./data/pt_models/wavegan/{neutral|male|female}/{version_id}/preview ```.  
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
