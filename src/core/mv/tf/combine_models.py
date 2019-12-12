@@ -8,6 +8,10 @@ import tensorflow as tf
 from src.helpers import audio
 from src.models.verifier.tf.vggvox.model import VggVox
 
+# %%
+
+use_keras = True
+
 # %% Load playback IRs
 
 microphone = audio.read(os.path.join(root, 'data/vs_noise_data/microphone/microphone_01.wav'))
@@ -18,32 +22,32 @@ print('mic      : {}'.format(microphone.shape))
 print('room     : {}'.format(room.shape))
 print('speaker  : {}'.format(speaker.shape))
 
-# %% VERSION I - Keras model
+# %% Setup the speaker model
 
-speaker_embedding = tf.keras.Sequential([
-    tf.keras.layers.Conv2D(16, 3),
-    tf.keras.layers.AveragePooling2D(2),
-    tf.keras.layers.Conv2D(32, 3),
-    tf.keras.layers.AveragePooling2D(2),
-    tf.keras.layers.Conv2D(64, 3),
-    tf.keras.layers.AveragePooling2D(2),
-    tf.keras.layers.GlobalAveragePooling2D(),
-    tf.keras.layers.Dense(32)
-    ], name='vggvox_keras')
+if use_keras:  # VERSION I - Keras model
+    speaker_embedding = tf.keras.Sequential([
+        tf.keras.layers.Conv2D(16, 3),
+        tf.keras.layers.AveragePooling2D(2),
+        tf.keras.layers.Conv2D(32, 3),
+        tf.keras.layers.AveragePooling2D(2),
+        tf.keras.layers.Conv2D(64, 3),
+        tf.keras.layers.AveragePooling2D(2),
+        tf.keras.layers.GlobalAveragePooling2D(),
+        tf.keras.layers.Dense(32)
+        ], name='vggvox_keras')
 
-# %% VERSION II - Layers
-
-def speaker_embedding(x, training=False, scope='vggvox_layers'):
-    with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
-        n = tf.layers.conv2d(x, 16, 3)
-        n = tf.layers.average_pooling2d(n, 2, 1)
-        n = tf.layers.conv2d(n, 32, 3)
-        n = tf.layers.average_pooling2d(n, 2, 1)
-        n = tf.layers.conv2d(n, 64, 3)
-        n = tf.layers.average_pooling2d(n, 3, 1)
-        n = tf.reduce_mean(x, axis=[1,2])
-        n = tf.layers.dense(n, 32)
-        return n
+else:  # VERSION II - Layers
+    def speaker_embedding(x, training=False, scope='vggvox_layers'):
+        with tf.variable_scope(scope, reuse=tf.AUTO_REUSE):
+            n = tf.layers.conv2d(x, 16, 3)
+            n = tf.layers.average_pooling2d(n, 2, 1)
+            n = tf.layers.conv2d(n, 32, 3)
+            n = tf.layers.average_pooling2d(n, 2, 1)
+            n = tf.layers.conv2d(n, 64, 3)
+            n = tf.layers.average_pooling2d(n, 3, 1)
+            n = tf.reduce_mean(n, axis=[1, 2])
+            n = tf.layers.dense(n, 32)
+            return n
     
 # %%
 
