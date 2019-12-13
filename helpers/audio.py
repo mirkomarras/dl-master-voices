@@ -107,7 +107,7 @@ def play_n_rec(input_x, speaker=None, room=None, microphone=None, return_placeho
 
     output = input_x
     output = tf.nn.conv1d(
-        tf.pad(output, [[0, 0], [0, tf.shape(speaker)[0]], [0, 0]], 'constant'),
+        tf.pad(output, [[0, 0], [0, tf.shape(speaker)[0]-1], [0, 0]], 'constant'),
         speaker, 1, padding="VALID")
 
     if noise_strength == 'random':
@@ -117,10 +117,10 @@ def play_n_rec(input_x, speaker=None, room=None, microphone=None, return_placeho
     output = tf.add(output, noise_tensor)
 
     output = tf.nn.conv1d(
-        tf.pad(output, [[0, 0], [0, tf.shape(room)[0]], [0, 0]], 'constant'),
+        tf.pad(output, [[0, 0], [0, tf.shape(room)[0]-1], [0, 0]], 'constant'),
         room, 1, padding="VALID")
     output = tf.nn.conv1d(
-        tf.pad(output, [[0, 0], [0, tf.shape(microphone)[0]], [0, 0]], 'constant'),
+        tf.pad(output, [[0, 0], [0, tf.shape(microphone)[0]-1], [0, 0]], 'constant'),
         microphone, 1, padding='VALID', name='input_a')
 
     if not return_placeholders:

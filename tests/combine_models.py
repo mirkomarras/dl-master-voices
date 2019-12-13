@@ -25,6 +25,10 @@ microphone = audio.read(os.path.join(root, 'data/vs_noise_data/microphone/microp
 room = audio.read(os.path.join(root, 'data/vs_noise_data/room/room_01.wav'))
 speaker = audio.read(os.path.join(root, 'data/vs_noise_data/speaker/speaker_01.wav'))
 
+# microphone = np.array([1]).reshape((1, 1, 1))
+# room = np.array([1]).reshape((1, 1, 1))
+# speaker = np.array([1]).reshape((1, 1, 1))
+
 print('\n## Loaded Environment:')
 print('mic      : {}'.format(microphone.shape))
 print('room     : {}'.format(room.shape))
