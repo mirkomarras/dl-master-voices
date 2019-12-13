@@ -14,8 +14,10 @@ from models.verifier.vggvox import VggVox
 use_keras = True
 tgt_length = 410
 gan_model = ('male', 'female', 'neutral')[-1]
-latent_space = ('uniform', 'normal')[-1]
+latent_space = ('uniform', 'normal')[0]
 sampling = 16000
+refeed_target = True
+test_gradients = False
 
 # %% Load playback IRs
 
@@ -84,7 +86,7 @@ print('embedding  e: {}'.format(e.shape))
 if latent_space == 'normal':
     latent = np.random.normal(size=(1, 100))
 elif latent_space == 'uniform':
-    latent = np.random.uniform(size=(1, 100))
+    latent = np.random.uniform(size=(1, 100), low=-1, high=1)
 else:
     print('error: unknown latent space!')
     sys.exit(1)
@@ -108,7 +110,7 @@ print('output    : {} -> {:.30s}...'.format(out.shape, str(out.round(3)).replace
 # %% Define master voice gradients
 
 with graph.as_default():
-    h = tf.compat.v1.placeholder(tf.float32, (None, 512, tgt_length, 1))
+    h = tf.compat.v1.placeholder(tf.float32, (None, 257, tgt_length, 1))
     e2 = speaker_embedding(h)
     cos_distance = tf.keras.losses.CosineSimilarity(axis=1)
     sim = cos_distance(e, e2)
@@ -120,7 +122,6 @@ print('gradients  g: {}'.format(g.shape))
 # %% Test data along the way
 
 print('\n## Target sample:')
-# St = np.random.uniform(size=(1, 512, 410, 1)).astype(np.float32)
 xt = audio.read(os.path.join(root, 'data/voxceleb/test/id10273/5TWpQYtboq0/00001.wav'))
 St, _, _ = audio.get_fft_spectrum(xt.ravel(), sampling)
 print('tgt_speech xt: {} -> [{:.2f}, {:.2f}]'.format(xt.shape, xt.min(), xt.max()))
@@ -130,7 +131,7 @@ if St.shape[-1] > tgt_length:
     print('warning: clipping target speech to {} samples!'.format(tgt_length))
     St = St[:, :tgt_length]
 
-St = St.reshape((1, 512, -1, 1))
+St = St.reshape((1, 257, -1, 1))
 
 fd = {
         z: latent,
@@ -139,6 +140,9 @@ fd = {
         p['room']: room,
         p['speaker']: speaker,
 }
+
+if refeed_target:
+    fd[x] = xt[:65536].reshape((1, -1, 1))
 
 z_, x_, X_, S_, e_, et_ = sess.run([z, x, X, S, e, e2], feed_dict=fd)
 
@@ -168,9 +172,9 @@ axes[1,1].set_title('Playback of GAN sample [1st sec]')
 axes[1,0].plot(xt.ravel()[:sampling])
 axes[1,0].set_title('Target speech [1st sec]')
 
-axes[2,1].imshow(S_.reshape(512, -1), aspect='auto')
+axes[2,1].imshow(S_.reshape(257, -1)[:, :256], aspect='auto')
 axes[2,1].set_title('Spec GAN sample [{:.2f}, {:.2f}]'.format(S_.min(), S_.max()))
-axes[2,0].imshow(St.reshape(512, -1), aspect='auto')
+axes[2,0].imshow(St.reshape(257, -1)[:, :256], aspect='auto')
 axes[2,0].set_title('Target spec [{:.2f}, {:.2f}]'.format(St.min(), St.max()))
 
 axes[3,0].plot(e_.ravel(), et_.ravel(), 'o')
@@ -183,20 +187,22 @@ axes[3,1].legend(['GAN spect', 'Target spect'])
 
 plt.show()
 
-#%% Test gradients
+# %% Test gradients
 
-with graph.as_default():
+if test_gradients:
 
-    out_g = sess.run(g, feed_dict=fd)
+    with graph.as_default():
 
-print('\n## Gradients:')
-print('out grads   : {} -> {:.30s}...'.format(out_g.shape, str(out_g.round(3)).replace('\n', ' ') ))
+        out_g = sess.run(g, feed_dict=fd)
 
-# %% Print speaker verification and trainable variables
+    print('\n## Gradients:')
+    print('out grads   : {} -> {:.30s}...'.format(out_g.shape, str(out_g.round(3)).replace('\n', ' ') ))
 
-print('\n## SV Model Details:')
-print('Speaker embedding: {}'.format(speaker_embedding))
-print('Trainable variables:')
-with graph.as_default():
-    for v in tf.trainable_variables():
-        print(' ', v.name)
+    # %% Print speaker verification and trainable variables
+
+    print('\n## SV Model Details:')
+    print('Speaker embedding: {}'.format(speaker_embedding))
+    print('Trainable variables:')
+    with graph.as_default():
+        for v in tf.trainable_variables():
+            print(' ', v.name)

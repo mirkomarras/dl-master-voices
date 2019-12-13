@@ -10,13 +10,15 @@ import os
 import decimal
 import math
 
-def decode_audio(fp, sample_rate=None):
+
+def decode_audio(fp, tgt_sample_rate=16000):
     audio_sf, audio_sr = sf.read(fp)
     if audio_sf.ndim > 1:
         print('warning: collapsing stereo into mono')
         audio_sf = audio_sf.mean(axis=-1)
-    if audio_sr != 16000:
-        print('warning: sampling frequency different than 16kHz ({})!'.format(audio_sr))
+    if audio_sr != tgt_sample_rate:
+        print('warning: sampling frequency different than {:,d} Hz ({:,d})! naively downsampling!'.format(tgt_sample_rate, audio_sr))
+        audio_sf = audio_sf[::int(np.ceil(audio_sr / tgt_sample_rate))]
     return audio_sf
 
 
@@ -48,25 +50,26 @@ def cache_noise_data(noise_paths, sample_rate=16000):
 
 
 def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
-    assert sample_rate > 0 and frame_size > 0 and frame_stride > 0 and frame_stride < frame_size and num_fft > 0
+    assert sample_rate > 0 and frame_size > 0 and frame_stride > 0 and num_fft > 0
+    assert frame_stride < frame_size
 
-    signal.set_shape((None, None, 1))
-    frames = tf.contrib.signal.frame(signal, frame_length=int(frame_size*sample_rate), frame_step=int(frame_stride*sample_rate), pad_end=True, name='frames', axis=1)
-    hamming_window = tf.contrib.signal.hamming_window(int(frame_size*sample_rate), periodic=True)
-    frames = frames * tf.reshape(hamming_window, [1, 1, -1, 1])
-    frames = tf.pad(frames, [[0, 0], [0, 0], [0, int(num_fft) - int(frame_size*sample_rate)], [0, 0]])
-    frames = tf.transpose(frames, perm=[0, 1, 3, 2])
-    frames = tf.cast(frames, tf.complex64)
+    signal = tf.squeeze(signal, axis=-1)
 
-    magnitude_spectrum = tf.cast(tf.abs(tf.spectral.fft(frames, name='fft')), tf.float32)
-    magnitude_spectrum = tf.transpose(magnitude_spectrum, perm=[0, 3, 1, 2])
+    # Compute the spectrogram
+    magnitude_spectrum = tf.signal.stft(signal, int(frame_size*sample_rate), int(frame_stride*sample_rate), fft_length=num_fft)
+    magnitude_spectrum = tf.abs(magnitude_spectrum)
+    magnitude_spectrum = tf.transpose(magnitude_spectrum, perm=[0, 2, 1])
+    magnitude_spectrum = tf.expand_dims(magnitude_spectrum, 3)
 
-    mean_tensor, variance_tensor = tf.nn.moments(magnitude_spectrum, axes=[1])
+    # Normalize frames
+    agg_axis = 2
+    mean_tensor, variance_tensor = tf.nn.moments(magnitude_spectrum, axes=[agg_axis])
     std_dev_tensor = tf.math.sqrt(variance_tensor)
-    normalized_spectrum = (magnitude_spectrum - tf.expand_dims(mean_tensor, 1)) / tf.maximum(tf.expand_dims(std_dev_tensor, 1), 1e-8)
+    normalized_spectrum = (magnitude_spectrum - tf.expand_dims(mean_tensor, agg_axis)) / tf.maximum(tf.expand_dims(std_dev_tensor, agg_axis), 1e-12)
 
+    # Make sure the dimensions are as expected
     normalized_spectrum_shape = normalized_spectrum.get_shape().as_list()
-    assert normalized_spectrum_shape[1] == num_fft and normalized_spectrum_shape[3] == 1
+    assert normalized_spectrum_shape[1] == num_fft / 2 + 1 and normalized_spectrum_shape[3] == 1
 
     return normalized_spectrum
 
@@ -102,9 +105,9 @@ def play_n_rec(input_x, speaker=None, room=None, microphone=None, return_placeho
     room = room or tf.placeholder(tf.float32, [None, 1, 1], name='room')
     microphone = microphone or tf.placeholder(tf.float32, [None, 1, 1], name='microphone')
 
+    output = input_x
     output = tf.nn.conv1d(
-        # input_x,
-        tf.pad(input_x, [[0, 0], [0, tf.shape(speaker)[0]], [0, 0]], 'constant'),
+        tf.pad(output, [[0, 0], [0, tf.shape(speaker)[0]], [0, 0]], 'constant'),
         speaker, 1, padding="VALID")
 
     if noise_strength == 'random':
@@ -162,7 +165,7 @@ def framesig(sig, frame_len, frame_step, winfunc=lambda x: np.ones((x,)), stride
     return frames * win
 
 
-def normalize_frames(m,epsilon=1e-12):
+def normalize_frames(m, epsilon=1e-12):
     frames = []
     means = []
     stds = []
@@ -180,5 +183,6 @@ def get_fft_spectrum(signal, sample_rate, num_fft=512, frame_size=0.025, frame_s
     # get FFT spectrum
     frames = framesig(signal, frame_len=frame_size * sample_rate, frame_step=frame_stride * sample_rate, winfunc=np.hamming)
     fft = abs(np.fft.fft(frames, n=num_fft))
+    fft = fft[:, :(num_fft // 2 + 1)]
     fft_norm, fft_mean, fft_std = normalize_frames(fft.T)
     return fft_norm, fft_mean, fft_std
