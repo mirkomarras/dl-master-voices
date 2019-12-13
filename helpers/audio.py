@@ -7,14 +7,24 @@ import soundfile as sf
 import numpy as np
 import sys
 import os
+import decimal
+import math
 
 def decode_audio(fp, sample_rate=None):
     audio_sf, audio_sr = sf.read(fp)
+    if audio_sf.ndim > 1:
+        print('warning: collapsing stereo into mono')
+        audio_sf = audio_sf.mean(axis=-1)
+    if audio_sr != 16000:
+        print('warning: sampling frequency different than 16kHz ({})!'.format(audio_sr))
     return audio_sf
 
-def read(filename):
+
+def read(filename, as_filter=True):
+    sh = (-1, 1, 1) if as_filter else (1, -1, 1)
     with open(filename, 'rb') as f:
-        return decode_audio(f).reshape((-1, 1, 1))
+        return decode_audio(f).reshape(sh)
+
 
 def load_noise_paths(noise_dir):
     assert os.path.exists(noise_dir)
@@ -27,6 +37,7 @@ def load_noise_paths(noise_dir):
         print('>', noise_type, len(noise_paths[noise_type]))
     return noise_paths
 
+
 def cache_noise_data(noise_paths, sample_rate=16000):
     assert sample_rate > 0
     noise_cache = {}
@@ -34,6 +45,7 @@ def cache_noise_data(noise_paths, sample_rate=16000):
         for nf in noise_files:
             noise_cache[nf] = decode_audio(nf, sample_rate=sample_rate).reshape((-1, 1, 1))
     return noise_cache
+
 
 def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
     assert sample_rate > 0 and frame_size > 0 and frame_stride > 0 and frame_stride < frame_size and num_fft > 0
@@ -57,6 +69,7 @@ def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
     assert normalized_spectrum_shape[1] == num_fft and normalized_spectrum_shape[3] == 1
 
     return normalized_spectrum
+
 
 def get_tf_mfccs(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, n_filters=24, lower_edge_hertz=80.0, upper_edge_hertz=8000.0):
     assert sample_rate > 0 and frame_size > 0 and frame_stride > 0 and frame_stride < frame_size and num_fft > 0
@@ -82,20 +95,90 @@ def get_tf_mfccs(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01,
 
     return normalized_log_mel_spectrograms
 
-def play_n_rec(input_x, speaker=None, room=None, microphone=None, return_placeholders=False):
+
+def play_n_rec(input_x, speaker=None, room=None, microphone=None, return_placeholders=False, noise_strength='random'):
     # Computation for playback-and-recording
     speaker = speaker or tf.placeholder(tf.float32, [None, 1, 1], name='speaker')
     room = room or tf.placeholder(tf.float32, [None, 1, 1], name='room')
     microphone = microphone or tf.placeholder(tf.float32, [None, 1, 1], name='microphone')
 
-    noise_strength = tf.clip_by_value(tf.random.normal((1,), 0, 5e-3), 0, 10)
-    speaker_out = tf.nn.conv1d(input_x, speaker, 1, padding="SAME")
-    noise_tensor = tf.random.normal(tf.shape(input_x), mean=0, stddev=noise_strength, dtype=tf.float32)
-    speaker_out = tf.add(speaker_out, noise_tensor)
-    room_out = tf.nn.conv1d(speaker_out, room, 1, padding="SAME")
-    output = tf.nn.conv1d(room_out, microphone, 1, padding='SAME', name='input_a')
+    output = tf.nn.conv1d(
+        # input_x,
+        tf.pad(input_x, [[0, 0], [0, tf.shape(speaker)[0]], [0, 0]], 'constant'),
+        speaker, 1, padding="VALID")
+
+    if noise_strength == 'random':
+        noise_strength = tf.clip_by_value(tf.random.normal((1,), 0, 0.00001), 0, 10)
+
+    noise_tensor = tf.random.normal(tf.shape(output), mean=0, stddev=noise_strength, dtype=tf.float32)
+    output = tf.add(output, noise_tensor)
+
+    output = tf.nn.conv1d(
+        tf.pad(output, [[0, 0], [0, tf.shape(room)[0]], [0, 0]], 'constant'),
+        room, 1, padding="VALID")
+    output = tf.nn.conv1d(
+        tf.pad(output, [[0, 0], [0, tf.shape(microphone)[0]], [0, 0]], 'constant'),
+        microphone, 1, padding='VALID', name='input_a')
 
     if not return_placeholders:
         return output
     else:
         return output, {'speaker': speaker, 'room': room, 'microphone': microphone}
+
+
+def rolling_window(a, window, step=1):
+    shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
+    strides = a.strides + (a.strides[-1],)
+    return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)[::step]
+
+
+def round_half_up(number):
+    return int(decimal.Decimal(number).quantize(decimal.Decimal('1'), rounding=decimal.ROUND_HALF_UP))
+
+
+def framesig(sig, frame_len, frame_step, winfunc=lambda x: np.ones((x,)), stride_trick=True):
+    slen = len(sig)
+    frame_len = int(round_half_up(frame_len))
+    frame_step = int(round_half_up(frame_step))
+    if slen <= frame_len:
+        numframes = 1
+    else:
+        numframes = 1 + int(math.ceil((1.0 * slen - frame_len) / frame_step)) # LV
+
+    padlen = int((numframes - 1) * frame_step + frame_len)
+
+    zeros = np.zeros((padlen - slen,))
+    padsignal = np.concatenate((sig, zeros))
+    if stride_trick:
+        win = winfunc(frame_len)
+        frames = rolling_window(padsignal, window=frame_len, step=frame_step)
+    else:
+        indices = np.tile(np.arange(0, frame_len), (numframes, 1)) + np.tile(
+            np.arange(0, numframes * frame_step, frame_step), (frame_len, 1)).T
+        indices = np.array(indices, dtype=np.int32)
+        frames = padsignal[indices]
+        win = np.tile(winfunc(frame_len), (numframes, 1))
+
+    return frames * win
+
+
+def normalize_frames(m,epsilon=1e-12):
+    frames = []
+    means = []
+    stds = []
+    for v in m:
+        means.append(np.mean(v))
+        stds.append(np.std(v))
+        frames.append((v - np.mean(v)) / max(np.std(v), epsilon))
+    return np.array(frames), np.array(means), np.array(stds)
+
+
+def get_fft_spectrum(signal, sample_rate, num_fft=512, frame_size=0.025, frame_stride=0.01):
+
+    assert signal.ndim == 1, 'Only 1-dim signals supported'
+
+    # get FFT spectrum
+    frames = framesig(signal, frame_len=frame_size * sample_rate, frame_step=frame_stride * sample_rate, winfunc=np.hamming)
+    fft = abs(np.fft.fft(frames, n=num_fft))
+    fft_norm, fft_mean, fft_std = normalize_frames(fft.T)
+    return fft_norm, fft_mean, fft_std
