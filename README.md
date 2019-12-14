@@ -44,6 +44,8 @@ To start testing a sample speaker verification model, from the project folder, p
 sbatch ./sbatch/test_verifier.sbatch
 ``` 
 
+The output of the job is saved at ``` ./jobs/slurm_test_verifier_{job_id}.out ```.
+
 Please be aware that net_type and version_id parameters must be set in the slurm job script. 
 
 ### Train a generative adversarial network
@@ -63,6 +65,8 @@ To start testing a sample generative adversarial model, from the project folder,
 ``` 
 sbatch ./sbatch/test_wavegan.sbatch
 ``` 
+
+The output of the job is saved at ``` ./jobs/slurm_test_wavegan_{job_id}.out ```.
 
 Please be aware that gender and version_id parameters must be set in the slurm job script. 
 
