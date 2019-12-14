@@ -9,31 +9,79 @@ import sys
 
 from helpers.audio import decode_audio
 
-def data_pipeline_generator(x, y, sample_rate=16000, n_seconds=3, chunk_size=100000):
+def data_pipeline_generator(x, y, classes, augment=0, sample_rate=16000, n_seconds=3):
+    """
+    Function to simulate a (signal, impulse_flags), label generator
+    :param x:           List of audio paths
+    :param y:           List of users' labels
+    :param classes:     Number of target classes
+    :param augment:     Augmentation flag - 0 for non-augmentation, 1 for augmentation
+    :param sample_rate: Sample rate of the audio files to be processed
+    :param n_seconds:   Max number of seconds of an audio file to be processed
+    :return:            (signal, impulse_flags), label
+    """
 
-    for i in range(0, len(x), chunk_size):
-        x_chunk = x[i:i+chunk_size]
-        y_chunk = y[i:i+chunk_size]
-        for index in range(len(x_chunk)):
-            audio = decode_audio(x_chunk[index], sample_rate=sample_rate)
-            start_sample_id = random.choice(range(len(audio) - sample_rate*n_seconds))
-            end_sample_id = start_sample_id + sample_rate*n_seconds
-            assert end_sample_id > 0 and end_sample_id < len(audio)
-            audio = audio.reshape((1, -1, 1))[:, start_sample_id:end_sample_id, :]
-            label = y_chunk[index]
-            yield audio, label
+    for index in range(len(x)):
+
+        audio = decode_audio(x[index], tgt_sample_rate=sample_rate)
+
+        start_sample = random.choice(range(len(audio) - sample_rate*n_seconds))
+        end_sample = start_sample + sample_rate*n_seconds
+        audio = audio[start_sample:end_sample].reshape((1, -1, 1))
+
+        label = y[index]
+
+        impulse = np.random.randint(2, size=3) if augment > 0 else np.zeros(3)
+
+        yield {'input_1': audio, 'input_2': impulse}, tf.keras.utils.to_categorical(label, num_classes=classes, dtype='float32')
 
     raise StopIteration()
 
-def data_pipeline_verifier(x, y, sample_rate=16000, n_seconds=3, buffer_size=25000, batch=64, prefetch=1024):
-    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator(x, y, sample_rate=sample_rate, n_seconds=n_seconds), (tf.float32, tf.int32))
-    dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y))
+def data_pipeline_verifier(x, y, classes, augment=0, sample_rate=16000, n_seconds=3, buffer_size=25000, batch=64, prefetch=1024):
+    """
+    Function to create a tensorflow data pipeline for speaker verification training
+    :param x:           List of audio paths
+    :param y:           List of users' labels
+    :param classes:     Number of target classes
+    :param augment:     Augmentation flag - 0 for non-augmentation, 1 for augmentation
+    :param sample_rate: Sample rate of the audio files to be processed
+    :param n_seconds:   Max number of seconds of an audio file to be processed
+    :param buffer_size: Size of the buffer for shuffling
+    :param batch:       Size of a training batch
+    :param prefetch:    Number of prefetched batches
+    :return:            Data pipeline
+    """
+
+    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator(x, y, classes, augment=augment, sample_rate=sample_rate, n_seconds=n_seconds),
+                                             output_types=({'input_1': tf.float32, 'input_2': tf.float32}, tf.float32),
+                                             output_shapes=({'input_1': [None,48000,1], 'input_2': [3]},[classes]))
+
+    dataset = dataset.map(lambda x, y: ({'input_1': tf.squeeze(x['input_1'], axis=0), 'input_2': x['input_2']}, y))
     dataset = dataset.shuffle(buffer_size=buffer_size)
     dataset = dataset.batch(batch)
     dataset = dataset.prefetch(prefetch)
-    return dataset.make_initializable_iterator()
 
-def data_pipeline_gan(fps, batch_size, slice_len, decode_fs, decode_parallel_calls=1, slice_randomize_offset=False, slice_first_only=False, slice_overlap_ratio=0, slice_pad_end=False, repeat=False, shuffle=False, shuffle_buffer_size=None, prefetch_size=None, prefetch_gpu_num=None):
+    return dataset
+
+def data_pipeline_gan(fps, batch, slice_len, decode_fs, decode_parallel_calls=1, slice_randomize_offset=False, slice_first_only=False, slice_overlap_ratio=0, slice_pad_end=False, repeat=False, shuffle=False, shuffle_buffer_size=None, prefetch_size=None, prefetch_gpu_num=None):
+    """
+    Function to create a tensorflow data pipeline for WaveGAN training
+    :param fps:
+    :param batch:
+    :param slice_len:
+    :param decode_fs:
+    :param decode_parallel_calls:
+    :param slice_randomize_offset:
+    :param slice_first_only:
+    :param slice_overlap_ratio:
+    :param slice_pad_end:
+    :param repeat:
+    :param shuffle:
+    :param shuffle_buffer_size:
+    :param prefetch_size:
+    :param prefetch_gpu_num:
+    :return:
+    """
 
     dataset = tf.data.Dataset.from_tensor_slices(fps)
 
@@ -44,7 +92,7 @@ def data_pipeline_gan(fps, batch_size, slice_len, decode_fs, decode_parallel_cal
         dataset = dataset.repeat()
 
     def _decode_audio_reshaped(fp, sample_rate):
-        _wav = decode_audio(fp, sample_rate=sample_rate).astype(np.float32)
+        _wav = decode_audio(fp, tgt_sample_rate=sample_rate).astype(np.float32)
         _wav = np.reshape(_wav, [_wav.shape[0], 1, 1])
         return _wav
 
@@ -79,7 +127,7 @@ def data_pipeline_gan(fps, batch_size, slice_len, decode_fs, decode_parallel_cal
     if shuffle:
         dataset = dataset.shuffle(buffer_size=10000)
 
-    dataset = dataset.batch(batch_size, drop_remainder=True)
+    dataset = dataset.batch(batch, drop_remainder=True)
 
     if prefetch_size is not None:
         dataset = dataset.prefetch(prefetch_size)

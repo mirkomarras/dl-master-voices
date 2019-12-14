@@ -9,144 +9,145 @@ import os
 import random
 
 from models.verifier.model import Model
-from helpers.audio import get_tf_spectrum
+from helpers.audio import play_n_rec, get_tf_spectrum
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class ResNet34Vox(Model):
 
-    def __init__(self, graph=tf.Graph(), var2std_epsilon=0.00001, reuse=False, id=''):
-        super().__init__(graph, var2std_epsilon, reuse, id)
-        self.name = 'resnet34vox'
-        self.id = self.get_version_id()
+    """
+       Class to represent Speaker Verification (SV) model based on the ResNet34 architecture - Embedding vectors of size 512 are returned
+       Chung, J. S., Nagrani, A., & Zisserman, A. (2018).
+       VoxCeleb2: Deep Speaker Recognition.
+       Proc. Interspeech 2018, 1086-1090.
+    """
 
-    def identity_block2d(self, input_tensor, kernel_size, filters, stage, block, is_training, reuse, kernel_initializer=tf.contrib.layers.xavier_initializer(uniform=False)):
+    def __init__(self, name='resnet34vox', id='', noises=None, cache=None, n_seconds=3, sample_rate=16000):
+        super().__init__(name, id, noises, cache, n_seconds, sample_rate)
+
+    def __identity_block2d(self, input_tensor, kernel_size, filters, stage, block, kernel_initializer):
         filters1, filters2, filters3 = filters
 
         conv_name_1 = 'conv' + str(stage) + '_' + str(block) + '_1x1_reduce'
         bn_name_1 = 'bn' + str(stage) + '_' + str(block) + '_1x1_reduce'
 
-        x = tf.layers.conv2d(input_tensor, filters1, (1, 1), use_bias=False, kernel_initializer=kernel_initializer, name=conv_name_1, reuse=reuse)
-        x = tf.layers.batch_normalization(x, training=is_training, name=bn_name_1, reuse=reuse)
-        x = tf.nn.relu(x)
+        x = tf.keras.layers.Conv2D(filters=filters1, kernel_size=(1, 1), use_bias=False, kernel_initializer=kernel_initializer, name=conv_name_1)(input_tensor)
+        x = tf.keras.layers.BatchNormalization(name=bn_name_1)(x)
+        x = tf.keras.layers.ReLU()(x)
 
         conv_name_2 = 'conv' + str(stage) + '_' + str(block) + '_3x3'
         bn_name_2 = 'bn' + str(stage) + '_' + str(block) + '_3x3'
-        x = tf.layers.conv2d(x, filters2, kernel_size, use_bias=False, padding='SAME', kernel_initializer=kernel_initializer, name=conv_name_2, reuse=reuse)
-        x = tf.layers.batch_normalization(x, training=is_training, name=bn_name_2, reuse=reuse)
-        x = tf.nn.relu(x)
+
+        x = tf.keras.layers.Conv2D(filters=filters2, kernel_size=kernel_size, use_bias=False, padding='SAME', kernel_initializer=kernel_initializer, name=conv_name_2)(x)
+        x = tf.keras.layers.BatchNormalization(name=bn_name_2)(x)
+        x = tf.keras.layers.ReLU()(x)
 
         conv_name_3 = 'conv' + str(stage) + '_' + str(block) + '_1x1_increase'
         bn_name_3 = 'bn' + str(stage) + '_' + str(block) + '_1x1_increase'
-        x = tf.layers.conv2d(x, filters3, (1, 1), use_bias=False, kernel_initializer=kernel_initializer, name=conv_name_3, reuse=reuse)
-        x = tf.layers.batch_normalization(x, training=is_training, name=bn_name_3, reuse=reuse)
 
-        x = tf.add(input_tensor, x)
-        x = tf.nn.relu(x)
+        x = tf.keras.layers.Conv2D(filters=filters3, kernel_size=(1, 1), use_bias=False, kernel_initializer=kernel_initializer, name=conv_name_3)(x)
+        x = tf.keras.layers.BatchNormalization(name=bn_name_3)(x)
+
+        x = tf.keras.layers.Add()([input_tensor, x])
+        x = tf.keras.layers.ReLU()(x)
+
         return x
 
-    def conv_block_2d(self, input_tensor, kernel_size, filters, stage, block, is_training, reuse, strides=(2, 2), kernel_initializer=tf.contrib.layers.xavier_initializer(uniform=False)):
+    def __conv_block_2d(self, input_tensor, kernel_size, filters, stage, block, strides, kernel_initializer):
         filters1, filters2, filters3 = filters
 
         conv_name_1 = 'conv' + str(stage) + '_' + str(block) + '_1x1_reduce'
         bn_name_1 = 'bn' + str(stage) + '_' + str(block) + '_1x1_reduce'
-        x = tf.layers.conv2d(input_tensor, filters1, (1, 1), strides=strides, use_bias=False, kernel_initializer=kernel_initializer, name=conv_name_1, reuse=reuse)
-        x = tf.layers.batch_normalization(x, training=is_training, name=bn_name_1, reuse=reuse)
-        x = tf.nn.relu(x)
+
+        x = tf.keras.layers.Conv2D(filters=filters1, kernel_size=(1, 1), strides=strides, use_bias=False, kernel_initializer=kernel_initializer, name=conv_name_1)(input_tensor)
+        x = tf.keras.layers.BatchNormalization(name=bn_name_1)(x)
+        x = tf.keras.layers.ReLU()(x)
 
         conv_name_2 = 'conv' + str(stage) + '_' + str(block) + '_3x3'
         bn_name_2 = 'bn' + str(stage) + '_' + str(block) + '_3x3'
-        x = tf.layers.conv2d(x, filters2, kernel_size, padding='SAME', use_bias=False, kernel_initializer=kernel_initializer, name=conv_name_2, reuse=reuse)
-        x = tf.layers.batch_normalization(x, training=is_training, name=bn_name_2, reuse=reuse)
-        x = tf.nn.relu(x)
+
+        x = tf.keras.layers.Conv2D(filters=filters2, kernel_size=kernel_size, padding='SAME', use_bias=False, kernel_initializer=kernel_initializer, name=conv_name_2)(x)
+        x = tf.keras.layers.BatchNormalization(name=bn_name_2)(x)
+        x = tf.keras.layers.ReLU()(x)
 
         conv_name_3 = 'conv' + str(stage) + '_' + str(block) + '_1x1_increase'
         bn_name_3 = 'bn' + str(stage) + '_' + str(block) + '_1x1_increase'
-        x = tf.layers.conv2d(x, filters3, (1, 1), use_bias=False, kernel_initializer=kernel_initializer, name=conv_name_3, reuse=reuse)
-        x = tf.layers.batch_normalization(x, training=is_training, name=bn_name_3, reuse=reuse)
+
+        x = tf.keras.layers.Conv2D(filters=filters3, kernel_size=(1, 1), use_bias=False, kernel_initializer=kernel_initializer, name=conv_name_3)(x)
+        x = tf.keras.layers.BatchNormalization(name=bn_name_3)(x)
 
         conv_name_4 = 'conv' + str(stage) + '_' + str(block) + '_1x1_shortcut'
         bn_name_4 = 'bn' + str(stage) + '_' + str(block) + '_1x1_shortcut'
-        shortcut = tf.layers.conv2d(input_tensor, filters3, (1, 1), use_bias=False, strides=strides, kernel_initializer=kernel_initializer, name=conv_name_4, reuse=reuse)
-        shortcut = tf.layers.batch_normalization(shortcut, training=is_training, name=bn_name_4, reuse=reuse)
 
-        x = tf.add(shortcut, x)
-        x = tf.nn.relu(x)
+        shortcut = tf.keras.layers.Conv2D(filters=filters3, kernel_size=(1, 1), use_bias=False, strides=strides, kernel_initializer=kernel_initializer, name=conv_name_4)(input_tensor)
+        shortcut = tf.keras.layers.BatchNormalization(name=bn_name_4)(shortcut)
+
+        x = tf.keras.layers.Add()([shortcut, x])
+        x = tf.keras.layers.ReLU()(x)
+
         return x
 
-    def build(self, input_x, input_y, n_classes=0, n_filters=24, noises=None, cache=None, augment=0, n_seconds=3, sample_rate=16000):
+    def build(self, classes=None):
+        super().build(classes)
+        print('>', 'building', self.name, 'model on', classes, 'classes')
 
-        with self.graph.as_default():
-            print('>', 'building', self.name, 'model')
+        kernel_initializer = tf.initializers.GlorotUniform()
 
-            super().build(input_x, input_y, n_classes, n_filters, noises, cache, augment, n_seconds, sample_rate)
-            self.input_s = tf.identity(get_tf_spectrum(self.input_a, self.sample_rate, self.frame_size, self.frame_stride, self.num_fft), name='input_s')
+        signal_input = tf.keras.Input(shape=(None,1,))
+        impulse_input = tf.keras.Input(shape=(3,))
 
-            kernel_initializer = tf.contrib.layers.xavier_initializer(uniform=False)
-            input_x = tf.layers.batch_normalization(self.input_s, training=self.phase, name='bbn0', reuse=self.reuse)
+        x = tf.keras.layers.Lambda(lambda x: play_n_rec(x, self.noises, self.cache), name='play_n_rec')([signal_input, impulse_input])
+        x = tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x, self.sample_rate), name='acoustic_layer')(x)
 
-            x = tf.layers.conv2d(input_x, 64, (7, 7), strides=(1, 1), kernel_initializer=kernel_initializer, use_bias=False, padding='SAME', name='voice_conv1_1/3x3_s1', reuse=self.reuse)
-            x = tf.layers.batch_normalization(x, training=self.phase, name='voice_bn1_1/3x3_s1', reuse=self.reuse)
-            x = tf.nn.relu(x)
-            x = tf.layers.max_pooling2d(x, (2, 2), strides=(2, 2), name='voice_mpool1')
+        # Conv 1
+        x = tf.keras.layers.Conv2D(filters=64, kernel_size=(7, 7), strides=(1, 1), kernel_initializer=kernel_initializer, use_bias=False, padding='SAME', name='voice_conv1_1/3x3_s1')(x)
+        x = tf.keras.layers.BatchNormalization(name='voice_bn1_1/3x3_s1')(x)
+        x = tf.keras.layers.ReLU()(x)
 
-            x1 = self.conv_block_2d(x, 3, [48, 48, 96], stage=2, block='voice_1a', strides=(1, 1), is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
-            x1 = self.identity_block2d(x1, 3, [48, 48, 96], stage=2, block='voice_1b', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
+        # Pool 1
+        x = tf.keras.layers.MaxPool2D(pool_size=(2, 2), strides=(2, 2), name='voice_mpool1')(x)
 
-            x2 = self.conv_block_2d(x1, 3, [96, 96, 128], stage=3, block='voice_2a', strides=(2, 2), is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
-            x2 = self.identity_block2d(x2, 3, [96, 96, 128], stage=3, block='voice_2b', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
-            x2 = self.identity_block2d(x2, 3, [96, 96, 128], stage=3, block='voice_2c', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
+        # Conv 2_x
+        x1 = self.__conv_block_2d(x, kernel_size=3, filters=[48, 48, 96], stage=2, block='voice_1a', strides=(1, 1), kernel_initializer=kernel_initializer)
+        x1 = self.__identity_block2d(x1, kernel_size=3, filters=[48, 48, 96], stage=2, block='voice_1b', kernel_initializer=kernel_initializer)
 
-            x3 = self.conv_block_2d(x2, 3, [128, 128, 256], stage=4, block='voice_3a', strides=(2, 2), is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
-            x3 = self.identity_block2d(x3, 3, [128, 128, 256], stage=4, block='voice_3b', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
-            x3 = self.identity_block2d(x3, 3, [128, 128, 256], stage=4, block='voice_3c', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
+        # Conv 3_x
+        x2 = self.__conv_block_2d(x1, kernel_size=3, filters=[96, 96, 128], stage=3, block='voice_2a', strides=(2, 2), kernel_initializer=kernel_initializer)
+        x2 = self.__identity_block2d(x2, kernel_size=3, filters=[96, 96, 128], stage=3, block='voice_2b', kernel_initializer=kernel_initializer)
+        x2 = self.__identity_block2d(x2, kernel_size=3, filters=[96, 96, 128], stage=3, block='voice_2c', kernel_initializer=kernel_initializer)
 
-            x4 = self.conv_block_2d(x3, 3, [256, 256, 512], stage=5, block='voice_4a', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
-            x4 = self.identity_block2d(x4, 3, [256, 256, 512], stage=5, block='voice_4b', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
-            x4 = self.identity_block2d(x4, 3, [256, 256, 512], stage=5, block='voice_4c', is_training=self.phase, reuse=self.reuse, kernel_initializer=kernel_initializer)
+        # Conv 4_x
+        x3 = self.__conv_block_2d(x2, kernel_size=3, filters=[128, 128, 256], stage=4, block='voice_3a', strides=(2, 2), kernel_initializer=kernel_initializer)
+        x3 = self.__identity_block2d(x3, kernel_size=3, filters=[128, 128, 256], stage=4, block='voice_3b', kernel_initializer=kernel_initializer)
+        x3 = self.__identity_block2d(x3, kernel_size=3, filters=[128, 128, 256], stage=4, block='voice_3c', kernel_initializer=kernel_initializer)
 
-            with tf.variable_scope('fc'):
-                pooling_output = tf.layers.max_pooling2d(x4, (3, 1), strides=(2, 2), name='voice_mpool2')
-                pooling_output = tf.layers.conv2d(pooling_output, filters=512, kernel_size=[7, 1], strides=[1, 1], padding='SAME', activation=tf.nn.relu, name='fc_block1')
-                fc1 = tf.layers.conv2d(pooling_output, filters=512, kernel_size=[7, 1], strides=[1, 1], padding='SAME', activation=tf.nn.relu, name='fc_block1_conv')
-                pooling_output = tf.reduce_mean(fc1, [1, 2], name='gap')
-                fc2 = tf.layers.dense(pooling_output, 512, activation=tf.nn.relu, name='fc2')
+        # Conv 5_x
+        x4 = self.__conv_block_2d(x3, kernel_size=3, filters=[256, 256, 512], stage=5, block='voice_4a', strides=(2, 2), kernel_initializer=kernel_initializer)
+        x4 = self.__identity_block2d(x4, kernel_size=3, filters=[256, 256, 512], stage=5, block='voice_4b', kernel_initializer=kernel_initializer)
+        x4 = self.__identity_block2d(x4, kernel_size=3, filters=[256, 256, 512], stage=5, block='voice_4c', kernel_initializer=kernel_initializer)
 
-                flattened = tf.contrib.layers.flatten(fc2)
-                flattened = tf.nn.l2_normalize(flattened)
-                w = tf.Variable(tf.truncated_normal([512, 512], stddev=0.1), name="w")
-                b = tf.Variable(tf.constant(0.1, shape=[512]), name="b")
+        # Fc 1
+        pooling_output = tf.keras.layers.MaxPool2D(pool_size=(3, 1), strides=(2, 2), name='voice_mpool2')(x4)
+        pooling_output = tf.keras.layers.Conv2D(filters=512, kernel_size=[7, 1], strides=[1, 1], padding='SAME', name='fc_block1')(pooling_output)
+        pooling_output = tf.keras.layers.ReLU()(pooling_output)
+        fc1 = tf.keras.layers.Conv2D(filters=512, kernel_size=[7, 1], strides=[1, 1], padding='SAME', name='fc_block1_conv')(pooling_output)
+        fc1 = tf.keras.layers.ReLU()(fc1)
 
-                h = tf.nn.xw_plus_b(flattened, w, b, name="scores")
-                h = tf.nn.relu(h, name="relu")
+        # Pool time
+        pooling_output = tf.keras.layers.Lambda(lambda x: tf.reduce_mean(x, axis=[1, 2], name='gap'))(fc1)
 
-                with tf.name_scope("dropout"):
-                    h = tf.nn.dropout(h, self.dropout_keep_prob)
+        # Fc 2
+        embedding_layer = tf.keras.layers.Dense(512, name='embedding_layer')(pooling_output)
+        fc2 = tf.keras.layers.ReLU()(embedding_layer)
 
-            self.embedding = self.graph.get_tensor_by_name('fc/scores:0')[0]
+        output = tf.keras.layers.Dense(classes, activation='softmax')(fc2)
 
-            with tf.variable_scope('output'):
-                w = tf.get_variable('w', shape=[512, n_classes], initializer=tf.contrib.layers.xavier_initializer())
-                b = tf.Variable(tf.constant(0.1, shape=[n_classes]), name="b")
-                scores = tf.nn.xw_plus_b(h, w, b, name="scores")
-                predictions = tf.argmax(scores, 1, name="predictions", output_type=tf.int32)
+        self.model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[output])
+        print('>', 'built', self.name, 'model on', classes, 'classes')
 
-            self.logits = scores
-            losses = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=scores, labels=self.input_y)
-            self.loss = tf.reduce_mean(losses, name='loss')
+        super().load()
 
-            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            with tf.control_dependencies(update_ops):
-                self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.loss, name='optimizer')
+        self.inference_model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[embedding_layer])
+        print('>', 'built', self.name, 'inference model')
 
-            with tf.name_scope("accuracy"):
-                correct_predictions = tf.equal(predictions, self.input_y)
-                self.accuracy = tf.reduce_mean(tf.cast(correct_predictions, 'float'), name='accuracy')
-
-        if not self.reuse:
-            with tf.Session(graph=self.graph, config=tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)) as sess:
-                print('>', 'initializing', self.name, 'graph')
-                sess.run(tf.global_variables_initializer())
-                self.save(sess)
-
-        print('>', self.name, 'built finished')
+        self.model.summary()

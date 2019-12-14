@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 from sklearn.metrics import roc_curve, auc
@@ -14,206 +13,151 @@ from helpers.audio import decode_audio, play_n_rec
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class Model(object):
+    """
+       Class to represent Speaker Verification (SV) models with model saving / loading and playback & recording capabilities
+    """
 
-    def __init__(self, graph=tf.Graph(), var2std_epsilon=0.00001, reuse=False, id=''):
-        self.graph = graph
-        self.var2std_epsilon = var2std_epsilon
-        self.reuse = reuse
-        self.noises = None
-        self.cache = None
-        self.id = id
-
-        self.frame_size=0.025
-        self.frame_stride=0.01
-        self.num_fft=512
-        self.lower_edge_hertz=80.0
-        self.upper_edge_hertz=8000.0
-
-        self.n_filters=24
-        self.sample_rate=16000
-        self.n_seconds = 3
-
-    def get_version_id(self):
-        tf_dir = os.path.join('.', 'data', 'pt_models', self.name)
-        tf_v = str(len(os.listdir(tf_dir))) if not self.id else self.id
-        out_dir = os.path.join(tf_dir, 'v' + tf_v)
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
-        assert os.path.exists(os.path.join(out_dir))
-        self.dir = out_dir
-        return tf_v
-
-    def build(self, input_x, input_y, n_classes=0, n_filters=24, noises=None, cache=None, augment=0, n_seconds=3, sample_rate=16000):
-        self.n_classes = n_classes
+    def __init__(self, name='', id=-1, noises=None, cache=None, n_seconds=3, sample_rate=16000):
+        """
+        Method to initialize a speaker verification model that will be saved in 'data/pt_models/{name}'
+        :param name:        String id for this model
+        :param id:          Version id for this model - default: auto-increment value along the folder 'data/pt_models/{name}'
+        :param noises:      Dictionary of paths to noise audio samples, e.g., noises['room'] = ['xyz.wav', ...]
+        :param cache:       Dictionary of noise audio samples, e.g., cache['xyz.wav'] = [0.1, .54, ...]
+        :param n_seconds:   Maximum number of seconds of an audio sample to be processed
+        :param sample_rate: Sample rate of an audio sample to be processed
+        """
         self.noises = noises
         self.cache = cache
 
-        self.sample_rate = sample_rate
+        self.n_filters=n_filters
+        self.sample_rate=sample_rate
         self.n_seconds = n_seconds
-        self.n_filters = n_filters
 
-        # Placeholder for parameter
-        self.learning_rate = tf.placeholder(tf.float32, name='learning_rate')
-        self.dropout_keep_prob = tf.placeholder(tf.float32, name='dropout_keep_prob')
-        self.phase = tf.placeholder(tf.bool, name='phase')
+        self.name = name
+        self.dir = os.path.join('.', 'data', 'pt_models', self.name)
+        self.id = str(len(os.listdir(self.dir))) if id < 0 else id
 
-        # Placeholders for regular data
-        self.input_x = input_x if input_x is not None else tf.placeholder(tf.float32, [None, self.sample_rate*self.n_seconds, 1], name='input_x')
-        self.input_y = input_y if input_y is not None else tf.placeholder(tf.int32, [None], name='input_y')
+    def build(self, classes=None):
+        """
+        Method to build a speaker verification model that takes audio samples of shape (None, 1) and impulse flags (None, 3)
+        :param classes:     Number of classes that this model should manage during training
+        :return:            None
+        """
+        self.model = None
+        self.inference = None
+        self.classes = classes
 
-        # Computation for playback-and-recording
-        if not augment:
-            self.input_a = self.input_x
+    def save(self):
+        """
+        Method to save the weights of this model in 'data/pt_models/{name}/model_weights_v{id}.tf'
+        :return:            None
+        """
+        print('>', 'saving', self.name, 'model')
+        if not os.path.exists(os.path.join(self.dir)):
+            os.makedirs(os.path.join(self.dir))
+        self.model.save_weights(os.path.join(self.dir, 'model_weights_v' + str(self.id) + '.tf'))
+        print('>', 'saved', self.name, 'model in', os.path.join(self.dir, 'model_weights_v' + str(self.id) + '.tf'))
+
+    def load(self):
+        """
+        Method to load weights for this model from 'data/pt_models/{name}/model_weights_v{id}.tf'
+        :return:            None
+        """
+        print('>', 'loading', self.name, 'model')
+        if os.path.exists(os.path.join(self.dir)):
+            if os.path.exists(os.path.join(self.dir, 'model_weights_v' + str(self.id) + '.tf')):
+                self.model.load_weights(os.path.join(self.dir, 'model_weights_v' + str(self.id) + '.tf'))
+                print('>', 'loaded weights from', os.path.join(self.dir, 'model_weights_v' + str(self.id) + '.tf'))
+            else:
+                print('>', 'no pre-trained weights for', self.name, 'model from', os.path.join(self.dir, 'model_weights_v' + str(self.id) + '.tf'))
         else:
-            self.input_a, p = play_n_rec(self.input_x, return_placeholders=True)
-            self.speaker = p['speaker']
-            self.room = p['room']
-            self.microphone = p['microphone']
+            print('>', 'no directory for', self.name, 'model at', os.path.join(self.dir))
 
-    def save(self, sess, out_dir=''):
-        print('>', 'saving', self.name, 'graph')
-        if not out_dir:
-            out_dir = self.dir
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
-        assert os.path.exists(os.path.join(out_dir))
-        saver = tf.train.Saver()
-        out_path = saver.save(sess, os.path.join(out_dir, 'model'))
-        print('>', self.name, 'graph saved in path', out_path)
+    def embed(self, signal):
+        """
+        Method to compute the embedding vector extracted by this model from signal with no playback & recording
+        :param signal:      The audio signal from which the embedding vector will be extracted - shape (None,1)
+        :return:            None
+        """
+        return self.inference_model.predict([np.expand_dims(signal, axis=0), np.expand_dims(np.zeros(3), axis=0)])
 
-    def load(self, sess, in_dir='', verbose=1):
-        if verbose:
-            print('>', 'loading', self.name, 'graph')
-        if not in_dir:
-            in_dir = self.dir
-        assert os.path.exists(in_dir)
-        saver = tf.train.import_meta_graph(os.path.join(in_dir, 'model.meta'))
-        saver.restore(sess, os.path.join(in_dir, 'model'))
-        self.graph = sess.graph
-        if verbose:
-            print('>', self.name, 'graph restored from path', in_dir)
+    def train(self, train_data, test_data, steps_per_epoch=10, epochs=1, learning_rate=1e-1, patience=5):
+        """
+        Method to train and validate this model
+        :param train_data:      Training data pipeline - shape ({'input_1': (batch, None, 1), 'input_2': (batch, 3)}), (batch, classes)
+        :param test_data:       Pre-computed testing data pairs - shape ((pairs, None, 1), (pairs, None, 1)), (pairs, binary_label)
+        :param steps_per_epoch: Number of steps per epoch
+        :param epochs:          Number of training epochs
+        :param learning_rate:   Learning rate
+        :param patience:        Number of epochs with non-improving EER willing to wait
+        :return:                None
+        """
+        print('>', 'training', self.name, 'model')
+        self.model.compile(optimizer=tf.keras.optimizers.Adam(lr=learning_rate), loss='categorical_crossentropy', metrics=['accuracy'])
+        num_nonimproving_steps, last_eer = 0, 1.0
+        for epoch in range(epochs):
+            self.model.fit(train_data, steps_per_epoch=steps_per_epoch, initial_epoch=epoch, epochs=epoch+1)
+            eer, _, _ = self.test(test_data)
+            if eer < last_eer:
+                print('>', 'eer improved from', round(last_eer, 2), 'to', round(eer, 2))
+                num_nonimproving_steps = 0
+                last_eer = eer
+                self.save()
+            else:
+                print('>', 'eer NOT improved from', round(last_eer, 2))
+                num_nonimproving_steps += 1
+            if num_nonimproving_steps == patience:
+                print('>', 'early stopping training after', num_nonimproving_steps, 'non-improving steps')
+                break
+        print('>', 'trained', self.name, 'model')
 
-    def embed(self, sess, x):
-        feed_dict = {self.input_a: np.reshape(x, (1, x.shape[0], x.shape[1])),
-                     self.speaker: np.zeros(1).reshape((-1, 1, 1)),
-                     self.room: np.zeros(1).reshape((-1, 1, 1)),
-                     self.microphone: np.zeros(1).reshape((-1, 1, 1)),
-                     self.dropout_keep_prob: 1.0,
-                     self.phase: False}
-        return sess.run(self.embedding, feed_dict=feed_dict)
-
-    def train(self, n_epochs, n_steps_per_epoch, learning_rate, dropout_proportion, initializer, validation_data=None, validation_interval=1, print_interval=1):
-        assert n_epochs > 0 and n_steps_per_epoch > 0 and print_interval > 0
-
-        with tf.Session(config=tf.ConfigProto(allow_soft_placement=False, log_device_placement=False)) as sess:
-            sess.run(tf.global_variables_initializer())
-
-            print('>', 'training', self.name, 'model')
-            for epoch in range(n_epochs):
-                print('>', 'epoch', epoch+1, '/', n_epochs)
-                sess.run(initializer)
-
-                batch_count = n_steps_per_epoch
-                dropout_keep_prob = 1 - dropout_proportion
-
-                total_gpu_waiting = 0.0
-                total_loss, batch_loss = 0, 0
-                total_accuracy, batch_accuracy = 0, 0
-
-                for batch_id in range(batch_count):
-
-                    f_speaker = random.sample(self.noises['speaker'], 1)[0]
-                    f_room = random.sample(self.noises['room'], 1)[0]
-                    f_mic = random.sample(self.noises['microphone'], 1)[0]
-
-                    feed_dict = {
-                        self.speaker: self.cache[f_speaker],
-                        self.room: self.cache[f_room],
-                        self.microphone: self.cache[f_mic],
-                        self.dropout_keep_prob: dropout_keep_prob,
-                        self.learning_rate: learning_rate,
-                        self.phase: True
-                    }
-
-                    gpu_waiting = time.time()
-                    _, loss, accuracy = sess.run([self.optimizer, self.loss, self.accuracy], feed_dict=feed_dict)
-                    curr_gpu_waiting = time.time() - gpu_waiting
-                    total_gpu_waiting += curr_gpu_waiting
-
-                    total_loss += loss
-                    total_accuracy += accuracy
-
-                    if batch_id % print_interval == 0:
-                        print('\r>', 'step %4.0f / %4.0f - eta: %4.0fm - loss: %3.5f - acc: %3.5f - time/step: %3.1fs' % (batch_id+1, batch_count, (batch_count - (batch_id+1)) * curr_gpu_waiting // 60, total_loss/(batch_id+1), total_accuracy/(batch_id+1), curr_gpu_waiting), end='')
-
-                if validation_data and (epoch+1) % validation_interval == 0:
-                    print()
-                    self.validate(sess, validation_data)
-
-                print()
-                self.save(sess)
-
-            print('>', 'trained', self.name, 'model')
-
-    def validate(self, sess, validation_data, comp_func=lambda x, y: 1 - spatial.distance.cosine(x, y), print_interval=100):
-        (x1, x2), y = validation_data
-
-        thr_eer, thr_far1 = 0, 0
-        s = np.zeros(len(x1))
-        for id, (f1, f2) in enumerate(zip(x1, x2)):
-            emb_1 = self.embed(sess, f1)
-            emb_2 = self.embed(sess, f2)
-            s[id] = comp_func(emb_1, emb_2)
-
-            if (id+1) % print_interval == 0 or (id+1) == len(x1):
-                far, tpr, thresholds = roc_curve(y[:id+1], s[:id+1])
+    def test(self, test_data):
+        """
+        Method to test this model against verification attempts
+        :param test_data:       Pre-computed testing data pairs - shape ((pairs, None, 1), (pairs, None, 1)), (pairs, binary_label)
+        :return:                (Model EER, EER threshold, FAR1% threshold)
+        """
+        print('>', 'testing', self.name, 'model')
+        (x1, x2), y = test_data
+        eer, thr_eer, thr_far1 = 0, 0, 0
+        similarity_scores = np.zeros(len(x1))
+        for pair_id, (f1, f2) in enumerate(zip(x1, x2)):
+            similarity_scores[pair_id] = 1 - spatial.distance.cosine(self.embed(f1), self.embed(f2))
+            if pair_id > 2:
+                far, tpr, thresholds = roc_curve(y[:pair_id+1], similarity_scores[:pair_id+1])
                 frr = 1 - tpr
-
                 id_eer = np.argmin(np.abs(far - frr))
                 id_far1 = np.argmin(np.abs(far - 0.01))
-
                 eer = float(np.mean([far[id_eer], frr[id_eer]]))
                 thr_eer = thresholds[id_eer]
                 thr_far1 = thresholds[id_far1]
-
-                print('\r> pair %5.0f / %5.0f - eer: %3.5f - thr@eer: %3.5f - thr@far1: %3.1f' % (id+1, len(x1), eer, thr_eer, thr_far1), end='')
-
+                print('\r> pair %5.0f / %5.0f - eer: %3.5f - thr@eer: %3.5f - thr@far1: %3.1f' % (pair_id+1, len(x1), eer, thr_eer, thr_far1), end='')
         print()
+        print('>', 'tested', self.name, 'model')
+        return eer, thr_eer, thr_far1
 
-        return thr_eer, thr_far1
-
-    def test(self, test_data):
-        config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
-        with tf.Session(config=config) as sess:
-            sess.run(tf.global_variables_initializer())
-            self.load(sess, self.dir)
-
-            print('Testing', self.name, 'model')
-            return self.validate(sess, test_data)
-
-    def impersonate(self, mv_data, threshold, policy, x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10, comp_func=lambda x, y: 1 - spatial.distance.cosine(x, y)):
-
-        tf_dir = os.path.join('.', 'data', 'pt_models', self.name)
-        tf_v = self.id
-        in_dir = os.path.join(tf_dir, 'v' + tf_v)
-
-        assert os.path.exists(in_dir)
-
-        config = tf.ConfigProto(allow_soft_placement=True, log_device_placement=False)
-        with tf.Session(config=config) as sess:
-            sess.run(tf.global_variables_initializer())
-            self.load(sess, in_dir, 0)
-
-            mv_emb = self.embed(sess, mv_data)
-            mv_fac = np.zeros(len(np.unique(y_mv_test)))
-
-            for class_index, class_label in enumerate(np.unique(y_mv_test)):
-                template = [self.embed(sess, signal) for signal in x_mv_test[class_index*n_templates:(class_index+1)*n_templates]]
-                if policy == 'any':
-                    mv_fac[class_index] = len([1 for template_emb in np.array(template) if comp_func(template_emb, mv_emb) > threshold])
-                elif policy == 'avg':
-                    mv_fac[class_index] = 1 if comp_func(mv_emb, np.mean(np.array(template), axis=0)) > threshold else 0
-                else:
-                    raise NotImplementedError('Verification policy not implemented')
-
-            return {'m': len([index for index, fac in enumerate(mv_fac) if fac > 0 and index in male_x_mv_test]) / len(male_x_mv_test), 'f': len([index for index, fac in enumerate(mv_fac) if fac > 0 and index in female_x_mv_test]) / len(female_x_mv_test)}
+    def impersonate(self, impostor_signal, threshold, policy, x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10):
+        """
+        Method to test this model under impersonation attempts
+        :param impostor_signal:     Audio signal against which this model is tested - shape (None, 1)
+        :param threshold:           Verification threshold
+        :param policy:              Verification policy - choices ['avg', 'any']
+        :param x_mv_test:           Testing users' audio samples - shape (users, n_templates, None, 1)
+        :param y_mv_test:           Testing users' labels - shape (users, n_templates)
+        :param male_x_mv_test:      Male users' ids
+        :param female_x_mv_test:    Female users' ids
+        :param n_templates:         Number of audio samples to create a user template
+        :return:                    {'m': impersonation rate against male users, 'f': impersonation rate against female users}
+        """
+        print('>', 'impersonating', self.name, 'model')
+        mv_emb = self.embed(impostor_signal)
+        mv_fac = np.zeros(len(np.unique(y_mv_test)))
+        for class_index, class_label in enumerate(np.unique(y_mv_test)):
+            template = [self.embed(signal) for signal in x_mv_test[class_index*n_templates:(class_index+1)*n_templates]]
+            if policy == 'any':
+                mv_fac[class_index] = len([1 for template_emb in np.array(template) if 1 - spatial.distance.cosine(template_emb, mv_emb) > threshold])
+            elif policy == 'avg':
+                mv_fac[class_index] = 1 if 1 - spatial.distance.cosine(mv_emb, np.mean(np.array(template), axis=0)) > threshold else 0
+        print('>', 'impersonated', self.name, 'model')
+        return {'m': len([index for index, fac in enumerate(mv_fac) if fac > 0 and index in male_x_mv_test]) / len(male_x_mv_test), 'f': len([index for index, fac in enumerate(mv_fac) if fac > 0 and index in female_x_mv_test]) / len(female_x_mv_test)}
