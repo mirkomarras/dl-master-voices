@@ -35,7 +35,7 @@ sbatch ./sbatch/train_verifier.sbatch
 
 The output of the job is saved at ``` ./jobs/slurm_train_verifier_{job_id}.out ```.
 
-The model is saved at ```./data/pt_models/{xvector|vggvox|resnet34vox|resnet50vox}/{latest_version_id} ```.  
+The model weights are saved at ```./data/pt_models/{xvector|vggvox|resnet34vox|resnet50vox}/model_weights_v{version_id}.tf```.  
 
 ### Test a speaker verification network
 To start testing a sample speaker verification model, from the project folder, please run:
@@ -55,7 +55,7 @@ sbatch ./sbatch/train_wavegan.sbatch
 
 The output of the job is saved at ``` ./jobs/slurm_train_wavegan_{job_id}.out ```.
 
-The model is saved at ```./data/pt_models/wavegan/{neutral|male|female}/{latest_version_id} ```.  
+The model is saved at ```./data/pt_models/wavegan/{neutral|male|female}/model_weights_v{version_id}.tf```.  
 
 ### Test a generative adversarial network
 To start testing a sample generative adversarial model, from the project folder, please run:
@@ -66,7 +66,7 @@ sbatch ./sbatch/test_wavegan.sbatch
 
 Please be aware that gender and version_id parameters must be set in the slurm job script. 
 
-Preview samples are saved at ```./data/pt_models/wavegan/{neutral|male|female}/{version_id}/preview ```.  
+Preview samples are saved at ```./data/pt_models/wavegan/{neutral|male|female}/preview_v{version_id}.wav ```.  
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
