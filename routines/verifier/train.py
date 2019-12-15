@@ -37,7 +37,7 @@ def main():
 
     parser.add_argument('--val_base_path', dest='val_base_path', default='./data/vs_voxceleb1/test', type=str, action='store', help='Base path for validation trials')
     parser.add_argument('--val_pair_path', dest='val_pair_path', default='./data/ad_voxceleb12/vox1_trial_pairs.csv', type=str, action='store', help='CSV file label, path_1, path_2 triplets')
-    parser.add_argument('--val_n_pair', dest='val_n_pair', default=1000, type=int, action='store', help='Number of validation pairs')
+    parser.add_argument('--val_n_pair', dest='val_n_pair', default=5000, type=int, action='store', help='Number of validation pairs')
 
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Training epochs')
     parser.add_argument('--prefetch', dest='prefetch', default=1024, type=int, action='store', help='Data pipeline prefetch size')
@@ -45,7 +45,6 @@ def main():
     parser.add_argument('--learning_rate', dest='learning_rate', default=1e-2, type=float, action='store', help='Learning rate')
     parser.add_argument('--augment', dest='augment', default=1, type=int, choices=[0,1], action='store', help='Data augmentation mode')
     parser.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Segment lenght in seconds')
-    parser.add_argument('--buffer_size', dest='buffer_size', default=12500, type=int, action='store', help='Shuffle buffer size')
 
     args = parser.parse_args()
 
@@ -63,7 +62,6 @@ def main():
     print('>', 'Batch size: {}'.format(args.batch))
     print('>', 'Augmentation flag: {}'.format(args.augment))
     print('>', 'Prefetch: {}'.format(args.prefetch))
-    print('>', 'Buffer size: {}'.format(args.buffer_size))
     print('>', 'Max number of seconds: {}'.format(args.n_seconds))
 
     # Load noise data
@@ -86,7 +84,7 @@ def main():
 
     # Data pipeline output test
     print('Checking data pipeline output')
-    train_data = data_pipeline_verifier(x_train, y_train, classes, augment=args.augment, sample_rate=args.sample_rate, n_seconds=args.n_seconds, buffer_size=args.buffer_size, batch=args.batch, prefetch=args.prefetch)
+    train_data = data_pipeline_verifier(x_train, y_train, classes, augment=args.augment, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
 
     for index, x in enumerate(train_data):
         print('>', index, x[0]['input_1'].shape, x[0]['input_2'].shape, x[1].shape)
@@ -94,7 +92,7 @@ def main():
             break
 
     # Create and train model
-    train_data = data_pipeline_verifier(x_train, y_train, classes, augment=args.augment, sample_rate=args.sample_rate, n_seconds=args.n_seconds, buffer_size=args.buffer_size, batch=args.batch, prefetch=args.prefetch)
+    train_data = data_pipeline_verifier(x_train, y_train, classes, augment=args.augment, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
     print('Creating model')
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
     model = available_nets[args.net](id=args.version, noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)

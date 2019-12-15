@@ -21,7 +21,10 @@ def data_pipeline_generator(x, y, classes, augment=1, sample_rate=16000, n_secon
     :return:            (signal, impulse_flags), label
     """
 
-    for index in range(len(x)):
+    indexes = list(range(len(x)))
+    random.shuffle(indexes)
+
+    for index in indexes:
 
         audio = decode_audio(x[index], tgt_sample_rate=sample_rate)
 
@@ -37,7 +40,7 @@ def data_pipeline_generator(x, y, classes, augment=1, sample_rate=16000, n_secon
 
     raise StopIteration()
 
-def data_pipeline_verifier(x, y, classes, augment=1, sample_rate=16000, n_seconds=3, buffer_size=25000, batch=64, prefetch=1024):
+def data_pipeline_verifier(x, y, classes, augment=1, sample_rate=16000, n_seconds=3, batch=64, prefetch=1024):
     """
     Function to create a tensorflow data pipeline for speaker verification training
     :param x:           List of audio paths
@@ -46,7 +49,6 @@ def data_pipeline_verifier(x, y, classes, augment=1, sample_rate=16000, n_second
     :param augment:     Augmentation flag - 0 for non-augmentation, 1 for augmentation
     :param sample_rate: Sample rate of the audio files to be processed
     :param n_seconds:   Max number of seconds of an audio file to be processed
-    :param buffer_size: Size of the buffer for shuffling
     :param batch:       Size of a training batch
     :param prefetch:    Number of prefetched batches
     :return:            Data pipeline
@@ -57,7 +59,6 @@ def data_pipeline_verifier(x, y, classes, augment=1, sample_rate=16000, n_second
                                              output_shapes=({'input_1': [None,48000,1], 'input_2': [3]},[classes]))
 
     dataset = dataset.map(lambda x, y: ({'input_1': tf.squeeze(x['input_1'], axis=0), 'input_2': x['input_2']}, y))
-    dataset = dataset.shuffle(buffer_size=buffer_size)
     dataset = dataset.batch(batch)
     dataset = dataset.prefetch(prefetch)
 
