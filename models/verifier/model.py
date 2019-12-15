@@ -30,7 +30,6 @@ class Model(object):
         self.noises = noises
         self.cache = cache
 
-        self.n_filters=n_filters
         self.sample_rate=sample_rate
         self.n_seconds = n_seconds
 
