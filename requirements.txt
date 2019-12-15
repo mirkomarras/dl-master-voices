@@ -1,6 +1,6 @@
 jupyterlab==0.35.4
 Keras==2.2.4
-librosa==0.6.2
+librosa==0.7.1
 matplotlib==3.0.2
 matplotlib2tikz==0.6.18
 numpy==1.16.1

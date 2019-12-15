@@ -4,6 +4,7 @@
 import tensorflow as tf
 import soundfile as sf
 import numpy as np
+import librosa
 import random
 import math
 import os
@@ -20,13 +21,11 @@ def decode_audio(fp, tgt_sample_rate=16000):
 
     audio_sf, audio_sr = sf.read(fp)
 
-    if audio_sf.ndim > 1:
-        print('>', 'warning: collapsing stereo into mono')
-        audio_sf = audio_sf.mean(axis=-1)
+    if audio_sf.ndim > 1: # Is not mono
+        audio_sf, new_sample_rate = librosa.load(fp, mono=True)
 
-    if audio_sr != tgt_sample_rate:
-        print('>', 'warning: sampling frequency different than {:,d} Hz ({:,d}) -> audio naively downsampled'.format(tgt_sample_rate, audio_sr))
-        audio_sf = audio_sf[::int(np.ceil(audio_sr / tgt_sample_rate))]
+    if audio_sr != tgt_sample_rate: # Has different target sample rate
+        audio_sf, new_sample_rate = librosa.load(fp, sr=tgt_sample_rate)
 
     return audio_sf
 
