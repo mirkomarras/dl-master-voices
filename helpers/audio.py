@@ -14,7 +14,7 @@ def decode_audio(fp, tgt_sample_rate=16000):
     Function to decode an audio file
     :param fp:              File path to the audio sample
     :param tgt_sample_rate: Targeted sample rate
-    :return:
+    :return:                Audio sample
     """
 
     assert tgt_sample_rate > 0

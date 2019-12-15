@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --time=168:00:00
 #SBATCH --mem=64GB
-#SBATCH --gres=gpu:v100:1
+#SBATCH --gres=gpu:1
 #SBATCH --job-name=VerTrain
 #SBATCH --mail-type=END
 #SBATCH --mail-user=m.marras19@gmail.com
