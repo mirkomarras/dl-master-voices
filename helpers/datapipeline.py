@@ -9,7 +9,7 @@ import sys
 
 from helpers.audio import decode_audio
 
-def data_pipeline_generator(x, y, classes, augment=0, sample_rate=16000, n_seconds=3):
+def data_pipeline_generator(x, y, classes, augment=1, sample_rate=16000, n_seconds=3):
     """
     Function to simulate a (signal, impulse_flags), label generator
     :param x:           List of audio paths
@@ -37,7 +37,7 @@ def data_pipeline_generator(x, y, classes, augment=0, sample_rate=16000, n_secon
 
     raise StopIteration()
 
-def data_pipeline_verifier(x, y, classes, augment=0, sample_rate=16000, n_seconds=3, buffer_size=25000, batch=64, prefetch=1024):
+def data_pipeline_verifier(x, y, classes, augment=1, sample_rate=16000, n_seconds=3, buffer_size=25000, batch=64, prefetch=1024):
     """
     Function to create a tensorflow data pipeline for speaker verification training
     :param x:           List of audio paths
