@@ -4,7 +4,7 @@
 #SBATCH --cpus-per-task=1
 #SBATCH --time=168:00:00
 #SBATCH --mem=64GB
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:v100:1
 #SBATCH --job-name=VerTrain
 #SBATCH --mail-type=END
 #SBATCH --mail-user=m.marras19@gmail.com
@@ -19,11 +19,9 @@ module load ffmpeg/intel/3.2.2
 export PRJ_PATH="${PWD}"
 export AUDIO_DIR="/beegfs/mm10572/voxceleb1/dev,/beegfs/mm10572/voxceleb2/dev"
 export VAL_BASE_PATH="/beegfs/mm10572/voxceleb1/test"
-export NET="xvector"
-export AUGMENT="1"
-export BATCH="32"
+export NET="vggvox"
 
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
 
-python -u $PRJ_PATH/routines/verifier/train.py --audio_dir $AUDIO_DIR --val_base_path $VAL_BASE_PATH --net $NET  --augment $AUGMENT --batch $BATCH
+python -u $PRJ_PATH/routines/verifier/train.py --audio_dir $AUDIO_DIR --val_base_path $VAL_BASE_PATH --net $NET

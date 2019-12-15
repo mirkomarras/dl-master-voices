@@ -159,7 +159,7 @@ def play_n_rec(inputs, noises, cache, noise_strength='random'):
     if noises is not None and cache is not None:
 
         speaker = np.array(cache[random.choice(noises['speaker'])], dtype=np.float32)
-        speaker_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(speaker)[0]-1], [0, 0]], 'constant'), speaker, 1, padding="VALID")
+        speaker_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(speaker)[0]-1], [0, 0]], 'constant'), speaker, 1, padding='VALID')
 
         if noise_strength == 'random':
             noise_strength = tf.clip_by_value(tf.random.normal((1,), 0, 0.00001), 0, 10)
@@ -172,7 +172,7 @@ def play_n_rec(inputs, noises, cache, noise_strength='random'):
         output = tf.math.add(speaker_flag, output_flag)
 
         room = np.array(cache[random.choice(noises['room'])], dtype=np.float32)
-        room_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(room)[0]-1], [0, 0]], 'constant'), room, 1, padding="VALID")
+        room_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(room)[0]-1], [0, 0]], 'constant'), room, 1, padding='VALID')
 
         room_flag = tf.math.multiply(room_output, tf.expand_dims(tf.expand_dims(impulse[:, 1], 1), 1))
         output_flag = tf.math.multiply(output, tf.expand_dims(tf.expand_dims(tf.math.abs(tf.math.subtract(impulse[:, 1],1)), 1), 1))
