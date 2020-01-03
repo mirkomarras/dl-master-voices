@@ -19,13 +19,10 @@ def decode_audio(fp, tgt_sample_rate=16000):
 
     assert tgt_sample_rate > 0
 
-    audio_sf, audio_sr = sf.read(fp)
+    audio_sf, audio_sr = sf.read(fp, dtype='float32')
 
-    if audio_sf.ndim > 1: # Is not mono
-        audio_sf, new_sample_rate = librosa.load(fp, mono=True)
-
-    if audio_sr != tgt_sample_rate: # Has different target sample rate
-        audio_sf, new_sample_rate = librosa.load(fp, sr=tgt_sample_rate)
+    if audio_sf.ndim > 1 or audio_sr != tgt_sample_rate: # Is not mono
+        audio_sf, new_sample_rate = librosa.load(fp, sr=tgt_sample_rate, mono=True)
 
     return audio_sf
 
@@ -88,6 +85,9 @@ def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
     magnitude_spectrum = tf.transpose(magnitude_spectrum, perm=[0, 2, 1])
     magnitude_spectrum = tf.expand_dims(magnitude_spectrum, 3)
 
+    # Slice spectrum
+    magnitude_spectrum = tf.keras.layers.Lambda(lambda x: x[:, :-1, :, :])(magnitude_spectrum)
+
     # Normalize frames
     agg_axis = 2
     mean_tensor, variance_tensor = tf.nn.moments(magnitude_spectrum, axes=[agg_axis])
@@ -96,7 +96,7 @@ def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
 
     # Make sure the dimensions are as expected
     normalized_spectrum_shape = normalized_spectrum.get_shape().as_list()
-    assert normalized_spectrum_shape[1] == num_fft / 2 + 1 and normalized_spectrum_shape[3] == 1
+    assert normalized_spectrum_shape[1] == num_fft / 2 and normalized_spectrum_shape[3] == 1
 
     return normalized_spectrum
 

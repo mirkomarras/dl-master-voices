@@ -11,7 +11,7 @@ import time
 import sys
 import os
 
-from helpers.datapipeline import data_pipeline_generator, data_pipeline_verifier
+from helpers.datapipeline import data_pipeline_generator_verifier, data_pipeline_verifier
 from helpers.dataset import get_mv_analysis_users, load_data_set, load_val_data
 from helpers.audio import load_noise_paths, cache_noise_data
 
@@ -37,7 +37,7 @@ def main():
 
     parser.add_argument('--val_base_path', dest='val_base_path', default='./data/vs_voxceleb1/test', type=str, action='store', help='Base path for validation trials')
     parser.add_argument('--val_pair_path', dest='val_pair_path', default='./data/ad_voxceleb12/vox1_trial_pairs.csv', type=str, action='store', help='CSV file label, path_1, path_2 triplets')
-    parser.add_argument('--val_n_pair', dest='val_n_pair', default=5000, type=int, action='store', help='Number of validation pairs')
+    parser.add_argument('--val_n_pair', dest='val_n_pair', default=10000, type=int, action='store', help='Number of validation pairs')
 
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Training epochs')
     parser.add_argument('--prefetch', dest='prefetch', default=1024, type=int, action='store', help='Data pipeline prefetch size')
@@ -60,6 +60,7 @@ def main():
     print('>', 'Number of val pairs: {}'.format(args.val_n_pair))
     print('>', 'Number of epochs: {}'.format(args.n_epochs))
     print('>', 'Batch size: {}'.format(args.batch))
+    print('>', 'Learning rate: {}'.format(args.learning_rate))
     print('>', 'Augmentation flag: {}'.format(args.augment))
     print('>', 'Prefetch: {}'.format(args.prefetch))
     print('>', 'Max number of seconds: {}'.format(args.n_seconds))
@@ -79,7 +80,7 @@ def main():
 
     # Generator output test
     print('Checking generator output')
-    for index, x in enumerate(data_pipeline_generator(x_train[:10], y_train[:10], classes, augment=args.augment, sample_rate=args.sample_rate, n_seconds=args.n_seconds)):
+    for index, x in enumerate(data_pipeline_generator_verifier(x_train[:10], y_train[:10], classes, augment=args.augment, sample_rate=args.sample_rate, n_seconds=args.n_seconds)):
         print('>', index, x[0]['input_1'].shape, x[0]['input_2'].shape, x[1].shape)
 
     # Data pipeline output test

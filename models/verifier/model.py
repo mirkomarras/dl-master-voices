@@ -37,6 +37,9 @@ class Model(object):
         self.dir = os.path.join('.', 'data', 'pt_models', self.name)
         self.id = str(len(os.listdir(self.dir))) if id < 0 else id
 
+    def get_model(self):
+        return self.inference_model
+
     def build(self, classes=None):
         """
         Method to build a speaker verification model that takes audio samples of shape (None, 1) and impulse flags (None, 3)
@@ -96,6 +99,7 @@ class Model(object):
         self.model.compile(optimizer=tf.keras.optimizers.Adam(lr=learning_rate), loss='categorical_crossentropy', metrics=['accuracy'])
         num_nonimproving_steps, last_eer = 0, 1.0
         for epoch in range(epochs):
+            tf.keras.backend.set_learning_phase(1)
             self.model.fit(train_data, steps_per_epoch=steps_per_epoch, initial_epoch=epoch, epochs=epoch+1)
             eer, _, _ = self.test(test_data)
             if eer < last_eer:
@@ -121,6 +125,7 @@ class Model(object):
         (x1, x2), y = test_data
         eer, thr_eer, thr_far1 = 0, 0, 0
         similarity_scores = np.zeros(len(x1))
+        tf.keras.backend.set_learning_phase(0)
         for pair_id, (f1, f2) in enumerate(zip(x1, x2)):
             similarity_scores[pair_id] = 1 - spatial.distance.cosine(self.embed(f1), self.embed(f2))
             if pair_id > 2:

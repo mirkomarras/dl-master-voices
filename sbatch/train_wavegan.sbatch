@@ -18,8 +18,8 @@ module load ffmpeg/intel/3.2.2
 
 export PRJ_PATH="${PWD}"
 export AUDIO_DIR="/beegfs/mm10572/voxceleb1/dev,/beegfs/mm10572/voxceleb2/dev"
-export NET="wavegan"
-export GENDER="female"
+export NET="specgan"
+export GENDER="neutral"
 
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate

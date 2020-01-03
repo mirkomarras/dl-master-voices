@@ -25,6 +25,15 @@ class ResNet50Vox(Model):
     def __init__(self, name='resnet50vox', id='', noises=None, cache=None, n_seconds=3, sample_rate=16000):
         super().__init__(name, id, noises, cache, n_seconds, sample_rate)
 
+    def __conv_bn_dynamic_apool(self, inp_tensor, layer_idx, conv_filters, conv_kernel_size, conv_strides, conv_pad, conv_layer_prefix='conv'):
+        x = tf.keras.layers.ZeroPadding2D(padding=conv_pad, name='pad{}'.format(layer_idx))(inp_tensor)
+        x = tf.keras.layers.Conv2D(filters=conv_filters, kernel_size=conv_kernel_size, strides=conv_strides, padding='valid', name='{}{}'.format(conv_layer_prefix, layer_idx))(x)
+        x = tf.keras.layers.BatchNormalization(epsilon=1e-5, momentum=1., name='bn{}'.format(layer_idx))(x)
+        x = tf.keras.layers.Activation('relu', name='relu{}'.format(layer_idx))(x)
+        x = tf.keras.layers.AveragePooling2D(pool_size=(1, 8), strides=(1,1), name='gapool{}'.format(layer_idx))(x)
+        x = tf.keras.layers.Reshape((1, 1, conv_filters), name='reshape{}'.format(layer_idx))(x)
+        return x
+
     def build(self, classes=None):
         super().build(classes)
         print('>', 'building', self.name, 'model on', classes, 'classes')
@@ -267,17 +276,10 @@ class ResNet50Vox(Model):
         conv_block4_output3 = tf.keras.layers.Add()([conv_block4_output2, conv_block4_conv3_3])
         conv_block4_output3 = tf.keras.layers.ReLU()(conv_block4_output3)
 
-        # Fc 1
-        x = tf.keras.layers.Conv2D(filters=2048, kernel_size=[9, 1], strides=[1, 1], padding='VALID', name='cc4_1')(conv_block4_output3)
-        x = tf.keras.layers.BatchNormalization(name='bbn6')(x)
-        x = tf.keras.layers.ReLU()(x)
-        x = tf.keras.layers.Lambda(lambda x: tf.reduce_mean(x, axis=[1, 2], name='apool4'))(x)
-        x = tf.keras.layers.Dropout(0.5)(x)
-
-        # Fc 2
-        x = tf.keras.layers.Flatten()(x)
-        embedding_layer = tf.keras.layers.Dense(512, name='embedding_layer')(x)
-        output = tf.keras.layers.Dense(classes, activation='softmax')(embedding_layer)
+        # Fc layers
+        embedding_layer = self.__conv_bn_dynamic_apool(x, layer_idx=6, conv_filters=2048, conv_kernel_size=(9, 1), conv_strides=(1, 1), conv_pad=(0, 0), conv_layer_prefix='fc')
+        x = tf.keras.layers.Lambda(lambda y: tf.keras.backend.l2_normalize(y, axis=3), name='norm')(embedding_layer)
+        output = tf.keras.layers.Conv2D(filters=classes, kernel_size=(1, 1), strides=(1, 1), padding='valid', name='fc8')(x)
 
         self.model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[output])
         print('>', 'built', self.name, 'model on', classes, 'classes')

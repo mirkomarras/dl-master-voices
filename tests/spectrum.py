@@ -85,14 +85,14 @@ def main():
     print('> signal:', xt.shape)
 
     sp_np, _, _ = get_np_spectrum(xt, args.sample_rate)
-    print('> numpy spectrum:', sp_np.shape, sp_np.min(), sp_np.max())
+    print('> numpy spectrum:', sp_np.shape, np.min(sp_np), np.max(sp_np))
 
     @tf.function
     def forward(signal):
         return get_tf_spectrum(signal)
 
     sp_tf = np.squeeze(forward(xt.reshape((1, -1, 1))).numpy())
-    print('> tensorflow spectrum:', sp_tf.shape, sp_tf.min(), sp_tf.max())
+    print('> tensorflow spectrum:', sp_tf.shape, np.min(sp_tf), np.max(sp_tf))
 
     print('Saving spectrum comparison plot')
 
