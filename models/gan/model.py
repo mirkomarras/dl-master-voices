@@ -69,6 +69,26 @@ class GAN(object):
         cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         return cross_entropy(tf.ones_like(fake_output), fake_output)
 
+    @tf.function
+    def train_step(self, batch, batch_data):
+
+        with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+            generated_images = self.generator(tf.random.normal([batch, self.latent_dim]), training=True)
+
+            real_output = self.discriminator(batch_data, training=True)
+            fake_output = self.discriminator(generated_images, training=True)
+
+            gen_loss = self.generator_loss(fake_output)
+            disc_loss = self.discriminator_loss(real_output, fake_output)
+
+        gradients_of_generator = gen_tape.gradient(gen_loss, self.generator.trainable_variables)
+        gradients_of_discriminator = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
+
+        self.generator_optimizer.apply_gradients(zip(gradients_of_generator, self.generator.trainable_variables))
+        self.discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, self.discriminator.trainable_variables))
+
+        return gen_loss, disc_loss
+
     def train(self, train_data, epochs, steps_per_epoch, batch):
         self.generator_optimizer = tf.keras.optimizers.Adam(1e-4)
         self.discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
@@ -79,24 +99,8 @@ class GAN(object):
 
             step = 0
             for batch_data in train_data:
-
-                with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-                    generated_images = self.generator(tf.random.normal([batch, self.latent_dim]), training=True)
-
-                    real_output = self.discriminator(batch_data, training=True)
-                    fake_output = self.discriminator(generated_images, training=True)
-
-                    gen_loss = self.generator_loss(fake_output)
-                    disc_loss = self.discriminator_loss(real_output, fake_output)
-
-                    print('> Step', step+1, 'of', steps_per_epoch, '\tgen_loss', gen_loss.numpy(), '\tdisc_loss', disc_loss.numpy())
-
-                gradients_of_generator = gen_tape.gradient(gen_loss, self.generator.trainable_variables)
-                gradients_of_discriminator = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
-
-                self.generator_optimizer.apply_gradients(zip(gradients_of_generator, self.generator.trainable_variables))
-                self.discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, self.discriminator.trainable_variables))
-
+                gen_loss, disc_loss = self.train_step(batch, batch_data)
+                print('> Step', step + 1, 'of', steps_per_epoch, '\tgen_loss', gen_loss.numpy(), '\tdisc_loss', disc_loss.numpy())
                 step += 1
 
             self.preview(self.generator)

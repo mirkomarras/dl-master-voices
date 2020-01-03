@@ -59,7 +59,7 @@ class SpecGAN(GAN):
         x = tf.keras.layers.BatchNormalization()(x)
         x = tf.maximum(0.2 * x, x)
 
-        x = tf.keras.layers.Reshape([4 * 4 * self.gan_dim * 16])(x)
+        x = tf.keras.layers.Flatten()(x)
 
         output = tf.keras.layers.Dense(1)(x)
 
