@@ -41,7 +41,7 @@ class MasterVocoder(object):
     def get_vocoder(self):
         return self.vocoder
 
-    def train(self, train_data, n_iterations, n_epochs, n_steps_per_epoch, min_val=1e-5, min_sim=0.25, max_sim=0.75, learning_rate=1e-1, mv_test_thrs=None, mv_test_data=None):
+    def train(self, train_data, n_iterations, n_epochs, n_steps_per_epoch, min_val=1e-5, min_sim=0.25, max_sim=1.00, learning_rate=1e-1, mv_test_thrs=None, mv_test_data=None):
         filter_gradients = lambda c, g, t1, t2: [g[i] for i in range(len(c)) if c[i] >= t1 and c[i] <= t2]
 
         impulse = np.zeros(3).astype(np.float32)
