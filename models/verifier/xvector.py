@@ -75,5 +75,3 @@ class XVector(Model):
 
         self.inference_model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[embedding_layers[0]])
         print('>', 'built', self.name, 'inference model')
-
-        self.model.summary()

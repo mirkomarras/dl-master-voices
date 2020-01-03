@@ -88,3 +88,29 @@ def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024):
     dataset = dataset.prefetch(prefetch)
 
     return dataset
+
+
+def data_pipeline_generator_mv(x, sample_rate=16000, n_seconds=3):
+    indexes = list(range(len(x)))
+    random.shuffle(indexes)
+
+    for index in indexes:
+        audio = decode_audio(x[index], tgt_sample_rate=sample_rate)
+        start_sample = random.choice(range(len(audio) - sample_rate*n_seconds))
+        end_sample = start_sample + sample_rate*n_seconds
+        audio = audio[start_sample:end_sample].reshape((1, -1, 1))
+        yield audio
+
+    raise StopIteration()
+
+def data_pipeline_mv(x, sample_rate=16000, n_seconds=3, batch=64, prefetch=1024):
+
+    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_mv(x, sample_rate=sample_rate, n_seconds=n_seconds),
+                                             output_types=(tf.float32),
+                                             output_shapes=([None, sample_rate*n_seconds, 1]))
+
+    dataset = dataset.map(lambda x: tf.squeeze(x, axis=0))
+    dataset = dataset.batch(batch)
+    dataset = dataset.prefetch(prefetch)
+
+    return dataset

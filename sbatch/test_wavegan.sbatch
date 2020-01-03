@@ -17,7 +17,7 @@ module load cudnn/10.0v7.6.2.24
 module load ffmpeg/intel/3.2.2
 
 export PRJ_PATH="${PWD}"
-export NET="wavegan"
+export NET="specgan"
 export GENDER="neutral"
 export VERSION="9"
 

@@ -71,5 +71,3 @@ class VggVox(Model):
 
         self.inference_model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[embedding_layer])
         print('>', 'built', self.name, 'inference model')
-
-        self.model.summary()
