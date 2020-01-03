@@ -38,15 +38,6 @@ class MasterVocoder(object):
         similarity = tf.keras.layers.Dot(axes=1, normalize=True)([embedding_1, embedding_2])
         self.vocoder = tf.keras.Model([self.gan.get_generator().input, self.verifier.get_model().input[0], self.verifier.get_model().input[1]], similarity)
 
-        print('Testing gradient computation')
-        input_2 = tf.Variable(np.random.normal(size=(1, 48000, 1)), dtype=tf.float32)
-        input_3 = tf.Variable(np.zeros((1, 3)), dtype=tf.float32)
-        with tf.GradientTape() as tape:
-            loss = self.verifier.get_model()([input_2, input_3])
-            print('> loss', loss.numpy().shape)
-        grads = tape.gradient(loss, input_2)
-        print('> gradients', grads.shape)
-
     def get_vocoder(self):
         return self.vocoder
 

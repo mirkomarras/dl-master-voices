@@ -26,6 +26,11 @@ class XVector(Model):
         super().__init__(name, id, noises, cache, n_seconds, sample_rate)
         self.n_filters = 24
 
+    def __normalize_with_moments(self, x):
+        tf_mean, tf_var = tf.nn.moments(x, 1)
+        x = tf.concat([tf_mean, tf.sqrt(tf_var + 0.00001)], 1)
+        return x
+
     def build(self, classes=None):
         super().build(classes)
         print('>', 'building', self.name, 'model on', classes, 'classes')
@@ -53,8 +58,7 @@ class XVector(Model):
                 x = tf.keras.layers.Dropout(0.1)(x)
 
         # Statistic pooling
-        tf_mean, tf_var = tf.nn.moments(x, 1)
-        x = tf.concat([tf_mean, tf.sqrt(tf_var + 0.00001)], 1)
+        x = tf.keras.layers.Lambda(lambda x: self.__normalize_with_moments(x))(x)
 
         # Embedding layers
         embedding_layers = []
@@ -75,3 +79,5 @@ class XVector(Model):
 
         self.inference_model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[embedding_layers[0]])
         print('>', 'built', self.name, 'inference model')
+
+        self.model.summary()
