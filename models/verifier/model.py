@@ -35,6 +35,8 @@ class Model(object):
 
         self.name = name
         self.dir = os.path.join('.', 'data', 'pt_models', self.name)
+        if not os.path.exists(self.dir):
+            os.makedirs(self.dir)
         self.id = str(len(os.listdir(self.dir))) if id < 0 else id
 
     def get_model(self):
