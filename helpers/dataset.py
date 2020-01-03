@@ -195,7 +195,7 @@ def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, 
         class_paths = random.sample(mv_paths[class_index*samples_per_user:(class_index+1)*samples_per_user], n_templates)
 
         for path in class_paths:
-            x_mv_test.append(decode_audio(path, tgt_sample_rate=sample_rate).reshape((-1, 1))[:sample_rate*n_seconds, :])
+            x_mv_test.append(decode_audio(path.replace('.m4a', '.wav'), tgt_sample_rate=sample_rate).reshape((-1, 1))[:sample_rate*n_seconds, :])
             y_mv_test.append(class_index)
 
         if gender_map[class_paths[0].split(os.path.sep)[-3]] == 'm':
