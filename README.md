@@ -35,7 +35,7 @@ sbatch ./sbatch/train_verifier.sbatch
 
 The output of the job is saved at ``` ./jobs/slurm_train_verifier_{job_id}.out ```.
 
-The model weights are saved at ```./data/pt_models/{xvector|vggvox|resnet34vox|resnet50vox}/model_weights_v{version_id}.tf```.  
+The model weights are saved at ```./data/pt_models/{xvector|vggvox|resnet34vox|resnet50vox}/v{version_id}/model_weights.tf```.  
 
 ### Test a speaker verification network
 To start testing a sample speaker verification model, from the project folder, please run:
@@ -46,31 +46,49 @@ sbatch ./sbatch/test_verifier.sbatch
 
 The output of the job is saved at ``` ./jobs/slurm_test_verifier_{job_id}.out ```.
 
-Please be aware that net_type and version_id parameters must be set in the slurm job script. 
-
 ### Train a generative adversarial network
 To start training a sample generative adversarial model, from the project folder, please run:
 
 ``` 
-sbatch ./sbatch/train_wavegan.sbatch
+sbatch ./sbatch/train_gan.sbatch
 ``` 
 
 The output of the job is saved at ``` ./jobs/slurm_train_wavegan_{job_id}.out ```.
 
-The model is saved at ```./data/pt_models/wavegan/{neutral|male|female}/model_weights_v{version_id}.tf```.  
+The generator model is saved at ```./data/pt_models/wavegan/{neutral|male|female}/v{version_id}/generator_weights.tf```.
+
+The discriminator model is saved at ```./data/pt_models/wavegan/{neutral|male|female}/v{version_id}/discriminator_weights.tf```.  
 
 ### Test a generative adversarial network
 To start testing a sample generative adversarial model, from the project folder, please run:
 
 ``` 
-sbatch ./sbatch/test_wavegan.sbatch
+sbatch ./sbatch/test_gan.sbatch
 ``` 
 
 The output of the job is saved at ``` ./jobs/slurm_test_wavegan_{job_id}.out ```.
 
-Please be aware that gender and version_id parameters must be set in the slurm job script. 
+Preview samples are saved at ```./data/pt_models/wavegan/{neutral|male|female}/v{version_id}/fake.wav ```.  
 
-Preview samples are saved at ```./data/pt_models/wavegan/{neutral|male|female}/preview_v{version_id}.wav ```.  
+### Optimize a master voice
+To start optimizing a master voice, from the project folder, please run:
+
+``` 
+sbatch ./sbatch/train_mv.sbatch
+``` 
+
+The output of the job is saved at ``` ./jobs/slurm_train_mv_{job_id}.out ```.
+
+The master voice sample are saved at ```./data/vs_mv_data/{net}-{netv}_{gan}-{ganv}_{f|m}-{f|m}_{mv|sv}/v{version_id}```.  
+
+### Test a master voice
+To start testing a master voice population, from the project folder, please run:
+
+``` 
+sbatch ./sbatch/test_mv.sbatch
+``` 
+
+The output of the job is saved at ``` ./jobs/slurm_test_mv_{job_id}.out ```.
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
