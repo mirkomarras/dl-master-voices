@@ -25,45 +25,49 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 def main():
     parser = argparse.ArgumentParser(description='Speaker verification model training')
 
-    # Parameters
+    # Parameters for a verifier
     parser.add_argument('--net', dest='net', default='', type=str, choices=['vggvox', 'xvector', 'resnet50vox', 'resnet34vox'], action='store', help='Network model architecture')
-    parser.add_argument('--version', dest='version', default=-1, type=int, action='store', help='Version of the model to resume')
 
-    parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')
-    parser.add_argument('--noise_dir', dest='noise_dir', default='./data/vs_noise_data', type=str, action='store', help='Noise directory')
-    parser.add_argument('--audio_dir', dest='audio_dir', default='./data/vs_voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
-
-    parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis')
-
+    # Parameters for validation
     parser.add_argument('--val_base_path', dest='val_base_path', default='./data/vs_voxceleb1/test', type=str, action='store', help='Base path for validation trials')
     parser.add_argument('--val_pair_path', dest='val_pair_path', default='./data/ad_voxceleb12/vox1_trial_pairs.csv', type=str, action='store', help='CSV file label, path_1, path_2 triplets')
     parser.add_argument('--val_n_pair', dest='val_n_pair', default=5000, type=int, action='store', help='Number of validation pairs')
 
+    # Parameters for training
+    parser.add_argument('--audio_dir', dest='audio_dir', default='./data/vs_voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
+    parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis')
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Training epochs')
     parser.add_argument('--prefetch', dest='prefetch', default=1024, type=int, action='store', help='Data pipeline prefetch size')
     parser.add_argument('--batch', dest='batch', default=32, type=int, action='store', help='Training batch size')
     parser.add_argument('--learning_rate', dest='learning_rate', default=1e-2, type=float, action='store', help='Learning rate')
-    parser.add_argument('--augment', dest='augment', default=1, type=int, choices=[0,1], action='store', help='Data augmentation mode')
+
+    # Paremeters for raw audio
+    parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')
     parser.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Segment lenght in seconds')
+    parser.add_argument('--augment', dest='augment', default=1, type=int, choices=[0,1], action='store', help='Data augmentation mode')
+    parser.add_argument('--noise_dir', dest='noise_dir', default='./data/vs_noise_data', type=str, action='store', help='Noise directory')
 
     args = parser.parse_args()
 
     print('Parameters summary')
+
     print('>', 'Net: {}'.format(args.net))
-    print('>', 'Version: {}'.format(args.version))
-    print('>', 'Sample rate: {}'.format(args.sample_rate))
-    print('>', 'Noise dir: {}'.format(args.noise_dir))
-    print('>', 'Audio dir: {}'.format(args.audio_dir))
-    print('>', 'Master voice data path: {}'.format(args.mv_data_path))
+
     print('>', 'Val pairs dataset path: {}'.format(args.val_base_path))
     print('>', 'Val pairs path: {}'.format(args.val_pair_path))
     print('>', 'Number of val pairs: {}'.format(args.val_n_pair))
+
+    print('>', 'Audio dir: {}'.format(args.audio_dir))
+    print('>', 'Master voice data path: {}'.format(args.mv_data_path))
     print('>', 'Number of epochs: {}'.format(args.n_epochs))
+    print('>', 'Prefetch: {}'.format(args.prefetch))
     print('>', 'Batch size: {}'.format(args.batch))
     print('>', 'Learning rate: {}'.format(args.learning_rate))
+
+    print('>', 'Sample rate: {}'.format(args.sample_rate))
     print('>', 'Augmentation flag: {}'.format(args.augment))
-    print('>', 'Prefetch: {}'.format(args.prefetch))
     print('>', 'Max number of seconds: {}'.format(args.n_seconds))
+    print('>', 'Noise dir: {}'.format(args.noise_dir))
 
     # Load noise data
     audio_dir = map(str, args.audio_dir.split(','))
@@ -96,7 +100,7 @@ def main():
     train_data = data_pipeline_verifier(x_train, y_train, classes, augment=args.augment, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
     print('Creating model')
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
-    model = available_nets[args.net](id=args.version, noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
+    model = available_nets[args.net.split('/')[0]](id=(int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1), noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
     model.build(classes=classes)
     model.train(train_data, val_data, steps_per_epoch=len(x_train)//args.batch, epochs=args.n_epochs, learning_rate=args.learning_rate)
 

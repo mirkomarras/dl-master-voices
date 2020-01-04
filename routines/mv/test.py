@@ -81,7 +81,7 @@ def main():
     # Create and restore model
     print('Creating model')
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
-    model = available_nets[args.net.split('/')[0]](id=int(args.net_verifier.split('/')[1].replace('v','')), noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
+    model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
 
     # Retrieve thresholds
     print('Retrieve verification thresholds')
