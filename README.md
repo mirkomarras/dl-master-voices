@@ -68,7 +68,7 @@ sbatch ./sbatch/test_gan.sbatch
 
 The output of the job is saved at ``` ./jobs/slurm_test_wavegan_{job_id}.out ```.
 
-Preview samples are saved at ```./data/pt_models/wavegan/{neutral|male|female}/v{version_id}/fake.wav ```.  
+Preview samples are saved at ```./data/pt_models/wavegan/{neutral|male|female}/v{version_id}/preview.wav ```.  
 
 ### Optimize a master voice
 To start optimizing a master voice, from the project folder, please run:

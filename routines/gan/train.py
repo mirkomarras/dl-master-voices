@@ -29,7 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('--audio_dir', dest='audio_dir', default='./data/vs_voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
     parser.add_argument('--audio_meta', dest='audio_meta', default='./data/ad_voxceleb12/vox12_meta_data.csv', type=str, action='store', help='CSV file with id-gender metadata')
     parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis')
-    parser.add_argument('--epochs', dest='n_epochs', default=64, type=int, action='store', help='Number of epochs')
+    parser.add_argument('--epochs', dest='n_epochs', default=1024, type=int, action='store', help='Number of epochs')
     parser.add_argument('--batch', dest='batch', default=64, type=int, action='store', help='Training batch size')
     parser.add_argument('--prefetch', dest='prefetch', default=0, type=int, action='store', help='If nonnegative, prefetch examples to this GPU (Tensorflow device num)')
     parser.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Segment lenght in seconds')
@@ -40,7 +40,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     print('Parameters summary')
-    print('>', 'Net GAN: {}'.format(args.net_gan))
+    print('>', 'Net GAN: {}'.format(args.net))
     print('>', 'Gender GAN: {}'.format(args.gender))
     print('>', 'Latent dim: {}'.format(args.latent_dim))
     print('>', 'Slice len: {}'.format(args.slice_len))

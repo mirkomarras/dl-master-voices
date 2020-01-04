@@ -30,7 +30,9 @@ class GAN(object):
         self.latent_dim = latent_dim
         self.slice_len = slice_len
         self.dir = os.path.join('.', 'data', 'pt_models', self.name, self.gender)
-        self.id = str(len(os.listdir(self.dir))) if id < 0 else id
+        if not os.path.exists(self.dir):
+            os.makedirs(self.dir)
+        self.id = len(os.listdir(self.dir)) if id < 0 else id
 
     def save(self):
         """
@@ -88,45 +90,49 @@ class GAN(object):
         self.discriminator = self.build_discriminator_model()
         self.load()
 
-    def discriminator_loss(self, real_output, fake_output):
+    def discriminator_loss(self, x, G_z, D_x, D_G_z, batch):
         """
         Method to compute the discriminator loss
         :param real_output:     Real audio samples
         :param fake_output:     Fake audio samples
         :return:                Discriminator loss
         """
-        cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-        real_loss = cross_entropy(tf.ones_like(real_output), real_output)
-        fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
-        total_loss = real_loss + fake_loss
-        return total_loss
+        disc_loss = tf.math.reduce_mean(D_G_z) - tf.math.reduce_mean(D_x)
+        interpolates = x + tf.random.uniform(shape=[batch, 1, 1], minval=0., maxval=1.) * (G_z - x)
+        with tf.GradientTape() as disc_tape:
+            disc_tape.watch(interpolates)
+            disc_interp = self.discriminator(interpolates)
+        gradients = disc_tape.gradient(disc_interp, [interpolates])[0]
+        slopes = tf.math.sqrt(tf.math.reduce_sum(tf.math.square(gradients), axis=[1, 2]))
+        disc_loss += 10 * tf.math.reduce_mean((slopes - 1.) ** 2.)
+        return disc_loss
 
-    def generator_loss(self, fake_output):
+    def generator_loss(self, D_G_z):
         """
         Method to compute the generator loss
-        :param fake_output:     Fake audio samples
-        :return:                Generator loss
+        :param D_G_z:     Fake audio samples
+        :return:          Generator loss
         """
-        cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-        return cross_entropy(tf.ones_like(fake_output), fake_output)
+        return -tf.math.reduce_mean(D_G_z)
 
     @tf.function
-    def train_step(self, batch, batch_data):
+    def train_step(self, batch, x):
         """
         Method to perform one training step for this gan
         :param batch:       Size of a batch
-        :param batch_data:  Current batch data
+        :param x:           Current batch data
         :return:            (generator loss, discriminator loss)
         """
 
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-            generated_images = self.generator(tf.random.normal([batch, self.latent_dim]), training=True)
+            z = tf.random.normal([batch, self.latent_dim])
 
-            real_output = self.discriminator(batch_data, training=True)
-            fake_output = self.discriminator(generated_images, training=True)
+            G_z = self.generator(z)
+            D_x = self.discriminator(x)
+            D_G_z = self.discriminator(G_z)
 
-            gen_loss = self.generator_loss(fake_output)
-            disc_loss = self.discriminator_loss(real_output, fake_output)
+            gen_loss = self.generator_loss(D_G_z)
+            disc_loss = self.discriminator_loss(x, G_z, D_x, D_G_z, batch)
 
         gradients_of_generator = gen_tape.gradient(gen_loss, self.generator.trainable_variables)
         gradients_of_discriminator = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
@@ -144,21 +150,26 @@ class GAN(object):
         :param steps_per_epoch:     Number of steps per epoch
         :param batch:               Size of a training batch
         """
-        self.generator_optimizer = tf.keras.optimizers.Adam(1e-4)
-        self.discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
+
+        self.generator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.9)
+        self.discriminator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.9)
 
         for epoch in range(epochs):
-            print('Epoch', epoch+1, 'of', epochs)
             tf.keras.backend.set_learning_phase(1)
 
-            step = 0
-            for batch_data in train_data:
+            gen_losses = []
+            disc_losses = []
+            for step, batch_data in enumerate(train_data):
+                t1 = time.time()
                 gen_loss, disc_loss = self.train_step(batch, batch_data)
-                print('> Step', step + 1, 'of', steps_per_epoch, '\tgen_loss', gen_loss.numpy(), '\tdisc_loss', disc_loss.numpy())
-                step += 1
+                t2 = time.time()
+                gen_losses.append(gen_loss.numpy())
+                disc_losses.append(disc_loss.numpy())
+                print('\r>', 'epoch', epoch+1, 'of', epochs, '| eta', str((t2-t1)*(steps_per_epoch-step)//60) + 'm', '| step', step+1, 'of', steps_per_epoch, '| gen_loss', round(np.mean(gen_losses), 5), '| disc_loss', round(np.mean(disc_losses), 5), end='')
+
+            print()
 
             self.preview(self.generator)
-
             self.save()
 
     def preview(self, model, num_examples_to_generate=1):
@@ -178,8 +189,10 @@ class GAN(object):
         if not os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
             os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
 
-        plt.savefig(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'fake.png'))
-        sf.write(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'fake.wav'), np.squeeze(predictions[0, :, :]), 16000)
+        plt.savefig(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'preview.png'))
+        sf.write(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'preview.wav'), np.squeeze(predictions[0, :, :]), 16000)
 
         plt.close()
+
+        print('> saved preview in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'preview.wav'))
 

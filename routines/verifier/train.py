@@ -26,7 +26,7 @@ def main():
     parser = argparse.ArgumentParser(description='Speaker verification model training')
 
     # Parameters for a verifier
-    parser.add_argument('--net', dest='net', default='', type=str, choices=['vggvox', 'xvector', 'resnet50vox', 'resnet34vox'], action='store', help='Network model architecture')
+    parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Network model architecture')
 
     # Parameters for validation
     parser.add_argument('--val_base_path', dest='val_base_path', default='./data/vs_voxceleb1/test', type=str, action='store', help='Base path for validation trials')

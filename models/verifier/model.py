@@ -39,8 +39,8 @@ class Model(object):
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
         self.id = str(len(os.listdir(self.dir))) if id < 0 else id
-        if not os.path.exists(self.dir, 'v' + str('{:03d}'.format(self.id))):
-            os.makedirs(self.dir, 'v' + str('{:03d}'.format(self.id)))
+        if not os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
+            os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
 
     def get_model(self):
         return self.inference_model
