@@ -2,13 +2,13 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
-#SBATCH --time=120:00:00
+#SBATCH --time=168:00:00
 #SBATCH --mem=16GB
 #SBATCH --gres=gpu:1
 #SBATCH --job-name=GanTest
 #SBATCH --mail-type=END
 #SBATCH --mail-user=m.marras19@gmail.com
-#SBATCH --output=jobs/slurm_test_wavegan_%j.out
+#SBATCH --output=jobs/slurm_test_gan_%j.out
 
 module purge
 module unload cuda/8.0.44

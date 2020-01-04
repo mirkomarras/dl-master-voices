@@ -5,10 +5,10 @@
 #SBATCH --time=168:00:00
 #SBATCH --mem=16GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=GanTrain
+#SBATCH --job-name=MaVoTest
 #SBATCH --mail-type=END
 #SBATCH --mail-user=m.marras19@gmail.com
-#SBATCH --output=jobs/slurm_train_wavegan_%j.out
+#SBATCH --output=jobs/slurm_test_mv_%j.out
 
 module purge
 module unload cuda/8.0.44
@@ -17,11 +17,12 @@ module load cudnn/10.0v7.6.2.24
 module load ffmpeg/intel/3.2.2
 
 export PRJ_PATH="${PWD}"
-export AUDIO_DIR="/beegfs/mm10572/voxceleb1/dev,/beegfs/mm10572/voxceleb2/dev"
-export NET="specgan"
-export GENDER="neutral"
+export NET="xvector/v0"
+export MV_BASE_PATH="/beegfs/mm10572/voxceleb2"
+export SV_BASE_PATH="/beegfs/mm10572/voxceleb1/test"
+export MV_SET_PATH="real_m-m_sv/v0"
 
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
 
-python -u $PRJ_PATH/routines/gan/train.py --net $NET --audio_dir $AUDIO_DIR --gender $GENDER
+python -u $PRJ_PATH/routines/mv/test.py --net $NET --mv_base_path $MV_BASE_PATH --sv_base_path $SV_BASE_PATH --mv_set_path $MV_SET_PATH
