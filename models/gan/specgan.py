@@ -10,6 +10,12 @@ from helpers.audio import get_tf_spectrum
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class SpecGAN(GAN):
+    """
+       Class to represent SpecGAN model - Spectrograms are returned
+       Donahue, C., McAuley, J., & Puckette, M. (2018).
+       Adversarial audio synthesis.
+       In: arXiv preprint arXiv:1802.04208.
+    """
 
     def __init__(self, name='specgan', id=-1, gender='neutral', latent_dim=100, slice_len=128):
         super().__init__(name, id, gender, latent_dim)

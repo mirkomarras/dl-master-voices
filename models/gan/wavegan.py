@@ -9,6 +9,12 @@ from models.gan.model import GAN
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class WaveGAN(GAN):
+    """
+       Class to represent WaveGAN model - Raw audio signals are returned
+       Donahue, C., McAuley, J., & Puckette, M. (2018).
+       Adversarial audio synthesis.
+       In: arXiv preprint arXiv:1802.04208.
+    """
 
     def __init__(self, name='wavegan', id=-1, gender='neutral', latent_dim=100, slice_len=16384):
         super().__init__(name, id, gender, latent_dim)
