@@ -185,3 +185,53 @@ def play_n_rec(inputs, noises, cache, noise_strength='random'):
         output = tf.math.add(microphone_flag, output_flag)
 
     return output
+
+def invert_spectrum_griffin_lim(slice_len, x_mag, num_fft, num_hop, ngl):
+    """
+    Method to imvert a spectrum to the corresponding raw signal via the Griffin lim algorithm
+    :param slice_len:   Lenght of the target raw signal
+    :param x_mag:       Spectrum to be inverted
+    :param num_fft:     Size of the fft
+    :param num_hop:     Number of hops of the fft
+    :param ngl:         Minimum accepted value
+    :return:            Raw signal
+    """
+    x = tf.complex(x_mag, tf.zeros_like(x_mag))
+
+    def b(i, x_best):
+        x = tf.signal.inverse_stft(x_best, num_fft, num_hop)
+        x_est = tf.signal.stft(x, num_fft, num_hop)
+        phase = x_est / tf.cast(tf.maximum(1e-8, tf.math.abs(x_est)), tf.complex64)
+        x_best = x * phase
+        return i + 1, x_best
+
+    i = tf.constant(0)
+    c = lambda i, _: tf.math.less(i, ngl)
+    _, x = tf.while_loop(c, b, [i, x], back_prop=False)
+
+    x = tf.signal.inverse_stft(x, num_fft, num_hop)
+    x = x[:, :slice_len]
+
+    return x
+
+def spectrum_to_signal(slice_len, x_norm, x_mean, x_std, num_fft=256, num_hop=128, ngl=16, clip_nstd=3.):
+    """
+    Method to invert a normalized spectrum to a raw signal
+    :param slice_len:   Lenght of the target raw signal
+    :param x_norm:      Normalized spectrum
+    :param x_mean:      Per-bin spectrum mean
+    :param x_std:       Per-bin spectrum std
+    :param num_fft:     Size of the fft
+    :param num_hop:     Number of hops of the fft
+    :param ngl:         Minimum accepted value
+    :param clip_nstd:   Clipping to n times of std
+    :return:
+    """
+    x_norm = x_norm[:, :, :, 0]
+    x_norm = tf.pad(x_norm, [[0,0], [0,0], [0,1]])
+    x_norm *= clip_nstd
+    x_lmag = (x_norm * x_std) + x_mean
+    x_mag = tf.math.exp(x_lmag)
+    x = invert_spectrum_griffin_lim(slice_len, x_mag, num_fft, num_hop, ngl)
+    x = tf.reshape(x, [-1, slice_len, 1])
+    return x
