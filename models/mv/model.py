@@ -118,17 +118,17 @@ class MasterVocoder(object):
         :param latent_sv:   Original latent vector
         :param latent_mv:   Optimized latent vector
         """
-        if not os.path.exists(os.path.join(self.dir_mv, 'v' + str(self.id_mv))) or not os.path.exists(os.path.join(self.dir_sv, 'v' + str(self.id_sv))):
-            os.makedirs(os.path.join(self.dir_mv, 'v' + str(self.id_mv)))
-            os.makedirs(os.path.join(self.dir_sv, 'v' + str(self.id_sv)))
-        np.save(os.path.join(self.dir_mv, 'v' + str(self.id_mv), 'sample_' + str(iter) + '.npz'), latent_mv)
-        print('>', 'saved mv latent in', os.path.join(self.dir_mv, 'v' + str(self.id_mv), 'sample_' + str(iter) + '.npz'))
-        sf.write(os.path.join(self.dir_mv, 'v' + str(self.id_mv), 'sample_' + str(iter) + '.wav'), self.gan.get_generator()(latent_mv).numpy(), self.sample_rate)
-        print('>', 'saved mv wav in', os.path.join(self.dir_mv, 'v' + str(self.id_mv), 'sample_' + str(iter) + '.wav'))
-        np.save(os.path.join(self.dir_sv, 'v' + str(self.id_sv), 'sample_' + str(iter) + '.npz'), latent_sv)
-        print('>', 'saved sv latent in', os.path.join(self.dir_sv, 'v' + str(self.id_sv), 'sample_' + str(iter) + '.npz'))
-        sf.write(os.path.join(self.dir_sv, 'v' + str(self.id_sv), 'sample_' + str(iter) + '.wav'), self.gan.get_generator()(latent_sv).numpy(), self.sample_rate)
-        print('>', 'saved sv wav in', os.path.join(self.dir_sv, 'v' + str(self.id_sv), 'sample_' + str(iter) + '.wav'))
+        if not os.path.exists(os.path.join(self.dir_mv, 'v' + str('{:03d}'.format(self.id_mv)))) or not os.path.exists(os.path.join(self.dir_sv, 'v' + str('{:03d}'.format(self.id_sv)))):
+            os.makedirs(os.path.join(self.dir_mv, 'v' + str('{:03d}'.format(self.id_mv))))
+            os.makedirs(os.path.join(self.dir_sv, 'v' + str('{:03d}'.format(self.id_sv))))
+        np.save(os.path.join(self.dir_mv, 'v' + str('{:03d}'.format(self.id_mv)), 'sample_' + str(iter) + '.npz'), latent_mv)
+        print('>', 'saved mv latent in', os.path.join(self.dir_mv, 'v' + str('{:03d}'.format(self.id_mv)), 'sample_' + str(iter) + '.npz'))
+        sf.write(os.path.join(self.dir_mv, 'v' + str('{:03d}'.format(self.id_mv)), 'sample_' + str(iter) + '.wav'), self.gan.get_generator()(latent_mv).numpy(), self.sample_rate)
+        print('>', 'saved mv wav in', os.path.join(self.dir_mv, 'v' + str('{:03d}'.format(self.id_mv)), 'sample_' + str(iter) + '.wav'))
+        np.save(os.path.join(self.dir_sv, 'v' + str('{:03d}'.format(self.id_sv)), 'sample_' + str(iter) + '.npz'), latent_sv)
+        print('>', 'saved sv latent in', os.path.join(self.dir_sv, 'v' + str('{:03d}'.format(self.id_sv)), 'sample_' + str(iter) + '.npz'))
+        sf.write(os.path.join(self.dir_sv, 'v' + str('{:03d}'.format(self.id_sv)), 'sample_' + str(iter) + '.wav'), self.gan.get_generator()(latent_sv).numpy(), self.sample_rate)
+        print('>', 'saved sv wav in', os.path.join(self.dir_sv, 'v' + str('{:03d}'.format(self.id_sv)), 'sample_' + str(iter) + '.wav'))
 
     def test(self, latent, mv_test_thrs, mv_test_data):
         """

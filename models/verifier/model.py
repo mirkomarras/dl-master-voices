@@ -39,8 +39,8 @@ class Model(object):
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
         self.id = str(len(os.listdir(self.dir))) if id < 0 else id
-        if not os.path.exists(self.dir, 'v' + str(self.id)):
-            os.makedirs(self.dir, 'v' + str(self.id))
+        if not os.path.exists(self.dir, 'v' + str('{:03d}'.format(self.id))):
+            os.makedirs(self.dir, 'v' + str('{:03d}'.format(self.id)))
 
     def get_model(self):
         return self.inference_model
@@ -63,8 +63,8 @@ class Model(object):
         print('>', 'saving', self.name, 'model')
         if not os.path.exists(os.path.join(self.dir)):
             os.makedirs(os.path.join(self.dir))
-        self.model.save_weights(os.path.join(self.dir, 'v' + str(self.id), 'model_weights.tf'))
-        print('>', 'saved', self.name, 'model in', os.path.join(self.dir, 'v' + str(self.id), 'model_weights.tf'))
+        self.model.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_weights.tf'))
+        print('>', 'saved', self.name, 'model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_weights.tf'))
 
     def load(self):
         """
@@ -72,14 +72,14 @@ class Model(object):
         :return:            None
         """
         print('>', 'loading', self.name, 'model')
-        if os.path.exists(os.path.join(self.dir, 'v' + str(self.id))):
-            if os.path.exists(os.path.join(self.dir, 'v' + str(self.id), 'model_weights.tf')):
-                self.model.load_weights(os.path.join(self.dir, 'v' + str(self.id), 'model_weights.tf'))
-                print('>', 'loaded weights from', os.path.join(self.dir, 'v' + str(self.id), 'model_weights.tf'))
+        if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
+            if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_weights.tf')):
+                self.model.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_weights.tf'))
+                print('>', 'loaded weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_weights.tf'))
             else:
-                print('>', 'no pre-trained weights for', self.name, 'model from', os.path.join(self.dir, 'v' + str(self.id), 'model_weights.tf'))
+                print('>', 'no pre-trained weights for', self.name, 'model from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_weights.tf'))
         else:
-            print('>', 'no directory for', self.name, 'model at', os.path.join(self.dir, 'v' + str(self.id)))
+            print('>', 'no directory for', self.name, 'model at', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
 
     def embed(self, signal):
         """

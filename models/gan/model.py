@@ -37,12 +37,12 @@ class GAN(object):
         Method to save the weights of this model in 'data/pt_models/{name}/v{id}/model_weights.tf'
         """
         print('>', 'saving', self.name, 'model')
-        if not os.path.exists(os.path.join(self.dir, 'v' + str(self.id))):
-            os.makedirs(os.path.join(self.dir, 'v' + str(self.id)))
-        self.generator.save_weights(os.path.join(self.dir, 'v' + str(self.id), 'model_generator_weights.tf'))
-        self.discriminator.save_weights(os.path.join(self.dir, 'v' + str(self.id), 'model_discriminator_weights.tf'))
-        print('>', 'saved', self.name, 'generator model in', os.path.join(self.dir, 'v' + str(self.id), 'model_generator_weights.tf'))
-        print('>', 'saved', self.name, 'discriminator model in', os.path.join(self.dir, 'v' + str(self.id), 'model_discriminator_weights.tf'))
+        if not os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
+            os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
+        self.generator.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
+        self.discriminator.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
+        print('>', 'saved', self.name, 'generator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
+        print('>', 'saved', self.name, 'discriminator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
 
     def load(self):
         """
@@ -50,14 +50,14 @@ class GAN(object):
         """
         print('>', 'loading', self.name, 'model')
         if os.path.exists(os.path.join(self.dir)):
-            if os.path.exists(os.path.join(self.dir, 'v' + str(self.id))):
-                self.generator.load_weights(os.path.join(self.dir, 'v' + str(self.id), 'model_generator_weights.tf'))
-                self.discriminator.load_weights(os.path.join(self.dir, 'v' + str(self.id), 'model_discriminator_weights.tf'))
-                print('>', 'loaded generator weights from', os.path.join(self.dir, 'v' + str(self.id), 'model_generator_weights.tf'))
-                print('>', 'loaded discriminator weights from', os.path.join(self.dir, 'v' + str(self.id), 'model_discriminator_weights.tf'))
+            if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
+                self.generator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
+                self.discriminator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
+                print('>', 'loaded generator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
+                print('>', 'loaded discriminator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
             else:
-                print('>', 'no pre-trained generator weights from', os.path.join(self.dir, 'v' + str(self.id), 'model_generator_weights.tf'))
-                print('>', 'no pre-trained discriminator weights from', os.path.join(self.dir, 'v' + str(self.id), 'model_discriminator_weights.tf'))
+                print('>', 'no pre-trained generator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
+                print('>', 'no pre-trained discriminator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
         else:
             print('>', 'no directory for', self.name, 'model at', os.path.join(self.dir))
 
@@ -175,11 +175,11 @@ class GAN(object):
         plt.plot(np.squeeze(predictions[0, :, :]).ravel())
         plt.axis('off')
 
-        if not os.path.exists(os.path.join(self.dir, 'v' + str(self.id))):
-            os.makedirs(os.path.join(self.dir, 'v' + str(self.id)))
+        if not os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
+            os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
 
-        plt.savefig(os.path.join(self.dir, 'v' + str(self.id), 'fake.png'))
-        sf.write(os.path.join(self.dir, 'v' + str(self.id), 'fake.wav'), np.squeeze(predictions[0, :, :]), 16000)
+        plt.savefig(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'fake.png'))
+        sf.write(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'fake.wav'), np.squeeze(predictions[0, :, :]), 16000)
 
         plt.close()
 
