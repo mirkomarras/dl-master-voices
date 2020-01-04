@@ -13,27 +13,38 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 if __name__ == '__main__':
 
-    # PARSE CLI ARGUMENTS
     parser = argparse.ArgumentParser(description='Tensorflow GAN model preview')
 
-    # Network mode and directories
+    # Parameters for a gan
     parser.add_argument('--net', dest='net', default='wavegan', type=str, choices=['wavegan'], action='store', help='Network model architecture')
-    parser.add_argument('--version', dest='version', default='', type=str, action='store', help='Network version number')
     parser.add_argument('--gender', dest='gender', default='neutral', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender')
 
-    # Noise and audio data arguments
-    parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')
-
-    # GAN arguments
+    # Parameters for gan preview
     parser.add_argument('--genr_pp', dest='genr_pp', default=False, action='store', help='If set, use post-processing filter')
     parser.add_argument('--preview_n', dest='preview_n', default=32, type=int, action='store', help='Number of samples to preview')
 
+    # Parameters for raw audio
+    parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')
+
     args = parser.parse_args()
 
-    # GAN CREATION
+    print('Parameters summary')
+
+    print('>', 'Net: {}'.format(args.net))
+    print('>', 'Gender: {}'.format(args.gender))
+
+    print('>', 'Genr pp: {}'.format(args.genr_pp))
+    print('>', 'Number of preview samples: {}'.format(args.preview_n))
+
+    print('>', 'Sample rate: {}'.format(args.sample_rate))
+
+    assert '/v' in args.net
+
+    # Creating a gan
     print('Creating GAN')
     available_nets = {'wavegan': WaveGAN}
-    gan_model = available_nets[args.net](id=args.version, gender=args.gender)
+    gan_model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), gender=args.gender)
 
+    # Previewing a gan
     print('Previewing GAN')
     gan_model.preview(args.sample_rate, args.genr_pp, args.preview_n)

@@ -12,8 +12,19 @@ import PIL
 import os
 
 class GAN(object):
+    """
+       Class to represent GAN (SV) models with model saving / loading and playback & recording capabilities
+    """
 
     def __init__(self, name='', id=-1, gender='neutral', latent_dim=100, slice_len=16384):
+        """
+        Method to initialize a gan model that will be saved in 'data/pt_models/{name}'
+        :param name:        String id for this model
+        :param id:          Version id for this model - default: auto-increment value along the folder 'data/pt_models/{name}'
+        :param gender:      Gender against which this gan is optimized
+        :param latent_dim:  Size of the input latent vector
+        :param slice_len:   Number of samples of the generated audio
+        """
         self.name = name
         self.gender = gender
         self.latent_dim = latent_dim
@@ -22,6 +33,9 @@ class GAN(object):
         self.id = str(len(os.listdir(self.dir))) if id < 0 else id
 
     def save(self):
+        """
+        Method to save the weights of this model in 'data/pt_models/{name}/v{id}/model_weights.tf'
+        """
         print('>', 'saving', self.name, 'model')
         if not os.path.exists(os.path.join(self.dir, 'v' + str(self.id))):
             os.makedirs(os.path.join(self.dir, 'v' + str(self.id)))
@@ -31,6 +45,9 @@ class GAN(object):
         print('>', 'saved', self.name, 'discriminator model in', os.path.join(self.dir, 'v' + str(self.id), 'model_discriminator_weights.tf'))
 
     def load(self):
+        """
+        Method to load the weights of this model from 'data/pt_models/{name}/v{id}/model_weights.tf'
+        """
         print('>', 'loading', self.name, 'model')
         if os.path.exists(os.path.join(self.dir)):
             if os.path.exists(os.path.join(self.dir, 'v' + str(self.id))):
@@ -45,20 +62,39 @@ class GAN(object):
             print('>', 'no directory for', self.name, 'model at', os.path.join(self.dir))
 
     def get_generator(self):
+        """
+        Method to get the generator of this gan
+        :return:    A generator
+        """
         return self.generator
 
-    def build_discriminator_model(self, training=True):
+    def build_discriminator_model(self):
+        """
+        Method to build a discriminator
+        """
         raise NotImplementedError
 
-    def build_generator_model(self, training=True):
+    def build_generator_model(self):
+        """
+        Method to build a generator
+        """
         raise NotImplementedError
 
     def build(self):
+        """
+        Method to build a gan and eventually load its weights
+        """
         self.generator = self.build_generator_model()
         self.discriminator = self.build_discriminator_model()
         self.load()
 
     def discriminator_loss(self, real_output, fake_output):
+        """
+        Method to compute the discriminator loss
+        :param real_output:     Real audio samples
+        :param fake_output:     Fake audio samples
+        :return:                Discriminator loss
+        """
         cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         real_loss = cross_entropy(tf.ones_like(real_output), real_output)
         fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
@@ -66,11 +102,22 @@ class GAN(object):
         return total_loss
 
     def generator_loss(self, fake_output):
+        """
+        Method to compute the generator loss
+        :param fake_output:     Fake audio samples
+        :return:                Generator loss
+        """
         cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
         return cross_entropy(tf.ones_like(fake_output), fake_output)
 
     @tf.function
     def train_step(self, batch, batch_data):
+        """
+        Method to perform one training step for this gan
+        :param batch:       Size of a batch
+        :param batch_data:  Current batch data
+        :return:            (generator loss, discriminator loss)
+        """
 
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
             generated_images = self.generator(tf.random.normal([batch, self.latent_dim]), training=True)
@@ -90,6 +137,13 @@ class GAN(object):
         return gen_loss, disc_loss
 
     def train(self, train_data, epochs, steps_per_epoch, batch):
+        """
+        Method to train a gan
+        :param train_data:          Training data pipeline
+        :param epochs:              Number of training epochs
+        :param steps_per_epoch:     Number of steps per epoch
+        :param batch:               Size of a training batch
+        """
         self.generator_optimizer = tf.keras.optimizers.Adam(1e-4)
         self.discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
 
@@ -108,6 +162,11 @@ class GAN(object):
             self.save()
 
     def preview(self, model, num_examples_to_generate=1):
+        """
+        Method to create audio samples of this gan as a preview
+        :param model:                       Generator model
+        :param num_examples_to_generate:    Number of audio samples to be generated
+        """
         tf.keras.backend.set_learning_phase(0)
         display.clear_output(wait=True)
         predictions = model(tf.random.normal([num_examples_to_generate, self.latent_dim]), training=False)

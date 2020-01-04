@@ -17,42 +17,43 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 if __name__ == '__main__':
 
-    # Parameters
     parser = argparse.ArgumentParser(description='Tensorflow GAN model training')
 
+    # Parameters for a gan
     parser.add_argument('--net', dest='net', default='wavegan', type=str, choices=['wavegan', 'specgan'], action='store', help='Network model architecture')
-    parser.add_argument('--version', dest='version', default=-1, type=int, action='store', help='Version of the model to resume')
     parser.add_argument('--gender', dest='gender', default='neutral', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender')
     parser.add_argument('--latent_dim', dest='latent_dim', default=100, type=int, action='store', help='Number of dimensions of the latent space')
     parser.add_argument('--slice_len', dest='slice_len', default=16384, type=int, choices=[16384, 32768, 65536], action='store', help='Number of dimensions of the latent space')
 
-    parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')
+    # Parameters for training a gan
     parser.add_argument('--audio_dir', dest='audio_dir', default='./data/vs_voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
     parser.add_argument('--audio_meta', dest='audio_meta', default='./data/ad_voxceleb12/vox12_meta_data.csv', type=str, action='store', help='CSV file with id-gender metadata')
-
     parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis')
-
     parser.add_argument('--epochs', dest='n_epochs', default=64, type=int, action='store', help='Number of epochs')
     parser.add_argument('--batch', dest='batch', default=64, type=int, action='store', help='Training batch size')
     parser.add_argument('--prefetch', dest='prefetch', default=0, type=int, action='store', help='If nonnegative, prefetch examples to this GPU (Tensorflow device num)')
     parser.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Segment lenght in seconds')
 
+    # Parameters for raw audio
+    parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')
 
     args = parser.parse_args()
 
     print('Parameters summary')
-    print('>', 'Net: {}'.format(args.net))
-    print('>', 'Version: {}'.format(args.version))
-    print('>', 'Gender: {}'.format(args.gender))
+    print('>', 'Net GAN: {}'.format(args.net_gan))
+    print('>', 'Gender GAN: {}'.format(args.gender))
     print('>', 'Latent dim: {}'.format(args.latent_dim))
     print('>', 'Slice len: {}'.format(args.slice_len))
-    print('>', 'Sample rate: {}'.format(args.sample_rate))
+
+    print('>', 'Audio dirs: {}'.format(args.audio_dir))
     print('>', 'Audio meta: {}'.format(args.audio_meta))
-    print('>', 'Master voice data path: {}'.format(args.mv_data_path))
+    print('>', 'Master voice data: {}'.format(args.mv_data_path))
     print('>', 'Number of epochs: {}'.format(args.n_epochs))
     print('>', 'Batch size: {}'.format(args.batch))
     print('>', 'Prefetch: {}'.format(args.prefetch))
     print('>', 'Max number of seconds: {}'.format(args.n_seconds))
+
+    print('>', 'Sample rate: {}'.format(args.sample_rate))
 
     # Load data set
     print('Loading data')
@@ -82,7 +83,7 @@ if __name__ == '__main__':
     # Create GAN
     print('Creating GAN')
     available_nets = {'wavegan': WaveGAN, 'specgan': SpecGAN}
-    gan_model = available_nets[args.net](name=args.net, id=args.version, gender=args.gender, latent_dim=args.latent_dim, slice_len=args.slice_len)
+    gan_model = available_nets[args.net.split('/')[0]](id=(int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1), gender=args.gender, latent_dim=args.latent_dim, slice_len=args.slice_len)
 
     # Build the model
     print('Building GAN')

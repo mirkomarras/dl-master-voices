@@ -57,7 +57,7 @@ class Model(object):
 
     def save(self):
         """
-        Method to save the weights of this model in 'data/pt_models/{name}/model_weights_v{id}.tf'
+        Method to save the weights of this model in 'data/pt_models/{name}/v{id}/model_weights.tf'
         :return:            None
         """
         print('>', 'saving', self.name, 'model')
@@ -68,7 +68,7 @@ class Model(object):
 
     def load(self):
         """
-        Method to load weights for this model from 'data/pt_models/{name}/model_weights_v{id}.tf'
+        Method to load weights for this model from 'data/pt_models/{name}/v{id}/model_weights.tf'
         :return:            None
         """
         print('>', 'loading', self.name, 'model')

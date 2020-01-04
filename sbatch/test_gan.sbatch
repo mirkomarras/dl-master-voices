@@ -17,11 +17,10 @@ module load cudnn/10.0v7.6.2.24
 module load ffmpeg/intel/3.2.2
 
 export PRJ_PATH="${PWD}"
-export NET="specgan"
+export NET="specgan/v0"
 export GENDER="neutral"
-export VERSION="9"
 
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
 
-python -u $PRJ_PATH/routines/gan/preview.py --net $NET --gender $GENDER --version $VERSION
+python -u $PRJ_PATH/routines/gan/preview.py --net $NET --gender $GENDER
