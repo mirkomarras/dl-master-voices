@@ -7,7 +7,7 @@ import random
 import time
 import sys
 
-from helpers.audio import decode_audio
+from helpers.audio import decode_audio, get_tf_spectrum
 
 def data_pipeline_generator_verifier(x, y, classes, augment=1, sample_rate=16000, n_seconds=3):
     """
@@ -84,7 +84,7 @@ def data_pipeline_generator_gan(x, slice_len, sample_rate=16000):
 
     raise StopIteration()
 
-def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024):
+def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024, output_type='raw'):
     """
     Function to create a tensorflow data pipeline for training a gan
     :param x:           List of audio paths
@@ -101,10 +101,14 @@ def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024):
 
     dataset = dataset.map(lambda x: tf.squeeze(x, axis=0))
     dataset = dataset.batch(batch)
+
+    if output_type == 'spectrum':
+        dataset = dataset.map(lambda x: tf.pad(x, [[0, 0], [0, 128], [0, 0]], 'CONSTANT'))
+        dataset = dataset.map(lambda x: get_tf_spectrum(x, frame_size=0.016, frame_stride=0.008, num_fft=256))
+
     dataset = dataset.prefetch(prefetch)
 
     return dataset
-
 
 def data_pipeline_generator_mv(x, sample_rate=16000, n_seconds=3):
     """

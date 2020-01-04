@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Tensorflow GAN model preview')
 
     # Parameters for a gan
-    parser.add_argument('--net', dest='net', default='wavegan', type=str, choices=['wavegan'], action='store', help='Network model architecture')
+    parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Network model architecture')
     parser.add_argument('--gender', dest='gender', default='neutral', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender')
 
     # Parameters for gan preview

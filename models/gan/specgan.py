@@ -5,7 +5,6 @@ import tensorflow as tf
 import os
 
 from models.gan.model import GAN
-from helpers.audio import get_tf_spectrum
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -23,12 +22,12 @@ class SpecGAN(GAN):
         self.kernel_size = 25
         self.gan_dim = 64
         self.upsample = 'zeros'
-        self.stride = 2 if self.slice_len == 32768 else 4
+        self.stride = 2
         self.is_raw = False
 
     def __conv2d_transpose(self, inputs, filters):
         if self.upsample == 'zeros':
-            return tf.keras.layers.Conv2DTranspose(filters=filters, kernel_size=(1, self.kernel_size), strides=(self.stride, self.stride), padding='SAME')(tf.expand_dims(inputs, axis=1))[:, 0]
+            return tf.keras.layers.Conv2DTranspose(filters=filters, kernel_size=self.kernel_size, strides=(self.stride, self.stride), padding='SAME')(inputs)
         else:
             _, h, w, nch = inputs.get_shape().as_list()
             x = inputs
@@ -41,12 +40,9 @@ class SpecGAN(GAN):
             return tf.keras.layers.Conv2D(filters, self.kernel_size, (1,1), padding='SAME', dtype='float32')(x)
 
     def build_discriminator_model(self):
-        input = tf.keras.Input((self.slice_len,1,), dtype='float32')
+        input = tf.keras.Input((128,128,1,), dtype='float32')
 
-        x = tf.pad(input, [[0, 0], [0, 128], [0, 0]], 'CONSTANT')
-        x = tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x, frame_size=0.016, frame_stride=0.008, num_fft=256))(x)
-
-        x = tf.keras.layers.Conv2D(self.gan_dim, self.kernel_size, 2, padding='SAME')(x)
+        x = tf.keras.layers.Conv2D(self.gan_dim, self.kernel_size, 2, padding='SAME')(input)
         x = tf.maximum(0.2 * x, x)
 
         x = tf.keras.layers.Conv2D(self.gan_dim * 2, self.kernel_size, 2, padding='SAME')(x)
@@ -75,7 +71,7 @@ class SpecGAN(GAN):
         input = tf.keras.Input((self.latent_dim,), dtype='float32')
 
         x = tf.keras.layers.Dense(4 * 4 * self.gan_dim * 16)(input)
-        x = tf.keras.layers.Reshape([16, self.gan_dim * 16])(x)
+        x = tf.keras.layers.Reshape([4, 4, self.gan_dim * 16])(x)
         x = tf.keras.layers.BatchNormalization()(x)
         x = tf.keras.layers.ReLU()(x)
 

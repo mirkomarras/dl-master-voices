@@ -20,7 +20,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Tensorflow GAN model training')
 
     # Parameters for a gan
-    parser.add_argument('--net', dest='net', default='wavegan', type=str, choices=['wavegan', 'specgan'], action='store', help='Network model architecture')
+    parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Network model architecture')
     parser.add_argument('--gender', dest='gender', default='neutral', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender')
     parser.add_argument('--latent_dim', dest='latent_dim', default=100, type=int, action='store', help='Number of dimensions of the latent space')
     parser.add_argument('--slice_len', dest='slice_len', default=16384, type=int, choices=[16384, 32768, 65536], action='store', help='Number of dimensions of the latent space')
@@ -70,7 +70,7 @@ if __name__ == '__main__':
 
     # Data pipeline output test
     print('Checking data pipeline output')
-    train_data = data_pipeline_gan(x_train, slice_len=args.slice_len, sample_rate=args.sample_rate, batch=args.batch, prefetch=args.prefetch)
+    train_data = data_pipeline_gan(x_train, slice_len=args.slice_len, sample_rate=args.sample_rate, batch=args.batch, prefetch=args.prefetch, output_type='spectrum' if args.net == 'specgan' else 'raw')
 
     for index, x in enumerate(train_data):
         print('>', index, x.shape)
@@ -78,7 +78,7 @@ if __name__ == '__main__':
             break
 
     # Create and train model
-    train_data = data_pipeline_gan(x_train, slice_len=args.slice_len, sample_rate=args.sample_rate, batch=args.batch, prefetch=args.prefetch)
+    train_data = data_pipeline_gan(x_train, slice_len=args.slice_len, sample_rate=args.sample_rate, batch=args.batch, prefetch=args.prefetch, output_type='spectrum' if args.net == 'specgan' else 'raw')
 
     # Create GAN
     print('Creating GAN')

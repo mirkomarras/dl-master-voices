@@ -98,7 +98,8 @@ class GAN(object):
         :return:                Discriminator loss
         """
         disc_loss = tf.math.reduce_mean(D_G_z) - tf.math.reduce_mean(D_x)
-        interpolates = x + tf.random.uniform(shape=[batch, 1, 1], minval=0., maxval=1.) * (G_z - x)
+        interpolated_shape = [batch, 1, 1] if self.name == 'wavegan' else [batch, 1, 1, 1]
+        interpolates = x + tf.random.uniform(shape=interpolated_shape, minval=0., maxval=1.) * (G_z - x)
         with tf.GradientTape() as disc_tape:
             disc_tape.watch(interpolates)
             disc_interp = self.discriminator(interpolates)
@@ -151,8 +152,8 @@ class GAN(object):
         :param batch:               Size of a training batch
         """
 
-        self.generator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.9)
-        self.discriminator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.9)
+        self.generator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
+        self.discriminator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
 
         for epoch in range(epochs):
             tf.keras.backend.set_learning_phase(1)
