@@ -11,7 +11,7 @@ from helpers.audio import decode_audio
 
 def data_pipeline_generator_verifier(x, y, classes, augment=1, sample_rate=16000, n_seconds=3):
     """
-    Function to simulate a (signal, impulse_flags), label generator
+    Function to simulate a (signal, impulse_flags), label generator for training a verifier
     :param x:           List of audio paths
     :param y:           List of users' labels
     :param classes:     Number of target classes
@@ -42,7 +42,7 @@ def data_pipeline_generator_verifier(x, y, classes, augment=1, sample_rate=16000
 
 def data_pipeline_verifier(x, y, classes, augment=1, sample_rate=16000, n_seconds=3, batch=64, prefetch=1024):
     """
-    Function to create a tensorflow data pipeline for speaker verification training
+    Function to create a tensorflow data pipeline for training a verifier
     :param x:           List of audio paths
     :param y:           List of users' labels
     :param classes:     Number of target classes
@@ -65,6 +65,13 @@ def data_pipeline_verifier(x, y, classes, augment=1, sample_rate=16000, n_second
     return dataset
 
 def data_pipeline_generator_gan(x, slice_len, sample_rate=16000):
+    """
+    Function to simulate a signal generator for training a gan
+    :param x:           List of audio paths
+    :param slice_len:   Length of each audio sample
+    :param sample_rate: Sample rate of the audio files to be processed
+    :return:            (signal)
+    """
     indexes = list(range(len(x)))
     random.shuffle(indexes)
 
@@ -78,6 +85,15 @@ def data_pipeline_generator_gan(x, slice_len, sample_rate=16000):
     raise StopIteration()
 
 def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024):
+    """
+    Function to create a tensorflow data pipeline for training a gan
+    :param x:           List of audio paths
+    :param slice_len:   Length of each audio sample
+    :param sample_rate: Sample rate of the audio files to be processed
+    :param batch:       Size of a training batch
+    :param prefetch:    Number of prefetched batches
+    :return:            Data pipeline
+    """
 
     dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_gan(x, slice_len=slice_len, sample_rate=sample_rate),
                                              output_types=(tf.float32),
@@ -91,6 +107,13 @@ def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024):
 
 
 def data_pipeline_generator_mv(x, sample_rate=16000, n_seconds=3):
+    """
+    Function to simulate a signal generator for training a master voice vocoder
+    :param x:           List of audio paths
+    :param sample_rate: Sample rate of the audio files to be processed
+    :param n_seconds:   Max number of seconds of an audio file to be processed
+    :return:            (Signal)
+    """
     indexes = list(range(len(x)))
     random.shuffle(indexes)
 
@@ -104,6 +127,15 @@ def data_pipeline_generator_mv(x, sample_rate=16000, n_seconds=3):
     raise StopIteration()
 
 def data_pipeline_mv(x, sample_rate=16000, n_seconds=3, batch=64, prefetch=1024):
+    """
+    Function to create a tensorflow data pipeline for training a master voice vocoder
+    :param x:           List of audio paths
+    :param sample_rate: Sample rate of the audio files to be processed
+    :param n_seconds:   Max number of seconds of an audio file to be processed
+    :param batch:       Size of a training batch
+    :param prefetch:    Number of prefetched batches
+    :return:            Data pipeline
+    """
 
     dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_mv(x, sample_rate=sample_rate, n_seconds=n_seconds),
                                              output_types=(tf.float32),
