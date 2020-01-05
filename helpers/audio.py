@@ -94,6 +94,10 @@ def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
     std_dev_tensor = tf.math.sqrt(variance_tensor)
     normalized_spectrum = (magnitude_spectrum - tf.expand_dims(mean_tensor, agg_axis)) / tf.maximum(tf.expand_dims(std_dev_tensor, agg_axis), 1e-12)
 
+    # Clip value
+    normalized_spectrum /= 3.
+    normalized_spectrum = tf.clip_by_value(normalized_spectrum, -1., 1.)
+
     # Make sure the dimensions are as expected
     normalized_spectrum_shape = normalized_spectrum.get_shape().as_list()
     assert normalized_spectrum_shape[1] == num_fft / 2 and normalized_spectrum_shape[3] == 1

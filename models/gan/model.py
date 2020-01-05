@@ -90,7 +90,7 @@ class GAN(object):
         self.discriminator = self.build_discriminator_model()
         self.load()
 
-    def discriminator_loss(self, x, G_z, D_x, D_G_z, batch):
+    def discriminator_loss(self, x, G_z, D_x, D_G_z):
         """
         Method to compute the discriminator loss
         :param real_output:     Real audio samples
@@ -98,7 +98,7 @@ class GAN(object):
         :return:                Discriminator loss
         """
         disc_loss = tf.math.reduce_mean(D_G_z) - tf.math.reduce_mean(D_x)
-        interpolated_shape = [batch, 1, 1] if self.name == 'wavegan' else [batch, 1, 1, 1]
+        interpolated_shape = [len(x), 1, 1] if self.name == 'wavegan' else [len(x), 1, 1, 1]
         interpolates = x + tf.random.uniform(shape=interpolated_shape, minval=0., maxval=1.) * (G_z - x)
         with tf.GradientTape() as disc_tape:
             disc_tape.watch(interpolates)
@@ -117,23 +117,22 @@ class GAN(object):
         return -tf.math.reduce_mean(D_G_z)
 
     @tf.function
-    def train_step(self, batch, x):
+    def train_step(self, x):
         """
         Method to perform one training step for this gan
-        :param batch:       Size of a batch
         :param x:           Current batch data
         :return:            (generator loss, discriminator loss)
         """
 
         with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-            z = tf.random.normal([batch, self.latent_dim])
+            z = tf.random.normal([len(x), self.latent_dim])
 
             G_z = self.generator(z)
             D_x = self.discriminator(x)
             D_G_z = self.discriminator(G_z)
 
             gen_loss = self.generator_loss(D_G_z)
-            disc_loss = self.discriminator_loss(x, G_z, D_x, D_G_z, batch)
+            disc_loss = self.discriminator_loss(x, G_z, D_x, D_G_z)
 
         gradients_of_generator = gen_tape.gradient(gen_loss, self.generator.trainable_variables)
         gradients_of_discriminator = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
@@ -162,7 +161,7 @@ class GAN(object):
             disc_losses = []
             for step, batch_data in enumerate(train_data):
                 t1 = time.time()
-                gen_loss, disc_loss = self.train_step(batch, batch_data)
+                gen_loss, disc_loss = self.train_step(batch_data)
                 t2 = time.time()
                 gen_losses.append(gen_loss.numpy())
                 disc_losses.append(disc_loss.numpy())
