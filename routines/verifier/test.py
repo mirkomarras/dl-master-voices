@@ -57,6 +57,7 @@ def main():
     print('Creating model')
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
     model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), n_seconds=args.n_seconds, sample_rate=args.sample_rate)
+    model.build(classes=2)
 
     # Test model
     print('Testing model')

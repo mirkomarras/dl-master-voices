@@ -133,14 +133,15 @@ def main():
         if index == 10:
             break
 
-    print('Loading data for testing master voice impersonation')
+    print('Loading data for training and testing master voice impersonation')
     test_data = load_test_data(args.sv_base_path, args.sv_pair_path, args.sv_n_pair, args.sample_rate, args.n_seconds)
     mv_test_thrs = selected_verifier.test(test_data)
     mv_test_data = load_mv_data(args.mv_meta, args.mv_base_path, args.audio_meta, args.sample_rate, args.n_seconds, args.n_templates)
-    train_data = data_pipeline_mv(x_train, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
 
-    print('Learning master voice')
-    vocoder.train(train_data, args.n_iterations, args.n_epochs, len(x_train) // args.batch, mv_test_thrs, mv_test_data)
+    mv_train_data = data_pipeline_mv(x_train, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
+
+    print('Optimizing master voice')
+    vocoder.train(mv_train_data, args.n_iterations, args.n_epochs, len(x_train) // args.batch, mv_test_thrs, mv_test_data)
 
 if __name__ == '__main__':
     main()
