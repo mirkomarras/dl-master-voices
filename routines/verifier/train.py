@@ -37,14 +37,23 @@ def main():
     parser.add_argument('--audio_dir', dest='audio_dir', default='./data/vs_voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
     parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis')
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Training epochs')
-    parser.add_argument('--prefetch', dest='prefetch', default=1024, type=int, action='store', help='Data pipeline prefetch size')
-    parser.add_argument('--batch', dest='batch', default=32, type=int, action='store', help='Training batch size')
-    parser.add_argument('--learning_rate', dest='learning_rate', default=1e-2, type=float, action='store', help='Learning rate')
+    parser.add_argument('--prefetch', dest='prefetch', default=32, type=int, action='store', help='Data pipeline prefetch size')
+    parser.add_argument('--batch', dest='batch', default=64, type=int, action='store', help='Training batch size')
+    parser.add_argument('--learning_rate', dest='learning_rate', default=1e-3, type=float, action='store', help='Learning rate')
+    parser.add_argument('--decay_factor', dest='decay_factor', default=0.1, type=float, action='store', help='Decay factor for learning rate')
+    parser.add_argument('--decay_step', dest='decay_step', default=10, type=int, action='store', help='Decay step of learning rate')
+    parser.add_argument('--loss', dest='loss', default='softmax', type=str, choices=['softmax', 'amsoftmax'], action='store', help='Type of loss')
+    parser.add_argument('--aggregation', dest='aggregation', default='avg', type=str, choices=['avg', 'vlad', 'gvlad'], action='store', help='Type of aggregation')
+    parser.add_argument('--vlad_clusters', dest='vlad_clusters', default=12, type=int, action='store', help='Number of vlad clusters')
+    parser.add_argument('--ghost_clusters', dest='ghost_clusters', default=2, type=int, action='store', help='Number of ghost clusters')
+    parser.add_argument('--weight_decay', dest='weight_decay', default=1e-4, type=float, action='store', help='Weight decay')
+    parser.add_argument('--optimizer', dest='optimizer', default='adam', choices=['adam', 'sgd'], type=str, action='store', help='Type of optimizer')
+    parser.add_argument('--patience', dest='patience', default=20, type=int, action='store', help='Number of epochs with non-improving EER')
 
     # Paremeters for raw audio
     parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')
     parser.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Segment lenght in seconds')
-    parser.add_argument('--augment', dest='augment', default=1, type=int, choices=[0,1], action='store', help='Data augmentation mode')
+    parser.add_argument('--augment', dest='augment', default=0, type=int, choices=[0, 1], action='store', help='Data augmentation mode')
     parser.add_argument('--noise_dir', dest='noise_dir', default='./data/vs_noise_data', type=str, action='store', help='Noise directory')
 
     args = parser.parse_args()
@@ -63,6 +72,12 @@ def main():
     print('>', 'Prefetch: {}'.format(args.prefetch))
     print('>', 'Batch size: {}'.format(args.batch))
     print('>', 'Learning rate: {}'.format(args.learning_rate))
+    print('>', 'Decay step: {}'.format(args.decay_step))
+    print('>', 'Decay factor: {}'.format(args.decay_factor))
+    print('>', 'Loss: {}'.format(args.loss))
+    print('>', 'Aggregation: {}'.format(args.aggregation))
+    print('>', 'Patience: {}'.format(args.patience))
+    print('>', 'Optimizer: {}'.format(args.optimizer))
 
     print('>', 'Sample rate: {}'.format(args.sample_rate))
     print('>', 'Augmentation flag: {}'.format(args.augment))
@@ -84,12 +99,12 @@ def main():
 
     # Generator output test
     print('Checking generator output')
-    for index, x in enumerate(data_pipeline_generator_verifier(x_train[:10], y_train[:10], classes, augment=args.augment, sample_rate=args.sample_rate, n_seconds=args.n_seconds)):
+    for index, x in enumerate(data_pipeline_generator_verifier(x_train[:10], y_train[:10], classes, sample_rate=args.sample_rate, n_seconds=args.n_seconds)):
         print('>', index, x[0]['input_1'].shape, x[0]['input_2'].shape, x[1].shape)
 
     # Data pipeline output test
     print('Checking data pipeline output')
-    train_data = data_pipeline_verifier(x_train, y_train, classes, augment=args.augment, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
+    train_data = data_pipeline_verifier(x_train, y_train, classes, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
 
     for index, x in enumerate(train_data):
         print('>', index, x[0]['input_1'].shape, x[0]['input_2'].shape, x[1].shape)
@@ -97,12 +112,16 @@ def main():
             break
 
     # Create and train model
-    train_data = data_pipeline_verifier(x_train, y_train, classes, augment=args.augment, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
+    train_data = data_pipeline_verifier(x_train, y_train, classes, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
+
     print('Creating model')
+
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
     model = available_nets[args.net.split('/')[0]](id=(int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1), noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
-    model.build(classes=classes)
-    model.train(train_data, val_data, steps_per_epoch=len(x_train)//args.batch, epochs=args.n_epochs, learning_rate=args.learning_rate)
+
+    model.build(classes=classes, loss=args.loss, aggregation=args.aggregation, vlad_clusters=args.vlad_clusters, ghost_clusters=args.ghost_clusters, weight_decay=args.weight_decay, augment=args.augment)
+
+    model.train(train_data, val_data, steps_per_epoch=len(x_train)//args.batch, epochs=args.n_epochs, learning_rate=args.learning_rate, optimizer=args.optimizer, patience=args.patience, decay_factor=args.decay_factor, decay_step=args.decay_step)
 
 if __name__ == '__main__':
     main()

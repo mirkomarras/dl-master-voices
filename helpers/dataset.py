@@ -47,20 +47,15 @@ def load_data_set(audio_dir, mv_user_ids, include=False):
     y = []
 
     print('Load data sets')
-
     user_count = 0
     for source_dir in audio_dir:
-
         print('> load data from', source_dir)
         for user_id, user_dir in enumerate(os.listdir(os.path.join(source_dir))):
-
             if (include and user_dir in mv_user_ids) or (not include and user_dir not in mv_user_ids):
-
                 for video_id, video_dir in enumerate(os.listdir(os.path.join(source_dir, user_dir))):
                     for audio_id, audio_file in enumerate(os.listdir(os.path.join(source_dir, user_dir, video_dir))):
                         x.append(os.path.join(source_dir, user_dir, video_dir, audio_file))
                         y.append(user_count)
-
                 user_count += 1
 
     print('>', 'loaded', len(x), 'audio files from', len(np.unique(y)), 'users totally')

@@ -88,6 +88,7 @@ class MasterVocoder(object):
             latent_mv = np.random.normal(size=(1, 100)).astype(np.float32)
             latent_sv = np.copy(latent_mv)
             for epoch in range(n_epochs):
+
                 for step, batch_data in enumerate(train_data):
 
                     input_1 = tf.Variable(np.tile(latent_mv, (len(batch_data), 1)), dtype=tf.float32)

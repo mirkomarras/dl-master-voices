@@ -26,10 +26,10 @@ def main():
     parser = argparse.ArgumentParser(description='Master voice training')
 
     # Parameters for verifier
-    parser.add_argument('--net_verifier', dest='net_verifier', default='', type=str, action='store', help='Network model architecture')
+    parser.add_argument('--net_verifier', dest='net_verifier', default='', type=str, action='store', help='Network model architecture e.g., xvector/v0')
 
     # Parameters for gan
-    parser.add_argument('--net_gan', dest='net_gan', default='', type=str, action='store', help='Network model architecture')
+    parser.add_argument('--net_gan', dest='net_gan', default='', type=str, action='store', help='Network model architecture e.g. wavegan/female/v0')
     parser.add_argument('--gender_gan', dest='gender_gan', default='female', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender')
     parser.add_argument('--latent_dim', dest='latent_dim', default=100, type=int, action='store', help='Number of dimensions of the latent space')
     parser.add_argument('--slice_len', dest='slice_len', default=16384, type=int, choices=[16384, 32768, 65536], action='store', help='Number of dimensions of the latent space')

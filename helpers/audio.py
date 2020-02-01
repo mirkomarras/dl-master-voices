@@ -20,7 +20,6 @@ def decode_audio(fp, tgt_sample_rate=16000):
     assert tgt_sample_rate > 0
 
     audio_sf, audio_sr = sf.read(fp, dtype='float32')
-
     if audio_sf.ndim > 1 or audio_sr != tgt_sample_rate: # Is not mono
         audio_sf, new_sample_rate = librosa.load(fp, sr=tgt_sample_rate, mono=True)
 

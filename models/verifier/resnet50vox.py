@@ -8,6 +8,7 @@ import time
 import os
 import random
 
+from models.verifier.model import VladPooling
 from models.verifier.model import Model
 from helpers.audio import play_n_rec, get_tf_spectrum
 
@@ -25,266 +26,53 @@ class ResNet50Vox(Model):
     def __init__(self, name='resnet50vox', id='', noises=None, cache=None, n_seconds=3, sample_rate=16000):
         super().__init__(name, id, noises, cache, n_seconds, sample_rate)
 
-    def __conv_bn_dynamic_apool(self, inp_tensor, layer_idx, conv_filters, conv_kernel_size, conv_strides, conv_pad, conv_layer_prefix='conv'):
-        x = tf.keras.layers.ZeroPadding2D(padding=conv_pad, name='pad{}'.format(layer_idx))(inp_tensor)
-        x = tf.keras.layers.Conv2D(filters=conv_filters, kernel_size=conv_kernel_size, strides=conv_strides, padding='valid', name='{}{}'.format(conv_layer_prefix, layer_idx))(x)
-        x = tf.keras.layers.BatchNormalization(epsilon=1e-5, momentum=1., name='bn{}'.format(layer_idx))(x)
-        x = tf.keras.layers.Activation('relu', name='relu{}'.format(layer_idx))(x)
-        x = tf.keras.layers.AveragePooling2D(pool_size=(1, 8), strides=(1,1), name='gapool{}'.format(layer_idx))(x)
-        x = tf.keras.layers.Reshape((1, 1, conv_filters), name='reshape{}'.format(layer_idx))(x)
-        return x
-
-    def build(self, classes=None):
-        super().build(classes)
+    def build(self, classes=None, loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-4, augment=0):
+        super().build(classes, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay, augment)
         print('>', 'building', self.name, 'model on', classes, 'classes')
 
         signal_input = tf.keras.Input(shape=(None,1,))
         impulse_input = tf.keras.Input(shape=(3,))
 
-        x = tf.keras.layers.Lambda(lambda x: play_n_rec(x, self.noises, self.cache), name='play_n_rec')([signal_input, impulse_input])
-        x = tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x, self.sample_rate), name='acoustic_layer')(x)
+        if augment:
+            x = tf.keras.layers.Lambda(lambda x: play_n_rec(x, self.noises, self.cache), name='play_n_rec')([signal_input, impulse_input])
+            x = tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x, self.sample_rate), name='acoustic_layer')(x)
+        else:
+            x = tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x, self.sample_rate), name='acoustic_layer')(signal_input)
 
-        # Conv1
-        conv0_1 = tf.keras.layers.Conv2D(filters=64, kernel_size=[7, 7], strides=[2, 2], padding='SAME', name='conv1')(x)
-        conv0_1 = tf.keras.layers.BatchNormalization(name='bbn0')(conv0_1)
-        conv0_1 = tf.keras.layers.ReLU()(conv0_1)
+        resnet_50 = tf.keras.applications.ResNet50(input_tensor=x, include_top=False, weights=None)
 
-        # Pool 1
-        conv0_1 = tf.keras.layers.MaxPool2D(pool_size=[3, 3], strides=[2, 2], name='mpool1')(conv0_1)
+        x = tf.keras.layers.ZeroPadding2D(padding=(0, 0), name='pad{}'.format(6))(resnet_50.output)
+        xfc = tf.keras.layers.Conv2D(filters=self.emb_size, kernel_size=(9, 1), strides=(1, 1), padding='valid', kernel_initializer='orthogonal', use_bias=False, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), name='{}{}'.format('fc', 6))(x)
+        xfc = tf.keras.layers.BatchNormalization(epsilon=1e-5, momentum=1., name='bn{}'.format(6))(xfc)
+        xfc = tf.keras.layers.Activation('relu', name='relu{}'.format(6))(xfc)
 
-        # Conv 2_x
-        conv_block1_conv1_shortcut = tf.keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], padding='VALID', name='conv_block1_conv1_shortcut_conv')(conv0_1)
-        conv_block1_conv1_shortcut = tf.keras.layers.BatchNormalization(name='conv_block1_conv1_shortcut_bn')(conv_block1_conv1_shortcut)
+        if aggregation == 'avg':
+            x = tf.keras.layers.AveragePooling2D(pool_size=(1, 8), strides=(1, 1), name='apool{}'.format(6))(xfc)
+            x = tf.math.reduce_mean(x, axis=[1, 2], name='rmean{}'.format(6))
+            x = keras.layers.Lambda(lambda x: tf.keras.backend.l2_normalize(x, 1))(x)
+        elif aggregation == 'vlad':
+            xkcenter = tf.keras.layers.Conv2D(vlad_clusters + ghost_clusters, (9, 1), strides=(1, 1), kernel_initializer='orthogonal', use_bias=True, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='vlad_center_assignment')(x)
+            x = VladPooling(k_centers=vlad_clusters, g_centers=ghost_clusters, mode='vlad', name='vlad_pool')([xfc, xkcenter])
+        elif aggregation == 'gvlad':
+            xkcenter = tf.keras.layers.Conv2D(vlad_clusters + ghost_clusters, (9, 1), strides=(1, 1), kernel_initializer='orthogonal', use_bias=True, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='gvlad_center_assignment')(x)
+            x = VladPooling(k_centers=vlad_clusters, g_centers=ghost_clusters, mode='gvlad', name='gvlad_pool')([xfc, xkcenter])
+        else:
+            raise NotImplementedError()
 
-        conv_block1_conv1_1 = tf.keras.layers.Conv2D(filters=64, kernel_size=[1, 1], strides=[1, 1], padding='VALID', name='conv_block1_conv1_1')(conv0_1)
-        conv_block1_conv1_1 = tf.keras.layers.BatchNormalization(name='conv_block1_conv1_1_bn')(conv_block1_conv1_1)
-        conv_block1_conv1_1 = tf.keras.layers.ReLU()(conv_block1_conv1_1)
+        e = tf.keras.layers.Dense(self.emb_size, activation='relu', kernel_initializer='orthogonal', use_bias=True, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='fc7')(x)
 
-        conv_block1_conv1_2 = tf.keras.layers.Conv2D(filters=64, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block1_conv1_2')(conv_block1_conv1_1)
-        conv_block1_conv1_2 = tf.keras.layers.BatchNormalization(name='conv_block1_conv1_2_bn')(conv_block1_conv1_2)
-        conv_block1_conv1_2 = tf.keras.layers.ReLU()(conv_block1_conv1_2)
+        if loss == 'softmax':
+            y = tf.keras.layers.Dense(classes, activation='softmax', kernel_initializer='orthogonal', use_bias=False, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='fc8')(e)
+        elif loss == 'amsoftmax':
+            x = keras.layers.Lambda(lambda x: tf.keras.backend.l2_normalize(x, 1))(x)
+            y = keras.layers.Dense(classes, kernel_initializer='orthogonal', use_bias=False, kernel_constraint=tf.keras.constraints.unit_norm(), kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='fc8')(x)
+        else:
+            raise NotImplementedError()
 
-        conv_block1_conv1_3 = tf.keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], padding='VALID', name='conv_block1_conv1_3')(conv_block1_conv1_2)
-        conv_block1_conv1_3 = tf.keras.layers.BatchNormalization(name='conv_block1_conv1_3_bn')(conv_block1_conv1_3)
-        conv_block1_output1 = tf.keras.layers.Add()([conv_block1_conv1_shortcut, conv_block1_conv1_3])
-        conv_block1_output1 = tf.keras.layers.ReLU()(conv_block1_output1)
-
-        conv_block1_conv2_1 = tf.keras.layers.Conv2D(filters=64, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block1_conv2_1')(conv_block1_output1)
-        conv_block1_conv2_1 = tf.keras.layers.BatchNormalization(name='conv_block1_conv2_1_bn')(conv_block1_conv2_1)
-        conv_block1_conv2_1 = tf.keras.layers.ReLU()(conv_block1_conv2_1)
-
-        conv_block1_conv2_2 = tf.keras.layers.Conv2D(filters=64, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block1_conv2_2')(conv_block1_conv2_1)
-        conv_block1_conv2_2 = tf.keras.layers.BatchNormalization(name='conv_block1_conv2_2_bn')(conv_block1_conv2_2)
-        conv_block1_conv2_2 = tf.keras.layers.ReLU()(conv_block1_conv2_2)
-
-        conv_block1_conv2_3 = tf.keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block1_conv2_3')(conv_block1_conv2_2)
-        conv_block1_conv2_3 = tf.keras.layers.BatchNormalization(name='conv_block1_conv2_3_bn')(conv_block1_conv2_3)
-        conv_block1_output2 = tf.keras.layers.Add()([conv_block1_output1, conv_block1_conv2_3])
-        conv_block1_output2 = tf.keras.layers.ReLU()(conv_block1_output2)
-
-        conv_block1_conv3_1 = tf.keras.layers.Conv2D(filters=64, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block1_conv3_1')(conv_block1_output2)
-        conv_block1_conv3_1 = tf.keras.layers.BatchNormalization(name='conv_block1_conv3_1_bn')(conv_block1_conv3_1)
-        conv_block1_conv3_1 = tf.keras.layers.ReLU()(conv_block1_conv3_1)
-
-        conv_block1_conv3_2 = tf.keras.layers.Conv2D(filters=64, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block1_conv3_2')(conv_block1_conv3_1)
-        conv_block1_conv3_2 = tf.keras.layers.BatchNormalization(name='conv_block1_conv3_2_bn')(conv_block1_conv3_2)
-        conv_block1_conv3_2 = tf.keras.layers.ReLU()(conv_block1_conv3_2)
-
-        conv_block1_conv3_3 = tf.keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block1_conv3_3')(conv_block1_conv3_2)
-        conv_block1_conv3_3 = tf.keras.layers.BatchNormalization(name='cconv_block1_conv3_3_bn')(conv_block1_conv3_3)
-        conv_block1_output3 = tf.keras.layers.Add()([conv_block1_output2, conv_block1_conv3_3])
-        conv_block1_output3 = tf.keras.layers.ReLU()(conv_block1_output3)
-
-        # Conv 3_x
-        conv_block2_conv1_shortcut = tf.keras.layers.Conv2D(filters=512, kernel_size=[1, 1], strides=[2, 2], padding='SAME', name='conv_block2_conv1_shortcut_conv')(conv_block1_output3)
-        conv_block2_conv1_shortcut = tf.keras.layers.BatchNormalization(name='conv_block2_conv1_shortcut_bn')(conv_block2_conv1_shortcut)
-
-        conv_block2_conv1_1 = tf.keras.layers.Conv2D(filters=128, kernel_size=[1, 1], strides=[2, 2], padding='SAME', name='conv_block2_conv1_1')(conv_block1_output3)
-        conv_block2_conv1_1 = tf.keras.layers.BatchNormalization(name='conv_block2_conv1_1_bn')(conv_block2_conv1_1)
-        conv_block2_conv1_1 = tf.keras.layers.ReLU()(conv_block2_conv1_1)
-
-        conv_block2_conv1_2 = tf.keras.layers.Conv2D(filters=128, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block2_conv1_2')(conv_block2_conv1_1)
-        conv_block2_conv1_2 = tf.keras.layers.BatchNormalization(name='conv_block2_conv1_2_bn')(conv_block2_conv1_2)
-        conv_block2_conv1_2 = tf.keras.layers.ReLU()(conv_block2_conv1_2)
-
-        conv_block2_conv1_3 = tf.keras.layers.Conv2D(filters=512, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block2_conv1_3')(conv_block2_conv1_2)
-        conv_block2_conv1_3 = tf.keras.layers.BatchNormalization(name='conv_block2_conv1_3_bn')(conv_block2_conv1_3)
-        conv_block2_output1 = tf.keras.layers.Add()([conv_block2_conv1_shortcut, conv_block2_conv1_3])
-        conv_block2_output1 = tf.keras.layers.ReLU()(conv_block2_output1)
-
-        conv_block2_conv2_1 = tf.keras.layers.Conv2D(filters=128, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block2_conv2_1')(conv_block2_output1)
-        conv_block2_conv2_1 = tf.keras.layers.BatchNormalization(name='conv_block2_conv2_1_bn')(conv_block2_conv2_1)
-        conv_block2_conv2_1 = tf.keras.layers.ReLU()(conv_block2_conv2_1)
-
-        conv_block2_conv2_2 = tf.keras.layers.Conv2D(filters=128, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block2_conv2_2')(conv_block2_conv2_1)
-        conv_block2_conv2_2 = tf.keras.layers.BatchNormalization(name='conv_block2_conv2_2_bn')(conv_block2_conv2_2)
-        conv_block2_conv2_2 = tf.keras.layers.ReLU()(conv_block2_conv2_2)
-
-        conv_block2_conv2_3 = tf.keras.layers.Conv2D(filters=512, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block2_conv2_3')(conv_block2_conv2_2)
-        conv_block2_conv2_3 = tf.keras.layers.BatchNormalization(name='conv_block2_conv2_3_bn')(conv_block2_conv2_3)
-        conv_block2_output2 = tf.keras.layers.Add()([conv_block2_output1, conv_block2_conv2_3])
-        conv_block2_output2 = tf.keras.layers.ReLU()(conv_block2_output2)
-
-        conv_block2_conv3_1 = tf.keras.layers.Conv2D(filters=128, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block2_conv3_1')(conv_block2_output2)
-        conv_block2_conv3_1 = tf.keras.layers.BatchNormalization(name='conv_block2_conv3_1_bn')(conv_block2_conv3_1)
-        conv_block2_conv3_1 = tf.keras.layers.ReLU()(conv_block2_conv3_1)
-
-        conv_block2_conv3_2 = tf.keras.layers.Conv2D(filters=128, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block2_conv3_2')(conv_block2_conv3_1)
-        conv_block2_conv3_2 = tf.keras.layers.BatchNormalization(name='conv_block2_conv3_2_bn')(conv_block2_conv3_2)
-        conv_block2_conv3_2 = tf.keras.layers.ReLU()(conv_block2_conv3_2)
-
-        conv_block2_conv3_3 = tf.keras.layers.Conv2D(filters=512, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block2_conv3_3')(conv_block2_conv3_2)
-        conv_block2_conv3_3 = tf.keras.layers.BatchNormalization(name='conv_block2_conv3_3_bn')(conv_block2_conv3_3)
-        conv_block2_output3 = tf.keras.layers.Add()([conv_block2_output2, conv_block2_conv3_3])
-        conv_block2_output3 = tf.keras.layers.ReLU()(conv_block2_output3)
-
-        conv_block2_conv4_1 = tf.keras.layers.Conv2D(filters=128, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block2_conv4_1')(conv_block2_output3)
-        conv_block2_conv4_1 = tf.keras.layers.BatchNormalization(name='conv_block2_conv4_1_bn')(conv_block2_conv4_1)
-        conv_block2_conv4_1 = tf.keras.layers.ReLU()(conv_block2_conv4_1)
-
-        conv_block2_conv4_2 = tf.keras.layers.Conv2D(filters=128, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block2_conv4_2')(conv_block2_conv4_1)
-        conv_block2_conv4_2 = tf.keras.layers.BatchNormalization(name='conv_block2_conv4_2_bn')(conv_block2_conv4_2)
-        conv_block2_conv4_2 = tf.keras.layers.ReLU()(conv_block2_conv4_2)
-
-        conv_block2_conv4_3 = tf.keras.layers.Conv2D(filters=512, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block2_conv4_3')(conv_block2_conv4_2)
-        conv_block2_conv4_3 = tf.keras.layers.BatchNormalization(name='conv_block2_conv4_3_bn')(conv_block2_conv4_3)
-        conv_block2_output4 = tf.keras.layers.Add()([conv_block2_output3, conv_block2_conv4_3])
-        conv_block2_output4 = tf.keras.layers.ReLU()(conv_block2_output4)
-
-        # Conv 4_x
-        conv_block3_conv1_shortcut = tf.keras.layers.Conv2D(filters=1024, kernel_size=[1, 1], strides=[2, 2], padding='SAME', name='conv_block3_conv1_shortcut')(conv_block2_output4)
-        conv_block3_conv1_shortcut = tf.keras.layers.BatchNormalization(name='conv_block3_conv1_shortcut_bn')(conv_block3_conv1_shortcut)
-
-        conv_block3_conv1_1 = tf.keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[2, 2], padding='SAME', name='conv_block3_conv1_1')(conv_block2_output4)
-        conv_block3_conv1_1 = tf.keras.layers.BatchNormalization(name='conv_block3_conv1_1_bn')(conv_block3_conv1_1)
-        conv_block3_conv1_1 = tf.keras.layers.ReLU()(conv_block3_conv1_1)
-
-        conv_block3_conv1_2 = tf.keras.layers.Conv2D(filters=256, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block3_conv1_2')(conv_block3_conv1_1)
-        conv_block3_conv1_2 = tf.keras.layers.BatchNormalization(name='conv_block3_conv1_2_bn')(conv_block3_conv1_2)
-        conv_block3_conv1_2 = tf.keras.layers.ReLU()(conv_block3_conv1_2)
-
-        conv_block3_conv1_3 = tf.keras.layers.Conv2D(filters=1024, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block3_conv1_3')(conv_block3_conv1_2)
-        conv_block3_conv1_3 = tf.keras.layers.BatchNormalization(name='conv_block3_conv1_3_bn')(conv_block3_conv1_3)
-        conv_block3_output1 = tf.keras.layers.Add()([conv_block3_conv1_shortcut, conv_block3_conv1_3])
-        conv_block3_output1 = tf.keras.layers.ReLU()(conv_block3_output1)
-
-        conv_block3_conv2_1 = tf.keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block3_conv2_1')(conv_block3_output1)
-        conv_block3_conv2_1 = tf.keras.layers.BatchNormalization(name='conv_block3_conv2_1_bn')(conv_block3_conv2_1)
-        conv_block3_conv2_1 = tf.keras.layers.ReLU()(conv_block3_conv2_1)
-
-        conv_block3_conv2_2 = tf.keras.layers.Conv2D(filters=256, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block3_conv2_2')(conv_block3_conv2_1)
-        conv_block3_conv2_2 = tf.keras.layers.BatchNormalization(name='conv_block3_conv2_2_bn')(conv_block3_conv2_2)
-        conv_block3_conv2_2 = tf.keras.layers.ReLU()(conv_block3_conv2_2)
-
-        conv_block3_conv2_3 = tf.keras.layers.Conv2D(filters=1024, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block3_conv2_3')(conv_block3_conv2_2)
-        conv_block3_conv2_3 = tf.keras.layers.BatchNormalization(name='conv_block3_conv2_3_bn')(conv_block3_conv2_3)
-        conv_block3_output2 = tf.keras.layers.Add()([conv_block3_output1, conv_block3_conv2_3])
-        conv_block3_output2 = tf.keras.layers.ReLU()(conv_block3_output2)
-
-        conv_block3_conv3_1 = tf.keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block3_conv3_1')(conv_block3_output2)
-        conv_block3_conv3_1 = tf.keras.layers.BatchNormalization(name='conv_block3_conv3_1_1_bn')(conv_block3_conv3_1)
-        conv_block3_conv3_1 = tf.keras.layers.ReLU()(conv_block3_conv3_1)
-
-        conv_block3_conv3_2 = tf.keras.layers.Conv2D(filters=256, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block3_conv3_2')(conv_block3_conv3_1)
-        conv_block3_conv3_2 = tf.keras.layers.BatchNormalization(name='conv_block3_conv3_2_bn')(conv_block3_conv3_2)
-        conv_block3_conv3_2 = tf.keras.layers.ReLU()(conv_block3_conv3_2)
-
-        conv_block3_conv3_3 = tf.keras.layers.Conv2D(filters=1024, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block3_conv3_3')(conv_block3_conv3_2)
-        conv_block3_conv3_3 = tf.keras.layers.BatchNormalization(name='conv_block3_conv3_3_bn')(conv_block3_conv3_3)
-        conv_block3_output3 = tf.keras.layers.Add()([conv_block3_output2, conv_block3_conv3_3])
-        conv_block3_output3 = tf.keras.layers.ReLU()(conv_block3_output3)
-
-        conv_block3_conv4_1 = tf.keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block3_conv4_1')(conv_block3_output3)
-        conv_block3_conv4_1 = tf.keras.layers.BatchNormalization(name='conv_block3_conv4_1_bn')(conv_block3_conv4_1)
-        conv_block3_conv4_1 = tf.keras.layers.ReLU()(conv_block3_conv4_1)
-
-        conv_block3_conv4_2 = tf.keras.layers.Conv2D(filters=256, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block3_conv4_2')(conv_block3_conv4_1)
-        conv_block3_conv4_2 = tf.keras.layers.BatchNormalization(name='conv_block3_conv4_2_bn')(conv_block3_conv4_2)
-        conv_block3_conv4_2 = tf.keras.layers.ReLU()(conv_block3_conv4_2)
-
-        conv_block3_conv4_3 = tf.keras.layers.Conv2D(filters=1024, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block3_conv4_3')(conv_block3_conv4_2)
-        conv_block3_conv4_3 = tf.keras.layers.BatchNormalization(name='conv_block3_conv4_3_bn')(conv_block3_conv4_3)
-        conv_block3_output4 = tf.keras.layers.Add()([conv_block3_output3, conv_block3_conv4_3])
-        conv_block3_output4 = tf.keras.layers.ReLU()(conv_block3_output4)
-
-        conv_block3_conv5_1 = tf.keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block3_conv5_1')(conv_block3_output4)
-        conv_block3_conv5_1 = tf.keras.layers.BatchNormalization(name='conv_block3_conv5_1_bn')(conv_block3_conv5_1)
-        conv_block3_conv5_1 = tf.keras.layers.ReLU()(conv_block3_conv5_1)
-
-        conv_block3_conv5_2 = tf.keras.layers.Conv2D(filters=256, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block3_conv5_2')(conv_block3_conv5_1)
-        conv_block3_conv5_2 = tf.keras.layers.BatchNormalization(name='conv_block3_conv5_2_bn')(conv_block3_conv5_2)
-        conv_block3_conv5_2 = tf.keras.layers.ReLU()(conv_block3_conv5_2)
-
-        conv_block3_conv5_3 = tf.keras.layers.Conv2D(filters=1024, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block3_conv5_3')(conv_block3_conv5_2)
-        conv_block3_conv5_3 = tf.keras.layers.BatchNormalization(name='conv_block3_conv5_3_bn')(conv_block3_conv5_3)
-        conv_block3_output5 = tf.keras.layers.Add()([conv_block3_output4, conv_block3_conv5_3])
-        conv_block3_output5 = tf.keras.layers.ReLU()(conv_block3_output5)
-
-        conv_block3_conv6_1 = tf.keras.layers.Conv2D(filters=256, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block3_conv6_1')(conv_block3_output5)
-        conv_block3_conv6_1 = tf.keras.layers.BatchNormalization(name='conv_block3_conv6_1_bn')(conv_block3_conv6_1)
-        conv_block3_conv6_1 = tf.keras.layers.ReLU()(conv_block3_conv6_1)
-
-        conv_block3_conv6_2 = tf.keras.layers.Conv2D(filters=256, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block3_conv6_2')(conv_block3_conv6_1)
-        conv_block3_conv6_2 = tf.keras.layers.BatchNormalization(name='conv_block3_conv6_2_bn')(conv_block3_conv6_2)
-        conv_block3_conv6_2 = tf.keras.layers.ReLU()(conv_block3_conv6_2)
-
-        conv_block3_conv6_3 = tf.keras.layers.Conv2D(filters=1024, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block3_conv6_3')(conv_block3_conv6_2)
-        conv_block3_conv6_3 = tf.keras.layers.BatchNormalization(name='conv_block3_conv6_3_bn')(conv_block3_conv6_3)
-        conv_block3_output6 = tf.keras.layers.Add()([conv_block3_output5, conv_block3_conv6_3])
-        conv_block3_output6 = tf.keras.layers.ReLU()(conv_block3_output6)
-
-        # Conv 5_x
-        conv_block4_conv1_shortcut = tf.keras.layers.Conv2D(filters=2048, kernel_size=[1, 1], strides=[2, 2], padding='SAME', name='conv_block4_conv1_shortcut')(conv_block3_output6)
-        conv_block4_conv1_shortcut = tf.keras.layers.BatchNormalization(name='conv_block4_conv1_shortcut_bn')(conv_block4_conv1_shortcut)
-
-        conv_block4_conv1_1 = tf.keras.layers.Conv2D(filters=512, kernel_size=[1, 1], strides=[2, 2], padding='SAME', name='conv_block4_conv1_1')(conv_block3_output6)
-        conv_block4_conv1_1 = tf.keras.layers.BatchNormalization(name='conv_block4_conv1_1_bn')(conv_block4_conv1_1)
-        conv_block4_conv1_1 = tf.keras.layers.ReLU()(conv_block4_conv1_1)
-
-        conv_block4_conv1_2 = tf.keras.layers.Conv2D(filters=512, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block4_conv1_2')(conv_block4_conv1_1)
-        conv_block4_conv1_2 = tf.keras.layers.BatchNormalization(name='conv_block4_conv1_2_bn')(conv_block4_conv1_2)
-        conv_block4_conv1_2 = tf.keras.layers.ReLU()(conv_block4_conv1_2)
-
-        conv_block4_conv1_3 = tf.keras.layers.Conv2D(filters=2048, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block4_conv1_3')(conv_block4_conv1_2)
-        conv_block4_conv1_3 = tf.keras.layers.BatchNormalization(name='conv_block4_conv1_3_bn')(conv_block4_conv1_3)
-        conv_block4_output1 = tf.keras.layers.Add()([conv_block4_conv1_shortcut, conv_block4_conv1_3])
-        conv_block4_output1 = tf.keras.layers.ReLU()(conv_block4_output1)
-
-        conv_block4_conv2_1 = tf.keras.layers.Conv2D(filters=512, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block4_conv2_1')(conv_block4_output1)
-        conv_block4_conv2_1 = tf.keras.layers.BatchNormalization(name='conv_block4_conv2_1_bn')(conv_block4_conv2_1)
-        conv_block4_conv2_1 = tf.keras.layers.ReLU()(conv_block4_conv2_1)
-
-        conv_block4_conv2_2 = tf.keras.layers.Conv2D(filters=512, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block4_conv2_2')(conv_block4_conv2_1)
-        conv_block4_conv2_2 = tf.keras.layers.BatchNormalization(name='conv_block4_conv2_2_bn')(conv_block4_conv2_2)
-        conv_block4_conv2_2 = tf.keras.layers.ReLU()(conv_block4_conv2_2)
-
-        conv_block4_conv2_3 = tf.keras.layers.Conv2D(filters=2048, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block4_conv2_3')(conv_block4_conv2_2)
-        conv_block4_conv2_3 = tf.keras.layers.BatchNormalization(name='conv_block4_conv2_3_bn')(conv_block4_conv2_3)
-        conv_block4_output2 = tf.keras.layers.Add()([conv_block4_output1, conv_block4_conv2_3])
-        conv_block4_output2 = tf.keras.layers.ReLU()(conv_block4_output2)
-
-        conv_block4_conv3_1 = tf.keras.layers.Conv2D(filters=512, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block4_conv3_1')(conv_block4_output2)
-        conv_block4_conv3_1 = tf.keras.layers.BatchNormalization(name='conv_block4_conv3_1_bn')(conv_block4_conv3_1)
-        conv_block4_conv3_1 = tf.keras.layers.ReLU()(conv_block4_conv3_1)
-
-        conv_block4_conv3_2 = tf.keras.layers.Conv2D(filters=512, kernel_size=[3, 3], strides=[1, 1], padding='SAME', name='conv_block4_conv3_2')(conv_block4_conv3_1)
-        conv_block4_conv3_2 = tf.keras.layers.BatchNormalization(name='conv_block4_conv3_2_bn')(conv_block4_conv3_2)
-        conv_block4_conv3_2 = tf.keras.layers.ReLU()(conv_block4_conv3_2)
-
-        conv_block4_conv3_3 = tf.keras.layers.Conv2D(filters=2048, kernel_size=[1, 1], strides=[1, 1], padding='SAME', name='conv_block4_conv3_3')(conv_block4_conv3_2)
-        conv_block4_conv3_3 = tf.keras.layers.BatchNormalization(name='conv_block4_conv3_3_bn')(conv_block4_conv3_3)
-        conv_block4_output3 = tf.keras.layers.Add()([conv_block4_output2, conv_block4_conv3_3])
-        conv_block4_output3 = tf.keras.layers.ReLU()(conv_block4_output3)
-
-        # Fc layers
-        embedding_layer = self.__conv_bn_dynamic_apool(x, layer_idx=6, conv_filters=2048, conv_kernel_size=(9, 1), conv_strides=(1, 1), conv_pad=(0, 0), conv_layer_prefix='fc')
-        x = tf.keras.layers.Lambda(lambda y: tf.keras.backend.l2_normalize(y, axis=3), name='norm')(embedding_layer)
-        output = tf.keras.layers.Conv2D(filters=classes, kernel_size=(1, 1), strides=(1, 1), padding='valid', name='fc8')(x)
-
-        self.model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[output])
+        self.model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[y])
         print('>', 'built', self.name, 'model on', classes, 'classes')
 
         super().load()
 
-        self.inference_model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[embedding_layer])
+        self.inference_model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[e])
         print('>', 'built', self.name, 'inference model')

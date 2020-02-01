@@ -31,15 +31,18 @@ class XVector(Model):
         x = tf.concat([tf_mean, tf.sqrt(tf_var + 0.00001)], 1)
         return x
 
-    def build(self, classes=None):
-        super().build(classes)
+    def build(self, classes=None, loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-4, augment=0):
+        super().build(classes, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay, augment)
         print('>', 'building', self.name, 'model on', classes, 'classes')
 
         signal_input = tf.keras.Input(shape=(None,1,))
         impulse_input = tf.keras.Input(shape=(3,))
 
-        x = tf.keras.layers.Lambda(lambda x: play_n_rec(x, self.noises, self.cache), name='play_n_rec')([signal_input, impulse_input])
-        x = tf.keras.layers.Lambda(lambda x: get_tf_filterbanks(x, self.sample_rate), name='acoustic_layer')(x)
+        if augment:
+            x = tf.keras.layers.Lambda(lambda x: play_n_rec(x, self.noises, self.cache), name='play_n_rec')([signal_input, impulse_input])
+            x = tf.keras.layers.Lambda(lambda x: get_tf_filterbanks(x, self.sample_rate), name='acoustic_layer')(x)
+        else:
+            x = tf.keras.layers.Lambda(lambda x: get_tf_filterbanks(x, self.sample_rate), name='acoustic_layer')(signal_input)
 
         # Layer parameters
         layer_sizes = [512, 512, 512, 512, 3 * 512]
@@ -59,6 +62,7 @@ class XVector(Model):
 
         # Statistic pooling
         x = tf.keras.layers.Lambda(lambda x: self.__normalize_with_moments(x))(x)
+        x = tf.math.l2_normalize(x)
 
         # Embedding layers
         embedding_layers = []
@@ -70,9 +74,15 @@ class XVector(Model):
             if i != len(embedding_sizes) - 1:
                 x = tf.keras.layers.Dropout(0.1)(x)
 
-        output = tf.keras.layers.Dense(classes, activation='softmax')(x)
+        if loss == 'softmax':
+            y = tf.keras.layers.Dense(classes, activation='softmax', kernel_initializer='orthogonal', use_bias=False, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay))(x)
+        elif loss == 'amsoftmax':
+            x = keras.layers.Lambda(lambda x: tf.keras.backend.l2_normalize(x, 1))(x)
+            y = keras.layers.Dense(classes, kernel_initializer='orthogonal', use_bias=False, kernel_constraint=tf.keras.constraints.unit_norm(), kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay))(x)
+        else:
+            raise NotImplementedError()
 
-        self.model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[output])
+        self.model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[y])
         print('>', 'built', self.name, 'model on', classes, 'classes')
 
         super().load()
