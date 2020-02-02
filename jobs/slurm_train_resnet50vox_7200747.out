@@ -1,0 +1,37 @@
+Using TensorFlow backend.
+Parameters summary
+> Net: resnet50vox
+> Val pairs dataset path: /beegfs/mm10572/voxceleb1/test
+> Val pairs path: ./data/ad_voxceleb12/vox1_trial_pairs.csv
+> Number of val pairs: 0
+> Audio dir: /beegfs/mm10572/voxceleb1/dev,/beegfs/mm10572/voxceleb2/dev
+> Master voice data path: ./data/ad_voxceleb12/vox2_mv_data.npz
+> Number of epochs: 1024
+> Prefetch: 32
+> Batch size: 64
+> Learning rate: 0.001
+> Decay step: 10
+> Decay factor: 0.1
+> Loss: softmax
+> Aggregation: gvlad
+> Patience: 20
+> Optimizer: adam
+> Sample rate: 16000
+> Augmentation flag: 0
+> Max number of seconds: 3
+> Noise dir: ./data/vs_noise_data
+Load impulse response paths
+> room 9
+> speaker 4
+> microphone 7
+Cache impulse response data
+Load train user ids for mv analysis
+> found mv analysis train users 1000
+Load test user ids for mv analysis
+> found mv analysis test users 1000
+Load data sets
+> load data from /beegfs/mm10572/voxceleb1/dev
+> load data from /beegfs/mm10572/voxceleb2/dev
+> loaded 1024292 audio files from 5205 users totally
+Loading validation data
+> pair   100 / 37720> pair   200 / 37720> pair   300 / 37720> pair   400 / 37720> pair   500 / 37720> pair   600 / 37720> pair   700 / 37720> pair   800 / 37720> pair   900 / 37720> pair  1000 / 37720> pair  1100 / 37720> pair  1200 / 37720> pair  1300 / 37720> pair  1400 / 37720> pair  1500 / 37720> pair  1600 / 37720> pair  1700 / 37720> pair  1800 / 37720> pair  1900 / 37720> pair  2000 / 37720> pair  2100 / 37720> pair  2200 / 37720> pair  2300 / 37720> pair  2400 / 37720> pair  2500 / 37720> pair  2600 / 37720> pair  2700 / 37720> pair  2800 / 37720> pair  2900 / 37720> pair  3000 / 37720> pair  3100 / 37720> pair  3200 / 37720> pair  3300 / 37720> pair  3400 / 37720> pair  3500 / 37720> pair  3600 / 37720> pair  3700 / 37720> pair  3800 / 37720> pair  3900 / 37720> pair  4000 / 37720> pair  4100 / 37720> pair  4200 / 37720> pair  4300 / 37720> pair  4400 / 37720> pair  4500 / 37720> pair  4600 / 37720> pair  4700 / 37720> pair  4800 / 37720> pair  4900 / 37720> pair  5000 / 37720> pair  5100 / 37720> pair  5200 / 37720> pair  5300 / 37720> pair  5400 / 37720> pair  5500 / 37720> pair  5600 / 37720> pair  5700 / 37720> pair  5800 / 37720> pair  5900 / 37720> pair  6000 / 37720> pair  6100 / 37720> pair  6200 / 37720> pair  6300 / 37720> pair  6400 / 37720> pair  6500 / 37720> pair  6600 / 37720> pair  6700 / 37720> pair  6800 / 37720> pair  6900 / 37720> pair  7000 / 37720> pair  7100 / 37720> pair  7200 / 37720> pair  7300 / 37720> pair  7400 / 37720> pair  7500 / 37720> pair  7600 / 37720> pair  7700 / 37720> pair  7800 / 37720> pair  7900 / 37720> pair  8000 / 37720> pair  8100 / 37720> pair  8200 / 37720> pair  8300 / 37720> pair  8400 / 37720> pair  8500 / 37720> pair  8600 / 37720> pair  8700 / 37720> pair  8800 / 37720> pair  8900 / 37720> pair  9000 / 37720> pair  9100 / 37720> pair  9200 / 37720> pair  9300 / 37720> pair  9400 / 37720> pair  9500 / 37720> pair  9600 / 37720> pair  9700 / 37720> pair  9800 / 37720> pair  9900 / 37720> pair 10000 / 37720> pair 10100 / 37720> pair 10200 / 37720> pair 10300 / 37720> pair 10400 / 37720> pair 10500 / 37720> pair 10600 / 37720> pair 10700 / 37720> pair 10800 / 37720> pair 10900 / 37720> pair 11000 / 37720> pair 11100 / 37720> pair 11200 / 37720> pair 11300 / 37720> pair 11400 / 37720> pair 11500 / 37720> pair 11600 / 37720> pair 11700 / 37720> pair 11800 / 37720> pair 11900 / 37720> pair 12000 / 37720> pair 12100 / 37720> pair 12200 / 37720> pair 12300 / 37720> pair 12400 / 37720> pair 12500 / 37720> pair 12600 / 37720> pair 12700 / 37720> pair 12800 / 37720> pair 12900 / 37720> pair 13000 / 37720> pair 13100 / 37720> pair 13200 / 37720> pair 13300 / 37720> pair 13400 / 37720> pair 13500 / 37720> pair 13600 / 37720> pair 13700 / 37720> pair 13800 / 37720> pair 13900 / 37720> pair 14000 / 37720> pair 14100 / 37720> pair 14200 / 37720> pair 14300 / 37720> pair 14400 / 37720> pair 14500 / 37720> pair 14600 / 37720> pair 14700 / 37720> pair 14800 / 37720> pair 14900 / 37720> pair 15000 / 37720> pair 15100 / 37720> pair 15200 / 37720> pair 15300 / 37720> pair 15400 / 37720> pair 15500 / 37720> pair 15600 / 37720> pair 15700 / 37720> pair 15800 / 37720> pair 15900 / 37720> pair 16000 / 37720> pair 16100 / 37720> pair 16200 / 37720> pair 16300 / 37720> pair 16400 / 37720> pair 16500 / 37720> pair 16600 / 37720> pair 16700 / 37720> pair 16800 / 37720> pair 16900 / 37720> pair 17000 / 37720> pair 17100 / 37720> pair 17200 / 37720> pair 17300 / 37720> pair 17400 / 37720> pair 17500 / 37720> pair 17600 / 37720> pair 17700 / 37720> pair 17800 / 37720> pair 17900 / 37720> pair 18000 / 37720> pair 18100 / 37720> pair 18200 / 37720> pair 18300 / 37720> pair 18400 / 37720> pair 18500 / 37720> pair 18600 / 37720> pair 18700 / 37720> pair 18800 / 37720> pair 18900 / 37720> pair 19000 / 37720> pair 19100 / 37720> pair 19200 / 37720> pair 19300 / 37720> pair 19400 / 37720> pair 19500 / 37720> pair 19600 / 37720> pair 19700 / 37720> pair 19800 / 37720> pair 19900 / 37720> pair 20000 / 37720> pair 20100 / 37720> pair 20200 / 37720> pair 20300 / 37720> pair 20400 / 37720> pair 20500 / 37720> pair 20600 / 37720> pair 20700 / 37720> pair 20800 / 37720> pair 20900 / 37720> pair 21000 / 37720> pair 21100 / 37720> pair 21200 / 37720> pair 21300 / 37720> pair 21400 / 37720> pair 21500 / 37720> pair 21600 / 37720> pair 21700 / 37720> pair 21800 / 37720> pair 21900 / 37720> pair 22000 / 37720> pair 22100 / 37720> pair 22200 / 37720> pair 22300 / 37720> pair 22400 / 37720> pair 22500 / 37720> pair 22600 / 37720> pair 22700 / 37720> pair 22800 / 37720> pair 22900 / 37720> pair 23000 / 37720> pair 23100 / 37720> pair 23200 / 37720> pair 23300 / 37720> pair 23400 / 37720> pair 23500 / 37720> pair 23600 / 37720> pair 23700 / 37720> pair 23800 / 37720> pair 23900 / 37720> pair 24000 / 37720> pair 24100 / 37720> pair 24200 / 37720> pair 24300 / 37720

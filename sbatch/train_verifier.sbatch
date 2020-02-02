@@ -3,12 +3,12 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=1
 #SBATCH --time=168:00:00
-#SBATCH --mem=64GB
+#SBATCH --mem=32GB
 #SBATCH --gres=gpu:1
-#SBATCH --job-name=VerTrain
+#SBATCH --job-name=ResNet50
 #SBATCH --mail-type=END
 #SBATCH --mail-user=m.marras19@gmail.com
-#SBATCH --output=jobs/slurm_train_verifier_%j.out
+#SBATCH --output=jobs/slurm_train_resnet50vox_%j.out
 
 module purge
 module unload cuda/8.0.44
@@ -19,9 +19,9 @@ module load ffmpeg/intel/3.2.2
 export PRJ_PATH="${PWD}"
 export AUDIO_DIR="/beegfs/mm10572/voxceleb1/dev,/beegfs/mm10572/voxceleb2/dev"
 export VAL_BASE_PATH="/beegfs/mm10572/voxceleb1/test"
-export NET="vggvox"
+export NET="resnet50vox"
 
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
 
-python -u $PRJ_PATH/routines/verifier/train.py --audio_dir $AUDIO_DIR --val_base_path $VAL_BASE_PATH --net $NET
+python -u $PRJ_PATH/routines/verifier/train.py --audio_dir $AUDIO_DIR --val_base_path $VAL_BASE_PATH --net $NET --aggregation 'gvlad'

@@ -164,25 +164,11 @@ class Model(object):
         print('>', 'training', self.name, 'model')
         self.model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
         schedule = StepDecay(init_alpha=learning_rate, decay_factor=decay_factor, decay_step=decay_step)
-        callbacks = [LearningRateScheduler(schedule)]
-        num_nonimproving_steps, last_eer = 0, 1.0
-
-        for epoch in range(epochs):
-            tf.keras.backend.set_learning_phase(1)
-            self.model.fit(train_data, steps_per_epoch=steps_per_epoch, initial_epoch=epoch, epochs=epoch+1, callbacks=callbacks)
-            eer, _, _ = self.test(test_data)
-            if eer < last_eer:
-                print('>', 'eer improved from', round(last_eer, 4), 'to', round(eer, 4))
-                num_nonimproving_steps = 0
-                last_eer = eer
-                self.save()
-            else:
-                print('>', 'eer NOT improved from', round(last_eer, 2))
-                num_nonimproving_steps += 1
-            if num_nonimproving_steps == patience:
-                print('>', 'early stopping training after', num_nonimproving_steps, 'non-improving steps')
-                break
-
+        saving = tf.keras.callbacks.ModelCheckpoint(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_weights.tf'), monitor='loss', mode='min', save_best_only=True)
+        earlystopping = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=patience)
+        learning = LearningRateScheduler(schedule)
+        callbacks = [learning, saving, earlystopping]
+        self.model.fit(train_data, steps_per_epoch=steps_per_epoch, epochs=epochs, callbacks=callbacks)
         print('>', 'trained', self.name, 'model')
 
     def test(self, test_data):
