@@ -16,7 +16,3 @@
 - Quale è il rate di impersonazione in sistemi commerciali?
   - Microsoft: https://azure.microsoft.com/en-us/pricing/details/cognitive-services/speaker-recognition/
 - Cosa accade se si usano delle master voice per addestrare un SV?
-
-
-- distribuzione rate impersonazione
-- attacco multiplo con migliori

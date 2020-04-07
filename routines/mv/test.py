@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Network model architecture')
     parser.add_argument('--policy', dest='policy', default='any', type=str, action='store', help='Verification policy')
     parser.add_argument('--n_templates', dest='n_templates', default=1, type=int, action='store', help='Number of enrolment templates')
+    parser.add_argument('--n_attacks', dest='n_attacks', default=1, type=int, action='store', help='Number of joint attacks')
 
     # Parameters for testing verifier against eer
     parser.add_argument('--sv_base_path', dest='sv_base_path', default='./data/vs_voxceleb1/test', type=str, action='store', help='Trials base path for computing speaker verification thresholds')
@@ -51,6 +52,7 @@ def main():
     print('>', 'Net: {}'.format(args.net))
     print('>', 'Policy: {}'.format(args.policy))
     print('>', 'Number of enrolment templates: {}'.format(args.n_templates))
+    print('>', 'Number of joint attacks: {}'.format(args.n_attacks))
 
     print('>', 'Test pairs dataset path: {}'.format(args.sv_base_path))
     print('>', 'Test pairs path: {}'.format(args.sv_pair_path))
@@ -105,6 +107,14 @@ def main():
     print("{:<15} {:<5} {:<5} {:<5} {:<5} {:<5} {:<5} {:<5} {:<5}".format('', 'M', 'F', 'M', 'F', 'M', 'F', 'M', 'F'))
 
     results = {}
+    eer_any_m = []
+    eer_any_f = []
+    eer_avg_m = []
+    eer_avg_f = []
+    far1_any_m = []
+    far1_any_f = []
+    far1_avg_m = []
+    far1_avg_f = []
     for mv_file_index, mv_file in enumerate(os.listdir(os.path.join('./data/vs_mv_data', args.mv_set))):
 
         if mv_file.endswith('.wav'):
@@ -116,30 +126,30 @@ def main():
                 for thr_type, thr in {'eer': thr_eer, 'far1': thr_far1}.items():
                     results[mv_file][policy][thr_type] = model.impersonate(mv_signal, thr, policy, x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test, args.n_templates)
 
-            eer_any_m = float(results[mv_file]['any']['eer']['m'])
-            eer_any_f = float(results[mv_file]['any']['eer']['f'])
-            eer_avg_m = float(results[mv_file]['avg']['eer']['m'])
-            eer_avg_f = float(results[mv_file]['avg']['eer']['f'])
-            far1_any_m = float(results[mv_file]['any']['far1']['m'])
-            far1_any_f = float(results[mv_file]['any']['far1']['f'])
-            far1_avg_m = float(results[mv_file]['avg']['far1']['m'])
-            far1_avg_f = float(results[mv_file]['avg']['far1']['f'])
+            eer_any_m.append(len([1 for fac in results[mv_file]['any']['eer']['m'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            eer_any_f.append(len([1 for fac in results[mv_file]['any']['eer']['f'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            eer_avg_m.append(len([1 for fac in results[mv_file]['avg']['eer']['m'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            eer_avg_f.append(len([1 for fac in results[mv_file]['avg']['eer']['f'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            far1_any_m.append(len([1 for fac in results[mv_file]['any']['far1']['m'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            far1_any_f.append(len([1 for fac in results[mv_file]['any']['far1']['f'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            far1_avg_m.append(len([1 for fac in results[mv_file]['avg']['far1']['m'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            far1_avg_f.append(len([1 for fac in results[mv_file]['avg']['far1']['f'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
             print("{:<15}".format(mv_file), end=' ')
-            print("%0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f" % (eer_any_m, eer_any_f, eer_avg_m, eer_avg_f, far1_any_m, far1_any_f, far1_avg_m, far1_avg_f))
+            print("%0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f" % (eer_any_m[-1], eer_any_f[-1], eer_avg_m[-1], eer_avg_f[-1], far1_any_m[-1], far1_any_f[-1], far1_avg_m[-1], far1_avg_f[-1]))
 
             with open(os.path.join('./data/vs_mv_data', args.mv_set, 'results.json'), 'w') as fp:
                 json.dump(results, fp)
                 print('Saved result file till', mv_file_index, end='\n')
 
     # Print average impersonation rates
-    eer_any_m = float(np.mean([results[f]['any']['eer']['m'] for f in results.keys()]))
-    eer_any_f = float(np.mean([results[f]['any']['eer']['f'] for f in results.keys()]))
-    eer_avg_m = float(np.mean([results[f]['avg']['eer']['m'] for f in results.keys()]))
-    eer_avg_f = float(np.mean([results[f]['avg']['eer']['f'] for f in results.keys()]))
-    far1_any_m = float(np.mean([results[f]['any']['far1']['m'] for f in results.keys()]))
-    far1_any_f = float(np.mean([results[f]['any']['far1']['f'] for f in results.keys()]))
-    far1_avg_m = float(np.mean([results[f]['avg']['far1']['m'] for f in results.keys()]))
-    far1_avg_f = float(np.mean([results[f]['avg']['far1']['f'] for f in results.keys()]))
+    eer_any_m = float(np.mean(eer_any_m))
+    eer_any_f = float(np.mean(eer_any_f))
+    eer_avg_m = float(np.mean(eer_avg_m))
+    eer_avg_f = float(np.mean(eer_avg_f))
+    far1_any_m = float(np.mean(far1_any_m))
+    far1_any_f = float(np.mean(far1_any_f))
+    far1_avg_m = float(np.mean(far1_avg_m))
+    far1_avg_f = float(np.mean(far1_avg_f))
     print("%0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f" % (eer_any_m, eer_any_f, eer_avg_m, eer_avg_f, far1_any_m, far1_any_f, far1_avg_m, far1_avg_f))
 
 
