@@ -6,7 +6,7 @@ import argparse
 import os
 
 from helpers.datapipeline import data_pipeline_generator_mv, data_pipeline_mv
-from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender, load_test_data, load_mv_data
+from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender, load_test_data_from_file, create_template_trials, load_mv_data
 from models.verifier.resnet50vox import ResNet50Vox
 from models.verifier.resnet34vox import ResNet34Vox
 from models.verifier.xvector import XVector
@@ -23,6 +23,8 @@ def main():
     # Parameters for verifier
     parser.add_argument('--net_verifier', dest='net_verifier', default='', type=str, action='store', help='Network model architecture e.g., xvector/v0')
     parser.add_argument('--classes', dest='classes', default=5205, type=int, action='store', help='Classes')
+    parser.add_argument('--policy', dest='policy', default='any', type=str, action='store', help='Verification policy')
+    parser.add_argument('--n_templates', dest='n_templates', default=1, type=int, action='store', help='Number of enrolment templates')
 
     # Parameters for gan
     parser.add_argument('--net_gan', dest='net_gan', default='', type=str, action='store', help='Network model architecture e.g. wavegan/female/v0')
@@ -62,6 +64,8 @@ def main():
     print('Parameters summary')
 
     print('>', 'Net Verifier: {}'.format(args.net_verifier))
+    print('>', 'Policy: {}'.format(args.policy))
+    print('>', 'Number of enrolment templates: {}'.format(args.n_templates))
     print('>', 'Mode: {}'.format(mode))
 
     print('>', 'Net GAN: {}'.format(args.net_gan))
@@ -135,9 +139,14 @@ def main():
         if index == 10:
             break
 
+    if not os.path.exists(args.sv_pair_path):
+        print('Creating trials file with templates', args.n_templates)
+        create_template_trials(args.sv_base_path, args.sv_pair_path, args.n_templates, args.sv_n_pair, args.sv_n_pair)
+        print('> trial pairs file saved')
+
     print('Loading data for training and testing master voice impersonation')
-    test_data = load_test_data(args.sv_base_path, args.sv_pair_path, args.sv_n_pair, args.sample_rate, args.n_seconds)
-    mv_test_thrs = selected_verifier.test(test_data, mode)
+    test_data = load_test_data_from_file(args.sv_base_path, args.sv_pair_path, args.sv_n_pair, args.sample_rate, args.n_seconds)
+    mv_test_thrs = selected_verifier.test(test_data, mode, args.policy)
     mv_test_data = load_mv_data(args.mv_meta, args.mv_base_path, args.audio_meta, args.sample_rate, args.n_seconds, args.n_templates)
 
     mv_train_data = data_pipeline_mv(x_train, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
