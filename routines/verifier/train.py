@@ -90,7 +90,6 @@ def main():
     # Load train and validation data
     mv_user_ids = get_mv_analysis_users(args.mv_data_path)
     x_train, y_train = load_data_set(audio_dir, mv_user_ids)
-    val_data = load_val_data(args.val_base_path, args.val_pair_path, args.val_n_pair, args.sample_rate, args.n_seconds)
     classes = len(np.unique(y_train))
 
     # Data pipeline output test
@@ -110,7 +109,7 @@ def main():
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
     model = available_nets[args.net.split('/')[0]](id=(int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1), noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
     model.build(classes=classes, loss=args.loss, aggregation=args.aggregation, vlad_clusters=args.vlad_clusters, ghost_clusters=args.ghost_clusters, weight_decay=args.weight_decay)
-    model.train(train_data, val_data, noise_paths, noise_cache, args.augment, mode=mode, steps_per_epoch=len(x_train)//args.batch, epochs=args.n_epochs, learning_rate=args.learning_rate, optimizer=args.optimizer, decay_factor=args.decay_factor, decay_step=args.decay_step)
+    model.train(train_data, None, noise_paths, noise_cache, args.augment, mode=mode, steps_per_epoch=len(x_train)//args.batch, epochs=args.n_epochs, learning_rate=args.learning_rate, optimizer=args.optimizer, decay_factor=args.decay_factor, decay_step=args.decay_step)
 
 if __name__ == '__main__':
     main()

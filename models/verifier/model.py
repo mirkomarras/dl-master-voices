@@ -188,24 +188,24 @@ class Model(object):
 
         print('>', 'trained', self.name, 'model')
 
-    def test(self, test_data, mode='spectrum'):
+    def test(self, test_data, policy='any', mode='spectrum'):
         """
         Method to test this model against verification attempts
         :param test_data:       Pre-computed testing data pairs - shape ((pairs, None, 1), (pairs, None, 1)), (pairs, binary_label)
         :return:                (Model EER, EER threshold, FAR1% threshold)
         """
 
-        print('>', 'testing', self.name, 'model')
+        print('>', 'testing', self.name, 'model on policy', policy)
         (x1, x2), y = test_data
         eer, thr_eer, id_eer, thr_far1, id_far1 = 0, 0, 0, 0, 0
         far, frr = [], []
         similarity_scores = np.zeros(len(x1))
         for pair_id, (f1, f2) in enumerate(zip(x1, x2)):
             inp_1 = get_tf_spectrum(f1) if mode == 'spectrum' else get_tf_filterbanks(f1)
-            inp_2 = get_tf_spectrum(f2) if mode == 'spectrum' else get_tf_filterbanks(f2)
+            inp_2 = [get_tf_spectrum(f) if mode == 'spectrum' else get_tf_filterbanks(f) for f in (f2 if isinstance(f2, list) else [f2])]
             emb1 = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(self.embed(inp_1))
-            emb2 = tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(self.embed(inp_2))
-            similarity_scores[pair_id] = 1 - cosine(emb1, emb2)
+            emb2 = [tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(self.embed(inp)) for inp in inp_2]
+            similarity_scores[pair_id] = 1 - cosine(emb1, np.mean(emb2, axis=0)) if policy == 'avg' else np.max([1 - cosine(emb1, emb) for emb in emb2])
             if pair_id > 2:
                 far, tpr, thresholds = roc_curve(y[:pair_id+1], similarity_scores[:pair_id+1], pos_label=1)
                 frr = 1 - tpr

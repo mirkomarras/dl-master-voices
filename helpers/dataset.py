@@ -4,6 +4,7 @@
 import pandas as pd
 import numpy as np
 import random
+import csv
 import os
 
 from helpers.audio import decode_audio
@@ -94,17 +95,18 @@ def filter_by_gender(paths, labels, meta_file, gender='neutral'):
 
     return paths, labels
 
-def load_data_raw(base_path, trials_path, n_pairs=10, sample_rate=16000, n_seconds=3, print_interval=100):
+def load_test_data_from_file(base_path, trials_path, n_templates=1, n_pairs=10, sample_rate=16000, n_seconds=3, print_interval=100):
     """
-    Function to load raw paired audio samples for verification
+    Function lo load raw audio samples for testing
     :param base_path:       Base path to the dataset samples
     :param trials_path:     Path to the list of trial pairs
     :param n_pairs:         Number of pairs to be loaded
     :param sample_rate:     Sample rate of the audio files to be processed
     :param n_seconds:       Max number of seconds of an audio sample to be processed
-    :param print_interval:  Print interval (verbosity)
     :return:                (list of audio samples, list of audio samples), labels
     """
+
+    print('Loading testing data from file', trials_path, 'with template', n_templates)
 
     pairs = pd.read_csv(trials_path, names=['target','path_1','path_2'], delimiter=' ')
     n_real_pairs = n_pairs if n_pairs > 0 else len(pairs['target'])
@@ -119,47 +121,49 @@ def load_data_raw(base_path, trials_path, n_pairs=10, sample_rate=16000, n_secon
             print('\r> pair %5.0f / %5.0f' % (i+1, len(y)), end='')
 
         x1.append(decode_audio(os.path.join(base_path, path_1), tgt_sample_rate=sample_rate).reshape((1, -1, 1))[:,:sample_rate*n_seconds,:])
-        x2.append(decode_audio(os.path.join(base_path, path_2), tgt_sample_rate=sample_rate).reshape((1, -1, 1))[:,:sample_rate*n_seconds,:])
+        x2.append([decode_audio(os.path.join(base_path, path), tgt_sample_rate=sample_rate).reshape((1, -1, 1))[:,:sample_rate*n_seconds,:] for path in (path_2 if isinstance(path_2, list) else [path_2])])
+
+    print('\n>', 'found', len(x1), 'pairs')
 
     return (x1, x2), y
 
-def load_val_data(base_path, trials_path, n_pairs=10, sample_rate=16000, n_seconds=3):
-    """
-    Function lo load raw audio samples for validation
-    :param base_path:       Base path to the dataset samples
-    :param trials_path:     Path to the list of trial pairs
-    :param n_pairs:         Number of pairs to be loaded
-    :param sample_rate:     Sample rate of the audio files to be processed
-    :param n_seconds:       Max number of seconds of an audio sample to be processed
-    :return:                (list of audio samples, list of audio samples), labels
-    """
+def create_template_trials(base_path, trials_path, n_templates=1, n_pos_pairs=10, n_neg_pairs=10):
+    users = os.listdir(base_path)
+    print('> creating pairs on', len(users), 'users')
 
-    print('Loading validation data')
+    groups_audios = {}
+    counter = 0
+    for i, user in enumerate(users):
+        print('\r> grouping videos for user', i+1, '/', len(users), end='')
+        if not user in groups_audios:
+            groups_audios[user] = []
+        for video in os.listdir(os.path.join(base_path, user)):
+            for utterance in os.listdir(os.path.join(base_path,user,video)):
+                groups_audios[user].append(os.path.join(user,video,utterance))
+                counter += 1
+    print('\n> loaded', counter, 'samples')
 
-    (x1_val, x2_val), y_val = load_data_raw(base_path, trials_path, n_pairs, sample_rate, n_seconds)
-
-    print('\n>', 'found', len(x1_val), 'pairs')
-
-    return (x1_val, x2_val), y_val
-
-def load_test_data(base_path, trials_path, n_pairs=10, sample_rate=16000, n_seconds=3):
-    """
-    Function lo load raw audio samples for testing
-    :param base_path:       Base path to the dataset samples
-    :param trials_path:     Path to the list of trial pairs
-    :param n_pairs:         Number of pairs to be loaded
-    :param sample_rate:     Sample rate of the audio files to be processed
-    :param n_seconds:       Max number of seconds of an audio sample to be processed
-    :return:                (list of audio samples, list of audio samples), labels
-    """
-
-    print('Loading testing data')
-
-    (x1_test, x2_test), y_test = load_data_raw(base_path, trials_path, n_pairs, sample_rate, n_seconds)
-
-    print('\n>', 'found', len(x1_test), 'pairs')
-
-    return (x1_test, x2_test), y_test
+    with open(trials_path, mode='w') as result_file:
+        result_writer = csv.writer(result_file, delimiter=',')
+        print('> expected', len(users) * (n_pos_pairs + n_neg_pairs), 'pairs')
+        counter_pairs = 1
+        for index_user, curr_user in enumerate(users):
+            print('\r> manipulating pairs for user', index_user+1, '/', len(users), end='')
+            neg_users = list(set(users) - set(np.array([curr_user])))
+            for pos_index in range(n_pos_pairs):
+                template_audio = np.random.choice(groups_audios[curr_user], n_templates, replace=True).tolist()
+                probe_audio = random.choice(list(set(groups_audios[curr_user]) - set(template_audio)))
+                result_writer.writerow([1, probe_audio, probe_audio])
+                result_file.flush()
+                counter_pairs += 1
+            for neg_index in range(n_neg_pairs):
+                template_audio = np.random.choice(groups_audios[curr_user], n_templates, replace=True).tolist()
+                other_user = random.choice(neg_users)
+                other_audio = random.choice(groups_audios[other_user])
+                result_writer.writerow([0, other_audio, template_audio])
+                result_file.flush()
+                counter_pairs += 1
+    print('> computed', counter_pairs-1, 'pairs')
 
 def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, n_seconds=3, n_templates=10):
     """
