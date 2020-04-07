@@ -84,10 +84,7 @@ def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024, 
     :return:            Data pipeline
     """
 
-    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_gan(x, slice_len=slice_len, sample_rate=sample_rate),
-                                             output_types=(tf.float32),
-                                             output_shapes=([None, slice_len, 1]))
-
+    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_gan(x, slice_len=slice_len, sample_rate=sample_rate), output_types=(tf.float32), output_shapes=([None, slice_len, 1]))
     dataset = dataset.map(lambda x: tf.squeeze(x, axis=0))
     dataset = dataset.batch(batch)
 

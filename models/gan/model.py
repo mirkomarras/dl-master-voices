@@ -36,14 +36,14 @@ class GAN(object):
         """
         Method to save the weights of this model in 'data/pt_models/{name}/v{id}/model_weights.tf'
         """
-        print('>', 'saving', self.name, 'model')
+        #print('>', 'saving', self.name, 'model')
         if not os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
             os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc'))
             os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen'))
         self.generator.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
         self.discriminator.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
-        print('>', 'saved', self.name, 'generator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
-        print('>', 'saved', self.name, 'discriminator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
+        #print('>', 'saved', self.name, 'generator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
+        #print('>', 'saved', self.name, 'discriminator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
 
     def load(self):
         """
@@ -145,7 +145,7 @@ class GAN(object):
 
         return gen_loss, disc_loss
 
-    def train(self, train_data, epochs, steps_per_epoch, batch):
+    def train(self, train_data, epochs, steps_per_epoch):
         """
         Method to train a gan
         :param train_data:          Training data pipeline
@@ -166,10 +166,10 @@ class GAN(object):
                 t2 = time.time()
                 gen_losses.append(gen_loss.numpy())
                 disc_losses.append(disc_loss.numpy())
-                if (step % 10) == 0:
-                    self.save()
                 print('\r>', 'epoch', epoch+1, 'of', epochs, '| eta', str((t2-t1)*(steps_per_epoch-step)//60) + 'm', '| step', step+1, 'of', steps_per_epoch, '| gen_loss', round(np.mean(gen_losses), 5), '| disc_loss', round(np.mean(disc_losses), 5), end='')
-
+                if (step % 10) == 0:
+                    print(' > Model saved at', step+1, end='')
+                    self.save()
             print()
 
             self.preview(self.generator)
