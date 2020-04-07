@@ -243,4 +243,4 @@ class Model(object):
             elif policy == 'avg':
                 mv_fac[class_index] = 1 if 1 - spatial.distance.cosine(mv_emb, np.mean(np.array(template), axis=0)) > threshold else 0
         print('>', 'impersonated', self.name, 'model')
-        return {'m': len([index for index, fac in enumerate(mv_fac) if fac > 0 and index in male_x_mv_test]) / len(male_x_mv_test), 'f': len([index for index, fac in enumerate(mv_fac) if fac > 0 and index in female_x_mv_test]) / len(female_x_mv_test)}
+        return {'m': len([index for index, fac in enumerate(mv_fac) if fac > 0 and index in male_x_mv_test]) / (len(male_x_mv_test)+len(female_x_mv_test)), 'f': len([index for index, fac in enumerate(mv_fac) if fac > 0 and index in female_x_mv_test]) / (len(male_x_mv_test)+len(female_x_mv_test))}

@@ -3,10 +3,11 @@
 
 import numpy as np
 import argparse
+import json
 import os
 
 from helpers.audio import load_noise_paths, cache_noise_data, decode_audio
-from helpers.dataset import load_test_data, load_mv_data
+from helpers.dataset import load_test_data_from_file, load_mv_data, create_template_trials
 
 from models.verifier.resnet50vox import ResNet50Vox
 from models.verifier.resnet34vox import ResNet34Vox
@@ -20,6 +21,8 @@ def main():
 
     # Parameters for verifier
     parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Network model architecture')
+    parser.add_argument('--policy', dest='policy', default='any', type=str, action='store', help='Verification policy')
+    parser.add_argument('--n_templates', dest='n_templates', default=1, type=int, action='store', help='Number of enrolment templates')
 
     # Parameters for testing verifier against eer
     parser.add_argument('--sv_base_path', dest='sv_base_path', default='./data/vs_voxceleb1/test', type=str, action='store', help='Trials base path for computing speaker verification thresholds')
@@ -46,6 +49,8 @@ def main():
     print('Parameters summary')
 
     print('>', 'Net: {}'.format(args.net))
+    print('>', 'Policy: {}'.format(args.policy))
+    print('>', 'Number of enrolment templates: {}'.format(args.n_templates))
 
     print('>', 'Test pairs dataset path: {}'.format(args.sv_base_path))
     print('>', 'Test pairs path: {}'.format(args.sv_pair_path))
@@ -80,10 +85,15 @@ def main():
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
     model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
 
+    if not os.path.exists(args.sv_pair_path):
+        print('Creating trials file with templates', args.n_templates)
+        create_template_trials(args.sv_base_path, args.sv_pair_path, args.n_templates, args.sv_n_pair, args.sv_n_pair)
+        print('> trial pairs file saved')
+
     # Retrieve thresholds
     print('Retrieve verification thresholds')
-    test_data = load_test_data(args.sv_base_path, args.sv_pair_path, args.sv_n_pair, args.sample_rate, args.n_seconds)
-    _, thr_eer, thr_far1 = model.test(test_data)
+    test_data = load_test_data_from_file(args.sv_base_path, args.sv_pair_path, args.sv_n_pair, args.sample_rate, args.n_seconds)
+    (_, _, _, thr_eer), (_, _, thr_far1) = model.test(test_data)
 
     # Load data for impersonation test
     x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test = load_mv_data(args.mv_meta, args.mv_base_path, args.audio_meta, args.sample_rate, args.n_seconds, args.n_templates)
@@ -117,6 +127,10 @@ def main():
             print("{:<15}".format(mv_file), end=' ')
             print("%0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f" % (eer_any_m, eer_any_f, eer_avg_m, eer_avg_f, far1_any_m, far1_any_f, far1_avg_m, far1_avg_f))
 
+            with open(os.path.join('./data/vs_mv_data', args.mv_set, 'results.json'), 'w') as fp:
+                json.dump(results, fp)
+                print('Saved result file till', mv_file_index, end='\n')
+
     # Print average impersonation rates
     eer_any_m = float(np.mean([results[f]['any']['eer']['m'] for f in results.keys()]))
     eer_any_f = float(np.mean([results[f]['any']['eer']['f'] for f in results.keys()]))
@@ -126,7 +140,6 @@ def main():
     far1_any_f = float(np.mean([results[f]['any']['far1']['f'] for f in results.keys()]))
     far1_avg_m = float(np.mean([results[f]['avg']['far1']['m'] for f in results.keys()]))
     far1_avg_f = float(np.mean([results[f]['avg']['far1']['f'] for f in results.keys()]))
-    print("{:<15}".format(mv_type), end=' ')
     print("%0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f" % (eer_any_m, eer_any_f, eer_avg_m, eer_avg_f, far1_any_m, far1_any_f, far1_avg_m, far1_avg_f))
 
 

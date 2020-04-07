@@ -18,6 +18,5 @@
 - Cosa accade se si usano delle master voice per addestrare un SV?
 
 
-- thr e policy verification
 - distribuzione rate impersonazione
 - attacco multiplo con migliori
