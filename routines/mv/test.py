@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import tensorflow as tf
-import pandas as pd
 import numpy as np
 import argparse
-import random
 import os
 
 from helpers.audio import load_noise_paths, cache_noise_data, decode_audio

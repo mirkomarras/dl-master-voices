@@ -1,15 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import matplotlib.pyplot as plt
-from IPython import display
 import tensorflow as tf
 import soundfile as sf
 import numpy as np
-import matplotlib
-import time
-import PIL
 import os
+
+from helpers.audio import play_n_rec, get_tf_filterbanks, get_tf_spectrum
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -43,22 +40,31 @@ class MasterVocoder(object):
         gan.build()
         self.gan = gan
 
-    def set_verifier(self, verifier):
+    def set_verifier(self, verifier, classes):
         """
         Method to set the verifier against which master voices are optimized
         :param verifier:    Verifier model
         """
-        verifier.build(classes=2)
+        verifier.build(classes=classes)
+        verifier.load()
         self.verifier = verifier
 
-    def build(self):
+    def build(self, mode='spectrum'):
         """
         Method to create a vocoder: one branch generates fake gan samples, the other branch received real audio samples
         """
-        embedding_1 = self.verifier.get_model()(self.verifier.get_model().input)
-        embedding_2 = self.verifier.get_model()([self.gan.get_generator().output, self.verifier.get_model().input[1]])
+
+        signal_input = tf.keras.Input(shape=(None, 1,))
+        if mode == 'spectrum':
+            signal_output = tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x), name='acoustic_layer')(signal_input)
+        else:
+            signal_output = tf.keras.layers.Lambda(lambda x: get_tf_filterbanks(x), name='acoustic_layer')(signal_input)
+
+        extractor = tf.keras.models.Model(inputs=[signal_input], outputs=[signal_output])
+        embedding_1 = self.verifier.get_model()(extractor(signal_input))
+        embedding_2 = self.verifier.get_model()(extractor(self.gan.get_generator().output))
         similarity = tf.keras.layers.Dot(axes=1, normalize=True)([embedding_1, embedding_2])
-        self.vocoder = tf.keras.Model([self.gan.get_generator().input, self.verifier.get_model().input[0], self.verifier.get_model().input[1]], similarity)
+        self.vocoder = tf.keras.Model([self.gan.get_generator().input, signal_input], similarity)
 
     def get_vocoder(self):
         """
@@ -83,19 +89,20 @@ class MasterVocoder(object):
         """
         filter_gradients = lambda c, g, t1, t2: [g[i] for i in range(len(c)) if c[i] >= t1 and c[i] <= t2]
 
-        impulse = np.zeros(3).astype(np.float32)
         for iter in range(n_iterations):
+            print('> starting iteration', iter, 'of', n_iterations)
             latent_mv = np.random.normal(size=(1, 100)).astype(np.float32)
             latent_sv = np.copy(latent_mv)
             for epoch in range(n_epochs):
-
+                print('> starting epoch', epoch, 'of', n_epochs)
+                cur_mv_eer_results = []
+                cur_mv_far_results = []
                 for step, batch_data in enumerate(train_data):
-
+                    print('> batch', step)
                     input_1 = tf.Variable(np.tile(latent_mv, (len(batch_data), 1)), dtype=tf.float32)
                     input_2 = tf.Variable(batch_data, dtype=tf.float32)
-                    input_3 = tf.Variable(np.tile(impulse, (len(batch_data), 1)), dtype=tf.float32)
                     with tf.GradientTape() as tape:
-                        loss = self.vocoder([input_1, input_2, input_3])
+                        loss = self.vocoder([input_1, input_2])
                     grads = tape.gradient(loss, input_1)
 
                     filtered_grads = filter_gradients(loss, grads, min_sim, max_sim)
@@ -107,12 +114,14 @@ class MasterVocoder(object):
 
                     print('\rIter ', iter+1, 'of', n_iterations, 'Epoch', epoch+1, 'of', n_epochs, 'Step', step+1, 'of', n_steps_per_epoch, 'loss', round(np.mean(loss), 5), end='')
                     if mv_test_thrs is not None and mv_test_data is not None:
-                        eer_results, far1_results = self.test(latent_mv, mv_test_thrs, mv_test_data)
+                        eer_results, far1_results = self.test(latent_mv, mv_test_thrs, mv_test_data, n_templates=10)
+                        cur_mv_eer_results.append(eer_results)
+                        cur_mv_far_results.append(far1_results)
                         print('eer_imp', (eer_results['m'], eer_results['f']), 'far1_imp', (far1_results['m'], far1_results['f']), end='')
 
-                self.save(iter, latent_sv, latent_mv)
+                self.save(iter, latent_sv, latent_mv, cur_mv_eer_results, cur_mv_far_results)
 
-    def save(self, iter, latent_sv, latent_mv):
+    def save(self, iter, latent_sv, latent_mv, cur_mv_eer_results, cur_mv_far_results):
         """
         Method to save original and optimized master voices
         :param iter:        Number of the current iteration
@@ -130,8 +139,10 @@ class MasterVocoder(object):
         print('>', 'saved sv latent in', os.path.join(self.dir_sv, 'v' + str('{:03d}'.format(self.id_sv)), 'sample_' + str(iter) + '.npz'))
         sf.write(os.path.join(self.dir_sv, 'v' + str('{:03d}'.format(self.id_sv)), 'sample_' + str(iter) + '.wav'), self.gan.get_generator()(latent_sv).numpy(), self.sample_rate)
         print('>', 'saved sv wav in', os.path.join(self.dir_sv, 'v' + str('{:03d}'.format(self.id_sv)), 'sample_' + str(iter) + '.wav'))
+        np.savez(os.path.join(self.dir_sv, 'v' + str('{:03d}'.format(self.id_sv)), 'sample_' + str(iter) + '.hist'), cur_mv_eer_results=cur_mv_eer_results, cur_mv_far_results=cur_mv_far_results)
+        print('>', 'saved history in', os.path.join(self.dir_sv, 'v' + str('{:03d}'.format(self.id_sv)), 'sample_' + str(iter) + '.hist'))
 
-    def test(self, latent, mv_test_thrs, mv_test_data):
+    def test(self, latent, mv_test_thrs, mv_test_data, n_templates):
         """
         Method to test the current master voice
         :param latent:          Latent vector to be tested
@@ -139,8 +150,8 @@ class MasterVocoder(object):
         :param mv_test_data:    Real user against which the current master voice are validated
         :return:
         """
-        _, thr_eer, thr_far1 = mv_test_thrs
+        (_, _, _, thr_eer), (_, _, thr_far1) = mv_test_thrs
         x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test = mv_test_data
-        eer_results = self.verifier.impersonate(self.gan.get_generator()(latent).numpy(), thr_eer, 'any', x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test, args.n_templates)
-        far1_results = self.verifier.impersonate(self.gan.get_generator()(latent).numpy(), thr_far1, 'any', x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test, args.n_templates)
+        eer_results = self.verifier.impersonate(self.gan.get_generator()(latent).numpy(), thr_eer, 'any', x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates)
+        far1_results = self.verifier.impersonate(self.gan.get_generator()(latent).numpy(), thr_far1, 'any', x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates)
         return eer_results, far1_results

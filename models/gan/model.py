@@ -6,9 +6,7 @@ from IPython import display
 import tensorflow as tf
 import soundfile as sf
 import numpy as np
-import matplotlib
 import time
-import PIL
 import os
 
 class GAN(object):
@@ -40,11 +38,12 @@ class GAN(object):
         """
         print('>', 'saving', self.name, 'model')
         if not os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
-            os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
-        self.generator.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
-        self.discriminator.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
-        print('>', 'saved', self.name, 'generator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
-        print('>', 'saved', self.name, 'discriminator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
+            os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc'))
+            os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen'))
+        self.generator.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
+        self.discriminator.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
+        print('>', 'saved', self.name, 'generator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
+        print('>', 'saved', self.name, 'discriminator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
 
     def load(self):
         """
@@ -53,13 +52,13 @@ class GAN(object):
         print('>', 'loading', self.name, 'model')
         if os.path.exists(os.path.join(self.dir)):
             if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
-                self.generator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
-                self.discriminator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
-                print('>', 'loaded generator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
-                print('>', 'loaded discriminator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
+                self.generator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
+                self.discriminator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
+                print('>', 'loaded generator from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
+                print('>', 'loaded discriminator from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
             else:
-                print('>', 'no pre-trained generator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
-                print('>', 'no pre-trained discriminator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
+                print('>', 'no pre-trained generator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
+                print('>', 'no pre-trained discriminator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
         else:
             print('>', 'no directory for', self.name, 'model at', os.path.join(self.dir))
 
@@ -117,28 +116,32 @@ class GAN(object):
         return -tf.math.reduce_mean(D_G_z)
 
     @tf.function
-    def train_step(self, x):
+    def train_step(self, x, disc_updates=5):
         """
         Method to perform one training step for this gan
         :param x:           Current batch data
         :return:            (generator loss, discriminator loss)
         """
 
-        with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+        gen_loss, disc_loss = None, None
+
+        for i in range(disc_updates):
+            with tf.GradientTape() as disc_tape:
+                z = tf.random.normal([len(x), self.latent_dim])
+                G_z = self.generator(z)
+                D_x = self.discriminator(x)
+                D_G_z = self.discriminator(G_z)
+                disc_loss = self.discriminator_loss(x, G_z, D_x, D_G_z)
+            gradients_of_discriminator = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
+            self.discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, self.discriminator.trainable_variables))
+
+        with tf.GradientTape() as gen_tape:
             z = tf.random.normal([len(x), self.latent_dim])
-
             G_z = self.generator(z)
-            D_x = self.discriminator(x)
             D_G_z = self.discriminator(G_z)
-
             gen_loss = self.generator_loss(D_G_z)
-            disc_loss = self.discriminator_loss(x, G_z, D_x, D_G_z)
-
         gradients_of_generator = gen_tape.gradient(gen_loss, self.generator.trainable_variables)
-        gradients_of_discriminator = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
-
         self.generator_optimizer.apply_gradients(zip(gradients_of_generator, self.generator.trainable_variables))
-        self.discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, self.discriminator.trainable_variables))
 
         return gen_loss, disc_loss
 
@@ -151,12 +154,10 @@ class GAN(object):
         :param batch:               Size of a training batch
         """
 
-        self.generator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
-        self.discriminator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
+        self.generator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.9)
+        self.discriminator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.9)
 
         for epoch in range(epochs):
-            tf.keras.backend.set_learning_phase(1)
-
             gen_losses = []
             disc_losses = []
             for step, batch_data in enumerate(train_data):
@@ -165,6 +166,8 @@ class GAN(object):
                 t2 = time.time()
                 gen_losses.append(gen_loss.numpy())
                 disc_losses.append(disc_loss.numpy())
+                if (step % 10) == 0:
+                    self.save()
                 print('\r>', 'epoch', epoch+1, 'of', epochs, '| eta', str((t2-t1)*(steps_per_epoch-step)//60) + 'm', '| step', step+1, 'of', steps_per_epoch, '| gen_loss', round(np.mean(gen_losses), 5), '| disc_loss', round(np.mean(disc_losses), 5), end='')
 
             print()

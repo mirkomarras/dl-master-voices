@@ -2,15 +2,10 @@
 # -*- coding: utf-8 -*-
 
 import tensorflow as tf
-import numpy as np
-import queue
-import time
 import os
-import random
 
 from models.verifier.model import VladPooling
 from models.verifier.model import Model
-from helpers.audio import play_n_rec, get_tf_spectrum
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -37,20 +32,13 @@ class VggVox(Model):
             x = tf.keras.layers.AveragePooling2D(pool_size=pool_size, strides=pool_strides, name='apool{}'.format(layer_idx))(x)
         return x
 
-    def build(self, classes=None, loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-4, augment=0):
-        super().build(classes, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay, augment)
+    def build(self, classes=None, loss='softmax', aggregation='gvlad', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-4):
+        super().build(classes, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay)
         print('>', 'building', self.name, 'model on', classes, 'classes')
 
-        signal_input = tf.keras.Input(shape=(None,1,))
-        impulse_input = tf.keras.Input(shape=(3,))
+        input_layer = tf.keras.Input(shape=(512,None,1,), name='Input_1')
 
-        if augment:
-            x = tf.keras.layers.Lambda(lambda x: play_n_rec(x, self.noises, self.cache), name='play_n_rec')([signal_input, impulse_input])
-            x = tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x, self.sample_rate), name='acoustic_layer')(x)
-        else:
-            x = tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x, self.sample_rate), name='acoustic_layer')(signal_input)
-
-        x = self.__conv_bn_pool(x, layer_idx=1, conv_filters=96, conv_kernel_size=(7, 7), conv_strides=(2, 2), conv_pad=(1, 1), pool='max', pool_size=(3, 3), pool_strides=(2, 2), weight_decay=weight_decay)
+        x = self.__conv_bn_pool(input_layer, layer_idx=1, conv_filters=96, conv_kernel_size=(7, 7), conv_strides=(2, 2), conv_pad=(1, 1), pool='max', pool_size=(3, 3), pool_strides=(2, 2), weight_decay=weight_decay)
         x = self.__conv_bn_pool(x, layer_idx=2, conv_filters=256, conv_kernel_size=(5, 5), conv_strides=(2, 2), conv_pad=(1, 1), pool='max', pool_size=(3, 3), pool_strides=(2, 2), weight_decay=weight_decay)
         x = self.__conv_bn_pool(x, layer_idx=3, conv_filters=384, conv_kernel_size=(3, 3), conv_strides=(1, 1), conv_pad=(1, 1), weight_decay=weight_decay)
         x = self.__conv_bn_pool(x, layer_idx=4, conv_filters=256, conv_kernel_size=(3, 3), conv_strides=(1, 1), conv_pad=(1, 1), weight_decay=weight_decay)
@@ -64,7 +52,7 @@ class VggVox(Model):
         if aggregation == 'avg':
             x = tf.keras.layers.AveragePooling2D(pool_size=(1, 8), strides=(1, 1), name='apool{}'.format(6))(xfc)
             x = tf.math.reduce_mean(x, axis=[1, 2], name='rmean{}'.format(6))
-            x = keras.layers.Lambda(lambda x: tf.keras.backend.l2_normalize(x, 1))(x)
+            x = tf.keras.layers.Lambda(lambda x: tf.keras.backend.l2_normalize(x, 1))(x)
         elif aggregation == 'vlad':
             xkcenter = tf.keras.layers.Conv2D(vlad_clusters+ghost_clusters, (9, 1), strides=(1, 1), kernel_initializer='orthogonal', use_bias=True, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='vlad_center_assignment')(x)
             x = VladPooling(k_centers=vlad_clusters, g_centers=ghost_clusters, mode='vlad', name='vlad_pool')([xfc, xkcenter])
@@ -74,20 +62,16 @@ class VggVox(Model):
         else:
             raise NotImplementedError()
 
+        x = tf.keras.layers.Lambda(lambda x: tf.keras.backend.l2_normalize(x, 1))(x)
         e = tf.keras.layers.Dense(self.emb_size, activation='relu', kernel_initializer='orthogonal', use_bias=True, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='fc7')(x)
 
         if loss == 'softmax':
             y = tf.keras.layers.Dense(classes, activation='softmax', kernel_initializer='orthogonal', use_bias=False, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='fc8')(e)
         elif loss == 'amsoftmax':
-            x = keras.layers.Lambda(lambda x: tf.keras.backend.l2_normalize(x, 1))(x)
-            y = keras.layers.Dense(classes, kernel_initializer='orthogonal', use_bias=False, kernel_constraint=tf.keras.constraints.unit_norm(), kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='fc8')(x)
+            x = tf.keras.layers.Lambda(lambda x: tf.keras.backend.l2_normalize(x, 1))(e)
+            y = tf.keras.layers.Dense(classes, kernel_initializer='orthogonal', use_bias=False, kernel_constraint=tf.keras.constraints.unit_norm(), kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='fc8')(x)
         else:
             raise NotImplementedError()
 
-        self.model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[y])
+        self.model = tf.keras.Model(inputs=input_layer, outputs=y)
         print('>', 'built', self.name, 'model on', classes, 'classes')
-
-        super().load()
-
-        self.inference_model = tf.keras.Model(inputs=[signal_input, impulse_input], outputs=[e])
-        print('>', 'built', self.name, 'inference model')

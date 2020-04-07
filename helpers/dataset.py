@@ -110,16 +110,16 @@ def load_data_raw(base_path, trials_path, n_pairs=10, sample_rate=16000, n_secon
     n_real_pairs = n_pairs if n_pairs > 0 else len(pairs['target'])
 
     y = pairs['target'].values[:n_real_pairs]
-    x1 = np.zeros((len(y), sample_rate*n_seconds, 1))
-    x2 = np.zeros((len(y), sample_rate*n_seconds, 1))
+    x1 = []
+    x2 = []
 
     for i, (path_1, path_2) in enumerate(zip(pairs['path_1'].values[:n_real_pairs], pairs['path_2'].values[:n_real_pairs])):
 
         if (i+1) % print_interval == 0:
             print('\r> pair %5.0f / %5.0f' % (i+1, len(y)), end='')
 
-        x1[i] = decode_audio(os.path.join(base_path, path_1), tgt_sample_rate=sample_rate).reshape((-1, 1))[:sample_rate*n_seconds, :]
-        x2[i] = decode_audio(os.path.join(base_path, path_2), tgt_sample_rate=sample_rate).reshape((-1, 1))[:sample_rate*n_seconds, :]
+        x1.append(decode_audio(os.path.join(base_path, path_1), tgt_sample_rate=sample_rate).reshape((1, -1, 1))[:,:sample_rate*n_seconds,:])
+        x2.append(decode_audio(os.path.join(base_path, path_2), tgt_sample_rate=sample_rate).reshape((1, -1, 1))[:,:sample_rate*n_seconds,:])
 
     return (x1, x2), y
 

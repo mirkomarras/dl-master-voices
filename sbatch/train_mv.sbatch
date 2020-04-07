@@ -17,13 +17,13 @@ module load cudnn/10.0v7.6.2.24
 module load ffmpeg/intel/3.2.2
 
 export PRJ_PATH="${PWD}"
-export NET_VERIFIER="xvector/v0"
-export NET_GAN="wavegan/v0"
+export NET_VERIFIER="xvector/v058"
+export NET_GAN="wavegan/v003"
 export GENDER_GAN="female"
 export GENDER_TRAIN="female"
-export AUDIO_DIR="/beegfs/mm10572/voxceleb2/dev"
-export MV_BASE_PATH="/beegfs/mm10572/voxceleb2"
-export SV_BASE_PATH="/beegfs/mm10572/voxceleb1/test"
+export AUDIO_DIR="/beegfs/mm11333/data/voxceleb2/dev"
+export MV_BASE_PATH="/beegfs/mm11333/data/voxceleb2"
+export SV_BASE_PATH="/beegfs/mm11333/data/voxceleb1/test"
 
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
