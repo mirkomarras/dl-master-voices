@@ -26,6 +26,7 @@ def main():
 
     # Parameters for gan
     parser.add_argument('--net_gan', dest='net_gan', default='', type=str, action='store', help='Network model architecture e.g. wavegan/female/v0')
+    parser.add_argument('--mv_input_path', dest='mv_input_path', default='', type=str, action='store', help='Base master voice path for spectrum optimization')
     parser.add_argument('--gender_gan', dest='gender_gan', default='female', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender')
     parser.add_argument('--latent_dim', dest='latent_dim', default=100, type=int, action='store', help='Number of dimensions of the latent space')
     parser.add_argument('--slice_len', dest='slice_len', default=16384, type=int, choices=[16384, 32768, 65536], action='store', help='Number of dimensions of the latent space')
@@ -68,6 +69,7 @@ def main():
     print('>', 'Latent dim: {}'.format(args.latent_dim))
     print('>', 'Slice len: {}'.format(args.slice_len))
 
+    print('>', 'Master voice input path: {}'.format(args.mv_input_path))
     print('>', 'Train audio dirs: {}'.format(args.audio_dir))
     print('>', 'Train audio meta path: {}'.format(args.audio_meta))
     print('>', 'Gender train: {}'.format(args.gender_train))
@@ -107,11 +109,12 @@ def main():
     vocoder.set_verifier(selected_verifier, args.classes)
     print('> verifier set')
 
-    print('Setting generator')
-    available_generators = {'wavegan': WaveGAN, 'specgan': SpecGAN}
-    selected_generator = available_generators[args.net_gan.split('/')[0]](id=int(args.net_gan.split('/')[1].replace('v','')), gender=args.gender_gan, latent_dim=args.latent_dim, slice_len=args.slice_len)
-    vocoder.set_generator(selected_generator)
-    print('> generated set')
+    if args.net_gan is not None:
+        print('Setting generator')
+        available_generators = {'wavegan': WaveGAN, 'specgan': SpecGAN}
+        selected_generator = available_generators[args.net_gan.split('/')[0]](id=int(args.net_gan.split('/')[1].replace('v','')), gender=args.gender_gan, latent_dim=args.latent_dim, slice_len=args.slice_len)
+        vocoder.set_generator(selected_generator)
+        print('> generated set')
 
     print('Setting learning phase')
     tf.keras.backend.set_learning_phase(0)
@@ -140,7 +143,7 @@ def main():
     mv_train_data = data_pipeline_mv(x_train, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
 
     print('Optimizing master voice')
-    vocoder.train(mv_train_data, args.n_iterations, args.n_epochs, len(x_train) // args.batch, mv_test_thrs, mv_test_data)
+    vocoder.train(args.mv_input_path, mv_train_data, args.n_iterations, args.n_epochs, len(x_train) // args.batch, mv_test_thrs, mv_test_data)
 
 if __name__ == '__main__':
     main()
