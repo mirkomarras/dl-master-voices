@@ -38,12 +38,11 @@ class GAN(object):
         """
         #print('>', 'saving', self.name, 'model')
         if not os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
-            os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc'))
-            os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen'))
-        self.generator.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
-        self.discriminator.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
-        #print('>', 'saved', self.name, 'generator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
-        #print('>', 'saved', self.name, 'discriminator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
+            os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
+        self.generator.save(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen'))
+        self.discriminator.save(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc'))
+        #print('>', 'saved', self.name, 'generator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen'))
+        #print('>', 'saved', self.name, 'discriminator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc'))
 
     def load(self):
         """
@@ -51,14 +50,14 @@ class GAN(object):
         """
         print('>', 'loading', self.name, 'model')
         if os.path.exists(os.path.join(self.dir)):
-            if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
-                self.generator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'), by_name=True)
-                self.discriminator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'), by_name=True)
-                print('>', 'loaded generator from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
-                print('>', 'loaded discriminator from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
+            if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen')):
+                self.generator = tf.keras.models.load_model(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen'))
+                self.discriminator = tf.keras.models.load_model(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc'))
+                print('>', 'loaded generator from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen'))
+                print('>', 'loaded discriminator from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc'))
             else:
-                print('>', 'no pre-trained generator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
-                print('>', 'no pre-trained discriminator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
+                print('>', 'no pre-trained generator from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen'))
+                print('>', 'no pre-trained discriminator from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc'))
         else:
             print('>', 'no directory for', self.name, 'model at', os.path.join(self.dir))
 
@@ -157,6 +156,8 @@ class GAN(object):
         self.generator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.9)
         self.discriminator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, beta_1=0.5, beta_2=0.9)
 
+        min_loss = -np.inf
+        best_step = 0
         for epoch in range(epochs):
             gen_losses = []
             disc_losses = []
@@ -164,12 +165,14 @@ class GAN(object):
                 t1 = time.time()
                 gen_loss, disc_loss = self.train_step(batch_data)
                 t2 = time.time()
+                if len(gen_losses) == 0 or gen_loss.numpy() < min_loss:
+                    min_loss = gen_loss.numpy()
+                    best_step = step + 1
+                    self.save()
                 gen_losses.append(gen_loss.numpy())
                 disc_losses.append(disc_loss.numpy())
-                print('\r>', 'epoch', epoch+1, 'of', epochs, '| eta', str((t2-t1)*(steps_per_epoch-step)//60) + 'm', '| step', step+1, 'of', steps_per_epoch, '| gen_loss', round(np.mean(gen_losses), 5), '| disc_loss', round(np.mean(disc_losses), 5), end='')
-                if (step % 10) == 0:
-                    print(' > Model saved at', step+1, end='')
-                    self.save()
+                print('\r>', 'epoch', epoch+1, 'of', epochs, '| eta', str((t2-t1)*(steps_per_epoch-step)//60) + 'm', '| step', step+1, 'of', steps_per_epoch, '| gen_loss', round(np.mean(gen_losses), 5), '| disc_loss', round(np.mean(disc_losses), 5), 'min loss at', min_loss, '-', best_step, end='')
+
             print()
 
             self.preview(self.generator)

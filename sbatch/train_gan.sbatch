@@ -19,9 +19,10 @@ module load ffmpeg/intel/3.2.2
 export PRJ_PATH="${PWD}"
 export AUDIO_DIR="/beegfs/mm11333/data/voxceleb1/dev,/beegfs/mm11333/data/voxceleb2/dev"
 export NET="wavegan"
-export GENDER="male"
+export GENDER="female"
 
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
 
 python -u $PRJ_PATH/routines/gan/train.py --net $NET --audio_dir $AUDIO_DIR --gender $GENDER --slice_len 65536
+
