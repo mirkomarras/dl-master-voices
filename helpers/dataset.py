@@ -120,8 +120,8 @@ def load_test_data_from_file(base_path, trials_path, n_templates=1, n_pairs=10, 
         if (i+1) % print_interval == 0:
             print('\r> pair %5.0f / %5.0f' % (i+1, len(y)), end='')
 
-        x1.append(decode_audio(os.path.join(base_path, path_1), tgt_sample_rate=sample_rate).reshape((1, -1, 1))[:,:sample_rate*n_seconds,:])
-        x2.append([decode_audio(os.path.join(base_path, path), tgt_sample_rate=sample_rate).reshape((1, -1, 1))[:,:sample_rate*n_seconds,:] for path in (path_2 if isinstance(path_2, list) else [path_2])])
+        x1.append(decode_audio(os.path.join(base_path, path_1), tgt_sample_rate=sample_rate).reshape((1, -1, 1)))
+        x2.append([decode_audio(os.path.join(base_path, path), tgt_sample_rate=sample_rate).reshape((1, -1, 1)) for path in (path_2 if isinstance(path_2, list) else [path_2])])
 
     print('\n>', 'found', len(x1), 'pairs')
 

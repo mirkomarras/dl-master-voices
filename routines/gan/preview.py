@@ -18,6 +18,7 @@ if __name__ == '__main__':
     # Parameters for a gan
     parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Network model architecture')
     parser.add_argument('--gender', dest='gender', default='neutral', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender')
+    parser.add_argument('--slice_len', dest='slice_len', default=32768, type=int, choices=[16384, 32768, 65536], action='store', help='Number of dimensions of the latent space')
 
     # Parameters for gan preview
     parser.add_argument('--genr_pp', dest='genr_pp', default=False, action='store', help='If set, use post-processing filter')
@@ -32,6 +33,7 @@ if __name__ == '__main__':
 
     print('>', 'Net: {}'.format(args.net))
     print('>', 'Gender: {}'.format(args.gender))
+    print('>', 'Slice len: {}'.format(args.slice_len))
 
     print('>', 'Genr pp: {}'.format(args.genr_pp))
     print('>', 'Number of preview samples: {}'.format(args.preview_n))
@@ -43,8 +45,9 @@ if __name__ == '__main__':
     # Creating a gan
     print('Creating GAN')
     available_nets = {'wavegan': WaveGAN}
-    gan_model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), gender=args.gender)
+    gan_model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), slice_len=args.slice_len, gender=args.gender)
 
     # Previewing a gan
     print('Previewing GAN')
-    gan_model.preview(args.sample_rate, args.genr_pp, args.preview_n)
+    gan_model.build()
+    gan_model.preview(gan_model.get_generator())

@@ -66,10 +66,13 @@ def data_pipeline_generator_gan(x, slice_len, sample_rate=16000):
 
     for index in indexes:
         audio = decode_audio(x[index], tgt_sample_rate=sample_rate)
-        start_sample = random.choice(range(len(audio) - slice_len))
-        end_sample = start_sample + slice_len
-        audio = audio[start_sample:end_sample].reshape((1, -1, 1))
-        yield audio
+        if len(audio) - slice_len > 0:
+            start_sample = random.choice(range(len(audio) - slice_len)) if len(audio) - slice_len > 1 else 0
+            end_sample = start_sample + slice_len
+            audio = audio[start_sample:end_sample]
+        else:
+            audio = np.pad(audio, (0, slice_len - len(audio)), 'constant')
+        yield audio.reshape((1, -1, 1))
 
     raise StopIteration()
 

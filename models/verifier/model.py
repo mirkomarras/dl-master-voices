@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from scipy.spatial.distance import cosine
 from sklearn.metrics import roc_curve
 from scipy import spatial
 import tensorflow as tf
+import pandas as pd
 import numpy as np
 import os
 
@@ -115,13 +115,10 @@ class Model(object):
         :return:            None
         """
         print('>', 'saving', self.name, 'model')
-        if not os.path.exists(os.path.join(self.dir)):
-            os.makedirs(os.path.join(self.dir))
-        self.model.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'weights.tf'))
-        self.sup_model.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'sup_weights.tf'))
+        self.model.save(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model'))
         print('>', 'saved', self.name, 'model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
 
-    def load(self):
+    def load(self, mode=''):
         """
         Method to load weights for this model from 'data/pt_models/{name}/v{id}/model.tf'
         :return:            None
@@ -129,8 +126,8 @@ class Model(object):
         print('>', 'loading', self.name, 'model')
         if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
             if len(os.listdir(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))) > 0:
-                self.model.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'weights.tf'))
-                self.inference_model = tf.keras.Model(inputs=[self.model.input], outputs=[self.model.get_layer('fc7').output])
+                self.model = tf.keras.models.load_model(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model'))
+                self.inference_model = tf.keras.Model(inputs=self.model.input, outputs=self.model.get_layer('fc7').output)
                 print('>', 'loaded model from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
             else:
                 print('>', 'no pre-trained model for', self.name, 'model from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
@@ -184,39 +181,45 @@ class Model(object):
 
         for epoch in range(epochs):
             self.sup_model.fit(train_data, steps_per_epoch=steps_per_epoch, initial_epoch=epoch, epochs=epoch+1, callbacks=[lr_callback])
+            self.model = tf.keras.Model(inputs=self.sup_model.get_layer('model').input, outputs=self.sup_model.get_layer('model').output)
             self.save()
 
         print('>', 'trained', self.name, 'model')
 
-    def test(self, test_data, policy='any', mode='spectrum'):
+    def test(self, test_data, policy='any', mode='spectrum', save=False):
         """
         Method to test this model against verification attempts
         :param test_data:       Pre-computed testing data pairs - shape ((pairs, None, 1), (pairs, None, 1)), (pairs, binary_label)
         :return:                (Model EER, EER threshold, FAR1% threshold)
         """
-
         print('>', 'testing', self.name, 'model on policy', policy)
         (x1, x2), y = test_data
         eer, thr_eer, id_eer, thr_far1, id_far1 = 0, 0, 0, 0, 0
         far, frr = [], []
-        similarity_scores = np.zeros(len(x1))
-        for pair_id, (f1, f2) in enumerate(zip(x1, x2)):
+        similarity_scores = []
+        target_scores = []
+        for pair_id, (f1, f2, label) in enumerate(zip(x1, x2, y)):
             inp_1 = get_tf_spectrum(f1) if mode == 'spectrum' else get_tf_filterbanks(f1)
             inp_2 = [get_tf_spectrum(f) if mode == 'spectrum' else get_tf_filterbanks(f) for f in (f2 if isinstance(f2, list) else [f2])]
             emb1 = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(self.embed(inp_1))
             emb2 = [tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(self.embed(inp)) for inp in inp_2]
-            similarity_scores[pair_id] = 1 - cosine(emb1, np.mean(emb2, axis=0)) if policy == 'avg' else np.max([1 - cosine(emb1, emb) for emb in emb2])
+            target_scores.append(label)
+            similarity_scores.append(tf.keras.layers.Dot(axes=1, normalize=True)([emb1, np.mean(emb2, axis=0)])[0] if policy == 'avg' else np.max([tf.keras.layers.Dot(axes=1, normalize=True)([emb1, emb])[0] for emb in emb2]))
             if pair_id > 2:
-                far, tpr, thresholds = roc_curve(y[:pair_id+1], similarity_scores[:pair_id+1], pos_label=1)
+                far, tpr, thresholds = roc_curve(target_scores, similarity_scores, pos_label=1)
                 frr = 1 - tpr
                 id_eer = np.argmin(np.abs(far - frr))
                 id_far1 = np.argmin(np.abs(far - 0.01))
                 eer = float(np.mean([far[id_eer], frr[id_eer]]))
                 thr_eer = thresholds[id_eer]
                 thr_far1 = thresholds[id_far1]
-                print('\r> pair %5.0f / %5.0f - eer: %3.5f - thr@eer: %3.5f - thr@far1: %3.1f' % (pair_id+1, len(x1), eer, thr_eer, thr_far1), end='')
+                print('\r> pair', pair_id+1, 'of', len(x1), '- eer', round(eer, 4), 'thr@eer', round(thr_eer, 4), 'thr@far1', round(thr_far1, 4), end='')
         print()
         print('>', 'tested', self.name, 'model')
+        if save:
+            df = pd.DataFrame({'target': target_scores, 'similarity': similarity_scores})
+            df.to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_results_' + str(round(eer, 4)) + '.csv'))
+            print('>', 'saved results in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_results.csv'))
         return (eer, far[id_eer], frr[id_eer], thr_eer), (far[id_far1], frr[id_far1], thr_far1)
 
     def impersonate(self, impostor_signal, threshold, policy, x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10):

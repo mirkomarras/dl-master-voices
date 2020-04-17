@@ -52,8 +52,8 @@ class GAN(object):
         print('>', 'loading', self.name, 'model')
         if os.path.exists(os.path.join(self.dir)):
             if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
-                self.generator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
-                self.discriminator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
+                self.generator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'), by_name=True)
+                self.discriminator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'), by_name=True)
                 print('>', 'loaded generator from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen', 'generator.tf'))
                 print('>', 'loaded discriminator from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc', 'discriminator.tf'))
             else:

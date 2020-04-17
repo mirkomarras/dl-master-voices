@@ -3,10 +3,17 @@
 
 import tensorflow as tf
 import os
+import random
 
 from models.verifier.model import Model
+from helpers.audio import play_n_rec, get_tf_filterbanks
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+def normalize_with_moments(x):
+    tf_mean, tf_var = tf.nn.moments(x, 1)
+    x = tf.concat([tf_mean, tf.sqrt(tf_var + 0.00001)], 1)
+    return x
 
 class XVector(Model):
 
@@ -20,11 +27,6 @@ class XVector(Model):
     def __init__(self, name='xvector', id='', noises=None, cache=None, n_seconds=3, sample_rate=16000):
         super().__init__(name, id, noises, cache, n_seconds, sample_rate)
         self.n_filters = 24
-
-    def __normalize_with_moments(self, x):
-        tf_mean, tf_var = tf.nn.moments(x, 1)
-        x = tf.concat([tf_mean, tf.sqrt(tf_var + 0.00001)], 1)
-        return x
 
     def build(self, classes=None, loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-4):
         super().build(classes, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay)
@@ -49,7 +51,7 @@ class XVector(Model):
                 x = tf.keras.layers.Dropout(0.1)(x)
 
         # Statistic pooling
-        x = tf.keras.layers.Lambda(lambda x: self.__normalize_with_moments(x))(x)
+        x = tf.keras.layers.Lambda(lambda x: normalize_with_moments(x))(x)
 
         # Embedding layers
         out_dim = 512

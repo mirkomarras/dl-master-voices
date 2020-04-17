@@ -88,6 +88,7 @@ if __name__ == '__main__':
     # Build the model
     print('Building GAN')
     gan_model.build()
+    gan_model.load()
 
     # Train the model
     print('Training GAN')

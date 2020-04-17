@@ -90,22 +90,20 @@ class ResNet34Vox(Model):
         x4 = self.conv_block_2d(x3, 3, filters=[256, 256, 512], stage=5, block='voice_4a', strides=(2, 2), weight_decay=weight_decay)
         x4 = self.identity_block2d(x4, 3, filters=[256, 256, 512], stage=5, block='voice_4b', weight_decay=weight_decay)
         x4 = self.identity_block2d(x4, 3, filters=[256, 256, 512], stage=5, block='voice_4c', weight_decay=weight_decay)
+        x = tf.keras.layers.MaxPooling2D((3, 1), strides=(2, 1), name='mpool2')(x4)
 
         # Fc layers
-        x = tf.keras.layers.ZeroPadding2D(padding=(0, 0), name='pad{}'.format(6))(x4)
-        xfc = tf.keras.layers.Conv2D(filters=self.emb_size, kernel_size=(9, 1), strides=(1, 1), padding='valid', kernel_initializer='orthogonal', use_bias=False, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), name='{}{}'.format('fc', 6))(x4)
-        xfc = tf.keras.layers.BatchNormalization(epsilon=1e-5, momentum=1., name='bn{}'.format(6))(xfc)
-        xfc = tf.keras.layers.Activation('relu', name='relu{}'.format(6))(xfc)
+        xfc = tf.keras.layers.Conv2D(filters=self.emb_size, kernel_size=(7, 1), strides=(1, 1), padding='valid', kernel_initializer='orthogonal', use_bias=False, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), name='{}{}'.format('fc', 6))(x)
 
         if aggregation == 'avg':
-            x = tf.keras.layers.AveragePooling2D(pool_size=(1, 8), strides=(1, 1), name='apool{}'.format(6))(xfc)
+            x = tf.keras.layers.AveragePooling2D(pool_size=(1, 8), strides=(1, 1), name='apool{}'.format(6))(x)
             x = tf.math.reduce_mean(x, axis=[1, 2], name='rmean{}'.format(6))
             x = tf.keras.layers.Lambda(lambda x: tf.keras.backend.l2_normalize(x, 1))(x)
         elif aggregation == 'vlad':
-            xkcenter = tf.keras.layers.Conv2D(vlad_clusters + ghost_clusters, (9, 1), strides=(1, 1), kernel_initializer='orthogonal', use_bias=True, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='vlad_center_assignment')(x)
+            xkcenter = tf.keras.layers.Conv2D(vlad_clusters + ghost_clusters, (7, 1), strides=(1, 1), kernel_initializer='orthogonal', use_bias=True, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='vlad_center_assignment')(x)
             x = VladPooling(k_centers=vlad_clusters, g_centers=ghost_clusters, mode='vlad', name='vlad_pool')([xfc, xkcenter])
         elif aggregation == 'gvlad':
-            xkcenter = tf.keras.layers.Conv2D(vlad_clusters + ghost_clusters, (9, 1), strides=(1, 1), kernel_initializer='orthogonal', use_bias=True, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='gvlad_center_assignment')(x)
+            xkcenter = tf.keras.layers.Conv2D(vlad_clusters + ghost_clusters, (7, 1), strides=(1, 1), kernel_initializer='orthogonal', use_bias=True, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='gvlad_center_assignment')(x)
             x = VladPooling(k_centers=vlad_clusters, g_centers=ghost_clusters, mode='gvlad', name='gvlad_pool')([xfc, xkcenter])
         else:
             raise NotImplementedError()

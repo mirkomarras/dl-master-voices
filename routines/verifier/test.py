@@ -68,19 +68,19 @@ def main():
         print('> trial pairs file saved')
 
     # Load test data
-    test_data = load_test_data_from_file(args.test_base_path, args.test_pair_path, args.test_n_pair, args.n_templates, args.sample_rate, args.n_seconds)
+    test_data = load_test_data_from_file(args.test_base_path, args.test_pair_path, args.n_templates, args.test_n_pair, args.sample_rate, args.n_seconds)
 
     # Create model
     print('Creating model')
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
     model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), n_seconds=args.n_seconds, sample_rate=args.sample_rate)
     model.build(classes=args.classes, loss=args.loss, aggregation=args.aggregation, vlad_clusters=args.vlad_clusters, ghost_clusters=args.ghost_clusters, weight_decay=args.weight_decay)
-    model.load()
+    model.load(mode)
 
     # Test model
     print('Testing model')
     t1 = time.time()
-    results = model.test(test_data, mode, args.policy)
+    results = model.test(test_data, args.policy, mode, save=True)
     t2 = time.time()
     print('>', t2-t1, 'seconds for testing with', results)
 

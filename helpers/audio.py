@@ -6,6 +6,7 @@ import soundfile as sf
 import numpy as np
 import librosa
 import random
+import math
 import os
 
 def decode_audio(fp, tgt_sample_rate=16000):

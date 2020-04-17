@@ -6,7 +6,7 @@ import argparse
 import os
 
 from helpers.datapipeline import data_pipeline_verifier
-from helpers.dataset import get_mv_analysis_users, load_data_set, load_val_data
+from helpers.dataset import get_mv_analysis_users, load_data_set
 from helpers.audio import load_noise_paths, cache_noise_data
 
 from models.verifier.resnet50vox import ResNet50Vox
@@ -109,6 +109,7 @@ def main():
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
     model = available_nets[args.net.split('/')[0]](id=(int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1), noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
     model.build(classes=classes, loss=args.loss, aggregation=args.aggregation, vlad_clusters=args.vlad_clusters, ghost_clusters=args.ghost_clusters, weight_decay=args.weight_decay)
+    model.load()
     model.train(train_data, None, noise_paths, noise_cache, args.augment, mode=mode, steps_per_epoch=len(x_train)//args.batch, epochs=args.n_epochs, learning_rate=args.learning_rate, optimizer=args.optimizer, decay_factor=args.decay_factor, decay_step=args.decay_step)
 
 if __name__ == '__main__':
