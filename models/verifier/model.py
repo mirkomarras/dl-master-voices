@@ -151,7 +151,7 @@ class Model(object):
         """
         return self.inference_model.predict(signal)
 
-    def train(self, train_data, val_data, noises, cache, augment=0, mode='spectrum', steps_per_epoch=10, epochs=1, learning_rate=1e-1, decay_factor=0.1, decay_step=10, optimizer='adam'):
+    def train(self, train_data, noises, cache, augment=0, mode='spectrum', steps_per_epoch=10, epochs=1, learning_rate=1e-1, decay_factor=0.1, decay_step=10, optimizer='adam'):
         """
         Method to train and validate this model
         :param train_data:      Training data pipeline - shape ({'input_1': (batch, None, 1), 'input_2': (batch, 3)}), (batch, classes)
