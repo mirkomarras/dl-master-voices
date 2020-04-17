@@ -79,7 +79,7 @@ class WaveGAN(GAN):
             x = tf.keras.layers.BatchNormalization()(x)
             x = tf.maximum(0.2 * x, x)
 
-        output = tf.keras.layers.Dense(1)(x)
+        output = tf.keras.layers.Dense(1, activation='sigmoid')(x)
 
         return tf.keras.Model(inputs=[input], outputs=[output])
 
