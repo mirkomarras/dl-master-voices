@@ -34,14 +34,12 @@ def load_noise_paths(noise_dir):
 
     assert os.path.exists(noise_dir)
 
-    noise_paths = {}
-    for noise_type in os.listdir(noise_dir):
-        noise_paths[noise_type] = []
-        for file in os.listdir(os.path.join(noise_dir, noise_type)):
-            assert file.endswith('.wav')
-            noise_paths[noise_type].append(os.path.join(noise_dir, noise_type, file))
+    noise_paths = []
+    for file in os.listdir(noise_dir):
+        assert file.endswith('.wav')
+        noise_paths.append(os.path.join(noise_dir, file))
 
-        print('>', noise_type, len(noise_paths[noise_type]))
+    print('> found', len(noise_paths), 'noise paths')
 
     return noise_paths
 
@@ -55,10 +53,11 @@ def cache_noise_data(noise_paths, sample_rate=16000):
 
     assert sample_rate > 0
 
-    noise_cache = {}
-    for noise_type, noise_files in noise_paths.items():
-        for nf in noise_files:
-            noise_cache[nf] = decode_audio(nf, tgt_sample_rate=sample_rate).reshape((-1, 1, 1))
+    noise_cache = []
+    for noise_files in noise_paths:
+        noise_cache.append(decode_audio(noise_files, tgt_sample_rate=sample_rate))
+
+    print('> cached', len(noise_paths), 'noises')
 
     return noise_cache
 
@@ -172,20 +171,6 @@ def play_n_rec(inputs, noises, cache, noise_strength='random'):
         speaker_flag = tf.math.multiply(speaker_output, tf.expand_dims(tf.expand_dims(impulse[:, 0], 1), 1))
         output_flag = tf.math.multiply(output, tf.expand_dims(tf.expand_dims(tf.math.abs(tf.math.subtract(impulse[:, 0],1)), 1), 1))
         output = tf.math.add(speaker_flag, output_flag)
-
-        room = np.array(cache[random.choice(noises['room'])], dtype=np.float32)
-        room_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(room)[0]-1], [0, 0]], 'constant'), room, 1, padding='VALID')
-
-        room_flag = tf.math.multiply(room_output, tf.expand_dims(tf.expand_dims(impulse[:, 1], 1), 1))
-        output_flag = tf.math.multiply(output, tf.expand_dims(tf.expand_dims(tf.math.abs(tf.math.subtract(impulse[:, 1],1)), 1), 1))
-        output = tf.math.add(room_flag, output_flag)
-
-        microphone = np.array(cache[random.choice(noises['microphone'])], dtype=np.float32)
-        microphone_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(microphone)[0]-1], [0, 0]], 'constant'), microphone, 1, padding='VALID')
-
-        microphone_flag = tf.math.multiply(microphone_output, tf.expand_dims(tf.expand_dims(impulse[:, 2], 1), 1))
-        output_flag = tf.math.multiply(output, tf.expand_dims(tf.expand_dims(tf.math.abs(tf.math.subtract(impulse[:, 2],1)), 1), 1))
-        output = tf.math.add(microphone_flag, output_flag)
 
     return output
 

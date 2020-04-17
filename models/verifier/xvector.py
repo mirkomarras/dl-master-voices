@@ -6,7 +6,6 @@ import os
 import random
 
 from models.verifier.model import Model
-from helpers.audio import play_n_rec, get_tf_filterbanks
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 

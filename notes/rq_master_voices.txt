@@ -1,5 +1,4 @@
-- Quali sono gli (FRR, FAR) per (EER, FAR1%) per (Raw, Any10, Avg10) per (M, F)? - 24 VALORI
-
+- Quali sono gli (FRR, FAR) per (EER, FAR1%) per (Raw, Any10, Avg10) per (M, F) per (Vox1, Vox2MV)? - 24 VALORI
 
 - Creare master voice (GANF-F, GANM-M, GANN-F, GANN-M) e (VggVox, xVector, ResNet34) - 12 SETUP SPERIMENTALI
 
