@@ -1,15 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import tensorflow as tf
-import pandas as pd
 import numpy as np
 import argparse
-import random
+import json
 import os
 
 from helpers.audio import load_noise_paths, cache_noise_data, decode_audio
-from helpers.dataset import load_test_data, load_mv_data
+from helpers.dataset import load_test_data_from_file, load_mv_data, create_template_trials
 
 from models.verifier.resnet50vox import ResNet50Vox
 from models.verifier.resnet34vox import ResNet34Vox
@@ -23,6 +21,9 @@ def main():
 
     # Parameters for verifier
     parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Network model architecture')
+    parser.add_argument('--policy', dest='policy', default='any', type=str, action='store', help='Verification policy')
+    parser.add_argument('--n_templates', dest='n_templates', default=1, type=int, action='store', help='Number of enrolment templates')
+    parser.add_argument('--n_attacks', dest='n_attacks', default=1, type=int, action='store', help='Number of joint attacks')
 
     # Parameters for testing verifier against eer
     parser.add_argument('--sv_base_path', dest='sv_base_path', default='./data/vs_voxceleb1/test', type=str, action='store', help='Trials base path for computing speaker verification thresholds')
@@ -49,6 +50,9 @@ def main():
     print('Parameters summary')
 
     print('>', 'Net: {}'.format(args.net))
+    print('>', 'Policy: {}'.format(args.policy))
+    print('>', 'Number of enrolment templates: {}'.format(args.n_templates))
+    print('>', 'Number of joint attacks: {}'.format(args.n_attacks))
 
     print('>', 'Test pairs dataset path: {}'.format(args.sv_base_path))
     print('>', 'Test pairs path: {}'.format(args.sv_pair_path))
@@ -83,10 +87,15 @@ def main():
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
     model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
 
+    if not os.path.exists(args.sv_pair_path):
+        print('Creating trials file with templates', args.n_templates)
+        create_template_trials(args.sv_base_path, args.sv_pair_path, args.n_templates, args.sv_n_pair, args.sv_n_pair)
+        print('> trial pairs file saved')
+
     # Retrieve thresholds
     print('Retrieve verification thresholds')
-    test_data = load_test_data(args.sv_base_path, args.sv_pair_path, args.sv_n_pair, args.sample_rate, args.n_seconds)
-    _, thr_eer, thr_far1 = model.test(test_data)
+    test_data = load_test_data_from_file(args.sv_base_path, args.sv_pair_path, args.sv_n_pair, args.sample_rate, args.n_seconds)
+    (_, _, _, thr_eer), (_, _, thr_far1) = model.test(test_data)
 
     # Load data for impersonation test
     x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test = load_mv_data(args.mv_meta, args.mv_base_path, args.audio_meta, args.sample_rate, args.n_seconds, args.n_templates)
@@ -98,6 +107,14 @@ def main():
     print("{:<15} {:<5} {:<5} {:<5} {:<5} {:<5} {:<5} {:<5} {:<5}".format('', 'M', 'F', 'M', 'F', 'M', 'F', 'M', 'F'))
 
     results = {}
+    eer_any_m = []
+    eer_any_f = []
+    eer_avg_m = []
+    eer_avg_f = []
+    far1_any_m = []
+    far1_any_f = []
+    far1_avg_m = []
+    far1_avg_f = []
     for mv_file_index, mv_file in enumerate(os.listdir(os.path.join('./data/vs_mv_data', args.mv_set))):
 
         if mv_file.endswith('.wav'):
@@ -109,27 +126,30 @@ def main():
                 for thr_type, thr in {'eer': thr_eer, 'far1': thr_far1}.items():
                     results[mv_file][policy][thr_type] = model.impersonate(mv_signal, thr, policy, x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test, args.n_templates)
 
-            eer_any_m = float(results[mv_file]['any']['eer']['m'])
-            eer_any_f = float(results[mv_file]['any']['eer']['f'])
-            eer_avg_m = float(results[mv_file]['avg']['eer']['m'])
-            eer_avg_f = float(results[mv_file]['avg']['eer']['f'])
-            far1_any_m = float(results[mv_file]['any']['far1']['m'])
-            far1_any_f = float(results[mv_file]['any']['far1']['f'])
-            far1_avg_m = float(results[mv_file]['avg']['far1']['m'])
-            far1_avg_f = float(results[mv_file]['avg']['far1']['f'])
+            eer_any_m.append(len([1 for fac in results[mv_file]['any']['eer']['m'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            eer_any_f.append(len([1 for fac in results[mv_file]['any']['eer']['f'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            eer_avg_m.append(len([1 for fac in results[mv_file]['avg']['eer']['m'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            eer_avg_f.append(len([1 for fac in results[mv_file]['avg']['eer']['f'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            far1_any_m.append(len([1 for fac in results[mv_file]['any']['far1']['m'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            far1_any_f.append(len([1 for fac in results[mv_file]['any']['far1']['f'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            far1_avg_m.append(len([1 for fac in results[mv_file]['avg']['far1']['m'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
+            far1_avg_f.append(len([1 for fac in results[mv_file]['avg']['far1']['f'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
             print("{:<15}".format(mv_file), end=' ')
-            print("%0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f" % (eer_any_m, eer_any_f, eer_avg_m, eer_avg_f, far1_any_m, far1_any_f, far1_avg_m, far1_avg_f))
+            print("%0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f" % (eer_any_m[-1], eer_any_f[-1], eer_avg_m[-1], eer_avg_f[-1], far1_any_m[-1], far1_any_f[-1], far1_avg_m[-1], far1_avg_f[-1]))
+
+            with open(os.path.join('./data/vs_mv_data', args.mv_set, 'results.json'), 'w') as fp:
+                json.dump(results, fp)
+                print('Saved result file till', mv_file_index, end='\n')
 
     # Print average impersonation rates
-    eer_any_m = float(np.mean([results[f]['any']['eer']['m'] for f in results.keys()]))
-    eer_any_f = float(np.mean([results[f]['any']['eer']['f'] for f in results.keys()]))
-    eer_avg_m = float(np.mean([results[f]['avg']['eer']['m'] for f in results.keys()]))
-    eer_avg_f = float(np.mean([results[f]['avg']['eer']['f'] for f in results.keys()]))
-    far1_any_m = float(np.mean([results[f]['any']['far1']['m'] for f in results.keys()]))
-    far1_any_f = float(np.mean([results[f]['any']['far1']['f'] for f in results.keys()]))
-    far1_avg_m = float(np.mean([results[f]['avg']['far1']['m'] for f in results.keys()]))
-    far1_avg_f = float(np.mean([results[f]['avg']['far1']['f'] for f in results.keys()]))
-    print("{:<15}".format(mv_type), end=' ')
+    eer_any_m = float(np.mean(eer_any_m))
+    eer_any_f = float(np.mean(eer_any_f))
+    eer_avg_m = float(np.mean(eer_avg_m))
+    eer_avg_f = float(np.mean(eer_avg_f))
+    far1_any_m = float(np.mean(far1_any_m))
+    far1_any_f = float(np.mean(far1_any_f))
+    far1_avg_m = float(np.mean(far1_avg_m))
+    far1_avg_f = float(np.mean(far1_avg_f))
     print("%0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f" % (eer_any_m, eer_any_f, eer_avg_m, eer_avg_f, far1_any_m, far1_any_f, far1_avg_m, far1_avg_f))
 
 

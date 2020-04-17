@@ -88,7 +88,8 @@ if __name__ == '__main__':
     # Build the model
     print('Building GAN')
     gan_model.build()
+    gan_model.load()
 
     # Train the model
     print('Training GAN')
-    gan_model.train(train_data, epochs=args.n_epochs, steps_per_epoch=len(x_train)//args.batch, batch=args.batch)
+    gan_model.train(train_data, epochs=args.n_epochs, steps_per_epoch=len(x_train)//args.batch)

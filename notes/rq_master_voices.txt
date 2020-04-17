@@ -1,0 +1,49 @@
+- Quali sono gli (FRR, FAR) per (EER, FAR1%) per (Raw, Any10, Avg10) per (M, F)? - 24 VALORI
+
+
+- Creare master voice (GANF-F, GANM-M, GANN-F, GANN-M) e (VggVox, xVector, ResNet34) - 12 SETUP SPERIMENTALI
+
+
+- Quale è il trend di impersonazione durante il processo di master voice optimization? - 12 GRAFICI
+
+
+- Quali sono i rate di impersonazione con (EER, FAR1%) e (Raw, Any10, Avg10) tra (VggVox, xVector, ResNet34)? - 72 VALORI
+
+
+- Quali sono i rate di impersonazione con (EER, FAR1%) e (Raw, Any10, Avg10) tra (VggVox, ResNet34)? - 96 VALORI
+
+
+- Quali sono i rate di impersonazione con (EER, FAR1%) e (Raw, Any10, Avg10) tra (VggVox, xVector), (ResNet34, xVector)? - 192 VALORI
+
+
+- Quale è la distribuzione dei rate di impersonazione per seed e master voices? - 12 GRAFICI
+
+
+- Cosa differenzia uno spettrogramma base da uno master voice, dopo l'ottimizzazione (VggVox, ResNet34)?
+
+
+- Cosa differenzia un filterbank base da uno master voice, dopo l'ottimizzazione (xVector)?
+
+
+- Cosa differenzia uno spettrogramma buono da uno cattivo (VggVox, ResNet34)?
+
+
+- Cosa differenzia un filterbank buono da uno cattivo (xVector)?
+
+
+- C'è un pattern medio tra le master voice (GANF-F, GANM-M, GANN-F, GANN-M) e (VggVox, xVector, ResNet34)? - 12 SETUP
+
+
+- Quali sono i rate di accettazione scegliendo le master voice migliori con attacco singolo?
+
+
+- Quali sono i rate di accettazione scegliendo le master voice migliori con attacchi multipli?
+
+
+- Quali sono i rate di impersonazione su dataset di altri contesti?
+
+
+- Quale è il rate di impersonazione in sistemi commerciali?
+  - Microsoft: https://azure.microsoft.com/en-us/pricing/details/cognitive-services/speaker-recognition/
+
+- Cosa accade se si usano delle master voice per addestrare un SV?

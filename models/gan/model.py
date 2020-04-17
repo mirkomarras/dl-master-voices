@@ -11,7 +11,6 @@ from helpers import plotting
 from itertools import product
 import matplotlib
 import time
-import PIL
 import os
 
 class GAN(object):
@@ -41,6 +40,10 @@ class GAN(object):
         
         self.generator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
         self.discriminator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
+        
+    @property
+    def version(self):
+        return self.version
 
     def save(self):
         """
@@ -48,11 +51,11 @@ class GAN(object):
         """
 #         print('>', 'saving', self.name, 'model')
         
-        if not os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
-            os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
+        if not os.path.exists(os.path.join(self.dir, self.version)):
+            os.makedirs(os.path.join(self.dir, self.version))
         
-        self.generator.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
-        self.discriminator.save_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
+        self.generator.save_weights(os.path.join(self.dir, self.version, 'gen.h5'))
+        self.discriminator.save_weights(os.path.join(self.dir, self.version, 'disc.h5'))
 #         print('>', 'saved', self.name, 'generator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
 #         print('>', 'saved', self.name, 'discriminator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
 
@@ -61,15 +64,15 @@ class GAN(object):
         Method to load the weights of this model from 'data/pt_models/{name}/v{id}/model_weights.tf'
         """
         print('>', 'loading', self.name, 'model')
-        if os.path.exists(os.path.join(self.dir)):
-            if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
-                self.generator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
-                self.discriminator.load_weights(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
-                print('>', 'loaded generator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
-                print('>', 'loaded discriminator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
+        if os.path.exists(os.path.join(self.dir, self.version)):
+            if len(os.listdir(os.path.join(self.dir, self.version))) > 0:
+                self.generator.load_weights(os.path.join(self.dir, self.version, 'gen.h5'))
+                self.discriminator.load_weights(os.path.join(self.dir, self.version, 'disc.h5'))
+                print('>', 'loaded generator from', os.path.join(self.dir, self.version, 'gen'))
+                print('>', 'loaded discriminator from', os.path.join(self.dir, self.version, 'disc'))
             else:
-                print('>', 'no pre-trained generator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
-                print('>', 'no pre-trained discriminator weights from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
+                print('>', 'no pre-trained generator from', os.path.join(self.dir, self.version, 'gen'))
+                print('>', 'no pre-trained discriminator from', os.path.join(self.dir, self.version, 'disc'))
         else:
             print('>', 'no directory for', self.name, 'model at', os.path.join(self.dir))
 
@@ -98,7 +101,6 @@ class GAN(object):
         """
         self.generator = self.build_generator_model()
         self.discriminator = self.build_discriminator_model()
-        self.load()
 
     def discriminator_loss(self, x, G_z, D_x, D_G_z, gradient_penalty=True):
         """
@@ -239,10 +241,10 @@ class GAN(object):
             fig = plotting.waveforms(predictions, spectrums=True)
             
         if save:            
-            if not os.path.exists(os.path.join(self.dir, f'v{self.id:03d}')):
-                os.makedirs(os.path.join(self.dir, f'v{self.id:03d}'))
+            if not os.path.exists(os.path.join(self.dir, self.version)):
+                os.makedirs(os.path.join(self.dir, self.version))
         
-            filename = os.path.join(self.dir, f'v{self.id:03d}', f'preview_{epoch:04d}.png')
+            filename = os.path.join(self.dir, self.version, f'preview_{epoch:04d}.png')
             plt.savefig(filename, bbox_inches='tight')
             plt.close()
             return filename
@@ -266,7 +268,7 @@ class GAN(object):
         axes[2].set_title('discriminator on')
         
         if save:
-            filename = os.path.join(self.dir, f'v{self.id:03d}', f'progress.png')
+            filename = os.path.join(self.dir, self.version, f'progress.png')
             fig.savefig(filename, bbox_inches='tight')
             plt.close()
             return filename

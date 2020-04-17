@@ -4,10 +4,8 @@
 import tensorflow as tf
 import numpy as np
 import random
-import time
-import sys
 
-from helpers.audio import decode_audio, get_tf_spectrum
+from helpers.audio import decode_audio, get_tf_spectrum, get_tf_filterbanks, play_n_rec
 
 def data_pipeline_generator_verifier(x, y, classes, sample_rate=16000, n_seconds=3):
     """
@@ -21,16 +19,17 @@ def data_pipeline_generator_verifier(x, y, classes, sample_rate=16000, n_seconds
     :return:            (signal, impulse_flags), label
     """
 
-    indexes = list(range(len(x)))
-    random.shuffle(indexes)
-    for index in indexes:
-        audio = decode_audio(x[index], tgt_sample_rate=sample_rate)
-        start_sample = random.choice(range(len(audio) - sample_rate*n_seconds))
-        end_sample = start_sample + sample_rate*n_seconds
-        audio = audio[start_sample:end_sample].reshape((1, -1, 1))
-        label = y[index]
-        impulse = np.random.randint(2, size=3) if augment > 0 else np.zeros(3)
-        yield {'input_1': audio, 'input_2': impulse}, tf.keras.utils.to_categorical(label, num_classes=classes, dtype='float32')
+    while True:
+        indexes = list(range(len(x)))
+        random.shuffle(indexes)
+        for index in indexes:
+            audio = decode_audio(x[index], tgt_sample_rate=sample_rate)
+            start_sample = random.choice(range(len(audio) - sample_rate*n_seconds))
+            end_sample = start_sample + sample_rate*n_seconds
+            audio = audio[start_sample:end_sample].reshape((1, -1, 1))
+            label = y[index]
+            impulse = np.random.randint(2, size=3)
+            yield {'input_1': audio, 'input_2': impulse}, tf.keras.utils.to_categorical(label, num_classes=classes, dtype='float32')
 
     raise StopIteration()
 
@@ -49,10 +48,9 @@ def data_pipeline_verifier(x, y, classes, sample_rate=16000, n_seconds=3, batch=
     """
 
     dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_verifier(x, y, classes, sample_rate=sample_rate, n_seconds=n_seconds), output_types=({'input_1': tf.float32, 'input_2': tf.float32}, tf.float32), output_shapes=({'input_1': [None, sample_rate*n_seconds, 1], 'input_2': [3]}, [classes]))
-    dataset = dataset.map(lambda x, y: ({'input_1': tf.squeeze(x['input_1'], axis=0), 'input_2': x['input_2']}, y))
+    dataset = dataset.map(lambda x, y: ((tf.squeeze(x['input_1'], axis=0), x['input_2']), y))
     dataset = dataset.batch(batch)
     dataset = dataset.prefetch(prefetch)
-
     return dataset
 
 def data_pipeline_generator_gan(x, slice_len, sample_rate=16000):
@@ -68,10 +66,13 @@ def data_pipeline_generator_gan(x, slice_len, sample_rate=16000):
 
     for index in indexes:
         audio = decode_audio(x[index], tgt_sample_rate=sample_rate)
-        start_sample = random.choice(range(len(audio) - slice_len))
-        end_sample = start_sample + slice_len
-        audio = audio[start_sample:end_sample].reshape((1, -1, 1))
-        yield audio
+        if len(audio) - slice_len > 0:
+            start_sample = random.choice(range(len(audio) - slice_len)) if len(audio) - slice_len > 1 else 0
+            end_sample = start_sample + slice_len
+            audio = audio[start_sample:end_sample]
+        else:
+            audio = np.pad(audio, (0, slice_len - len(audio)), 'constant')
+        yield audio.reshape((1, -1, 1))
 
     raise StopIteration()
 
@@ -86,10 +87,7 @@ def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024, 
     :return:            Data pipeline
     """
 
-    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_gan(x, slice_len=slice_len, sample_rate=sample_rate),
-                                             output_types=(tf.float32),
-                                             output_shapes=([None, slice_len, 1]))
-
+    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_gan(x, slice_len=slice_len, sample_rate=sample_rate), output_types=(tf.float32), output_shapes=([None, slice_len, 1]))
     dataset = dataset.map(lambda x: tf.squeeze(x, axis=0))
     dataset = dataset.batch(batch)
 
