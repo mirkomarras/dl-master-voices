@@ -47,7 +47,9 @@ if __name__ == '__main__':
     available_nets = {'wavegan': WaveGAN}
     gan_model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), slice_len=args.slice_len, gender=args.gender)
 
-    # Previewing a gan
-    print('Previewing GAN')
+    print('Building GAN')
     gan_model.build()
+    gan_model.load()
+
+    print('Previewing GAN')
     gan_model.preview(gan_model.get_generator())
