@@ -31,6 +31,15 @@ class VladPooling(tf.keras.layers.Layer):
         self.mode = mode
         super(VladPooling, self).__init__(**kwargs)
 
+    def get_config(self):
+        config = super().get_config().copy()
+        config.update({
+            'mode': self.mode,
+            'k_centers': self.k_centers,
+            'g_centers': self.g_centers
+        })
+        return config
+
     def build(self, input_shape):
         self.cluster = self.add_weight(shape=[self.k_centers+self.g_centers, input_shape[0][-1]], name='centers', initializer='orthogonal')
         self.built = True
@@ -115,10 +124,10 @@ class Model(object):
         :return:            None
         """
         print('>', 'saving', self.name, 'model')
-        self.model.save(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model'))
+        self.model.save(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model.h5'))
         print('>', 'saved', self.name, 'model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
 
-    def load(self, mode=''):
+    def load(self):
         """
         Method to load weights for this model from 'data/pt_models/{name}/v{id}/model.tf'
         :return:            None
@@ -126,7 +135,7 @@ class Model(object):
         print('>', 'loading', self.name, 'model')
         if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
             if len(os.listdir(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))) > 0:
-                self.model = tf.keras.models.load_model(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model'))
+                self.model = tf.keras.models.load_model(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model.h5'), custom_objects={'VladPooling':VladPooling})
                 self.inference_model = tf.keras.Model(inputs=self.model.input, outputs=self.model.get_layer('fc7').output)
                 print('>', 'loaded model from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
             else:
@@ -181,7 +190,7 @@ class Model(object):
 
         for epoch in range(epochs):
             self.sup_model.fit(train_data, steps_per_epoch=steps_per_epoch, initial_epoch=epoch, epochs=epoch+1, callbacks=[lr_callback])
-            self.model = tf.keras.Model(inputs=self.sup_model.get_layer('model').input, outputs=self.sup_model.get_layer('model').output)
+            self.model = tf.keras.models.Model(inputs=self.sup_model.get_layer('model').input, outputs=self.sup_model.get_layer('model').output)
             self.save()
 
         print('>', 'trained', self.name, 'model')
@@ -214,8 +223,7 @@ class Model(object):
                 thr_eer = thresholds[id_eer]
                 thr_far1 = thresholds[id_far1]
                 print('\r> pair', pair_id+1, 'of', len(x1), '- eer', round(eer, 4), 'thr@eer', round(thr_eer, 4), 'thr@far1', round(thr_far1, 4), end='')
-        print()
-        print('>', 'tested', self.name, 'model')
+        print('\n>', 'tested', self.name, 'model')
         if save:
             df = pd.DataFrame({'target': target_scores, 'similarity': similarity_scores})
             df.to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_results_' + str(round(eer, 4)) + '.csv'))
@@ -237,13 +245,13 @@ class Model(object):
         """
 
         print('>', 'impersonating', self.name, 'model')
-        mv_emb = self.embed(impostor_signal)
+        mv_emb = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(self.embed(impostor_signal))
         mv_fac = np.zeros(len(np.unique(y_mv_test)))
         for class_index, class_label in enumerate(np.unique(y_mv_test)):
             template = [self.embed(signal) for signal in x_mv_test[class_index*n_templates:(class_index+1)*n_templates]]
             if policy == 'any':
-                mv_fac[class_index] = len([1 for template_emb in np.array(template) if 1 - spatial.distance.cosine(template_emb, mv_emb) > threshold])
+                mv_fac[class_index] = len([1 for template_emb in np.array(template) if tf.keras.layers.Dot(axes=1, normalize=True)([template_emb, mv_emb]) > threshold])
             elif policy == 'avg':
-                mv_fac[class_index] = 1 if 1 - spatial.distance.cosine(mv_emb, np.mean(np.array(template), axis=0)) > threshold else 0
+                mv_fac[class_index] = 1 if tf.keras.layers.Dot(axes=1, normalize=True)([mv_emb, np.mean(np.array(template), axis=0)]) else 0
         print('>', 'impersonated', self.name, 'model')
         return {'m': mv_fac[np.array(male_x_mv_test)], 'f': mv_fac[np.array(female_x_mv_test)]}

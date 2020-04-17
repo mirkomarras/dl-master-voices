@@ -22,6 +22,6 @@ export TEST_BASE_PATH="/beegfs/mm11333/data/voxceleb1/test"
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
 
-export NET="vggvox/v068"
-python -u $PRJ_PATH/routines/verifier/test.py --test_base_path $TEST_BASE_PATH --net $NET --aggregation 'gvlad'
+export NET="resnet50vox/v022"
+python -u $PRJ_PATH/routines/verifier/test.py --test_base_path $TEST_BASE_PATH --net $NET --aggregation 'gvlad' --test_n_pair 1000
 

@@ -19,9 +19,9 @@ module load ffmpeg/intel/3.2.2
 export PRJ_PATH="${PWD}"
 export AUDIO_DIR="/beegfs/mm11333/data/voxceleb1/dev,/beegfs/mm11333/data/voxceleb2/dev"
 export VAL_BASE_PATH="/beegfs/mm11333/data/voxceleb1/test"
-export NET="vggvox"
+export NET="resnet50vox"
 
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
 
-python -u $PRJ_PATH/routines/verifier/train.py --audio_dir $AUDIO_DIR --val_base_path $VAL_BASE_PATH --net $NET --learning_rate 0.01 --aggregation 'gvlad' --batch 256 --decay_step 20
+python -u $PRJ_PATH/routines/verifier/train.py --audio_dir $AUDIO_DIR --val_base_path $VAL_BASE_PATH --net $NET --learning_rate 0.01 --aggregation 'gvlad' --batch 32 --decay_step 20

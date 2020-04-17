@@ -40,13 +40,10 @@ class XVector(Model):
 
         # Frame information layer
         x = input_layer
-        prev_dim = self.n_filters
         for i, (kernel_size, layer_size) in enumerate(zip(kernel_sizes, layer_sizes)):
-            x = tf.nn.conv1d(x, tf.random.truncated_normal([kernel_size, prev_dim, layer_size], stddev=0.1), stride=1, padding='SAME')
-            x = tf.nn.bias_add(x, tf.constant(0.1, shape=[layer_size]))
+            x = tf.keras.layers.Conv1D(kernel_size=kernel_size, filters=layer_size, padding='SAME')(x)
             x = tf.keras.layers.ReLU()(x)
             x = tf.keras.layers.BatchNormalization(epsilon=1e-3, gamma_initializer=tf.constant_initializer(1.0), beta_initializer=tf.constant_initializer(0.0))(x)
-            prev_dim = layer_size
             if i != len(kernel_sizes) - 1:
                 x = tf.keras.layers.Dropout(0.1)(x)
 

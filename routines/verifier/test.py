@@ -75,7 +75,7 @@ def main():
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
     model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), n_seconds=args.n_seconds, sample_rate=args.sample_rate)
     model.build(classes=args.classes, loss=args.loss, aggregation=args.aggregation, vlad_clusters=args.vlad_clusters, ghost_clusters=args.ghost_clusters, weight_decay=args.weight_decay)
-    model.load(mode)
+    model.load()
 
     # Test model
     print('Testing model')

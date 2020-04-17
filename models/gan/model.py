@@ -50,7 +50,7 @@ class GAN(object):
         """
         print('>', 'loading', self.name, 'model')
         if os.path.exists(os.path.join(self.dir)):
-            if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen')):
+            if len(os.listdir(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))):
                 self.generator = tf.keras.models.load_model(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen'))
                 self.discriminator = tf.keras.models.load_model(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'disc'))
                 print('>', 'loaded generator from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'gen'))
