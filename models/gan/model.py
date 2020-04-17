@@ -43,7 +43,7 @@ class GAN(object):
         
     @property
     def version(self):
-        return self.version
+        return f'v{self.id:03d}'
 
     def save(self):
         """
@@ -174,7 +174,7 @@ class GAN(object):
 
         return gen_loss, disc_loss
 
-    def train(self, train_data, epochs, batch, gsteps=1, dsteps=1, gradient_penalty=True):
+    def train(self, train_data, epochs, batch, gsteps=1, dsteps=1, gradient_penalty=True, preview_interval=1):
         """
         Method to train a gan
         :param train_data:          Training data pipeline
@@ -221,7 +221,7 @@ class GAN(object):
                 self.prediction_history['real'].append(np.mean(d_real))
                 self.prediction_history['fake'].append(np.mean(d_fake))
                 
-                if epoch % 50 == 0:
+                if epoch % preview_interval == 0:
                     self.preview(save=True, epoch=epoch)
                     self.show_progress(True)
                     
