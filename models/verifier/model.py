@@ -151,7 +151,7 @@ class Model(object):
         """
         return self.inference_model.predict(signal)
 
-    def train(self, train_data, val_data, noises, cache, augment=0, mode='spectrum', steps_per_epoch=10, epochs=1, learning_rate=1e-1, decay_factor=0.1, decay_step=10, optimizer='adam'):
+    def train(self, train_data, val_data, noises, cache, augment=0, mode='spectrum', batch_size=32, steps_per_epoch=10, epochs=1, learning_rate=1e-1, decay_factor=0.1, decay_step=10, optimizer='adam'):
         """
         Method to train and validate this model
         :param train_data:      Training data pipeline - shape ({'input_1': (batch, None, 1), 'input_2': (batch, 3)}), (batch, classes)
@@ -166,6 +166,7 @@ class Model(object):
         """
 
         print('>', 'training', self.name, 'model')
+        original_name = self.model.name
         schedule = StepDecay(init_alpha=learning_rate, decay_factor=decay_factor, decay_step=decay_step)
         lr_callback = tf.keras.callbacks.LearningRateScheduler(schedule)
 
@@ -174,12 +175,13 @@ class Model(object):
 
         if augment:
             print('> loading augmented model')
-            x = tf.keras.layers.Lambda(lambda x: play_n_rec(x, noises, cache), name='acoustic_layer')([signal_input, impulse_input])
+            x = tf.keras.layers.Lambda(lambda x: play_n_rec(x, noises, cache, batch_size), name='playback_layer')([signal_input, impulse_input])
             if mode == 'spectrum':
                 signal_output = tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x), name='acoustic_layer')(x)
             else:
                 signal_output = tf.keras.layers.Lambda(lambda x: get_tf_filterbanks(x), name='acoustic_layer')(x)
         else:
+            print('> loading not augmented model')
             if mode == 'spectrum':
                 signal_output =  tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x[0]), name='acoustic_layer')([signal_input, impulse_input])
             else:
@@ -191,7 +193,7 @@ class Model(object):
 
         for epoch in range(epochs):
             self.sup_model.fit(train_data, steps_per_epoch=steps_per_epoch, initial_epoch=epoch, epochs=epoch+1, callbacks=[lr_callback])
-            self.model = tf.keras.models.Model(inputs=self.sup_model.get_layer('model').input, outputs=self.sup_model.get_layer('model').output)
+            self.model = tf.keras.models.Model(inputs=self.sup_model.get_layer(original_name).input, outputs=self.sup_model.get_layer(original_name).output)
             self.save()
 
         print('>', 'trained', self.name, 'model')

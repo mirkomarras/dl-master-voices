@@ -43,7 +43,7 @@ def load_noise_paths(noise_dir):
 
     return noise_paths
 
-def cache_noise_data(noise_paths, sample_rate=16000):
+def cache_noise_data(noise_paths, sample_rate=16000, n_seconds=3):
     """
     Function to decode noise audio samples
     :param noise_paths:     Directory path - organized in ./{speaker|room|microphone}/xyz.wav} - returned by load_noise_paths(...)
@@ -55,11 +55,16 @@ def cache_noise_data(noise_paths, sample_rate=16000):
 
     noise_cache = []
     for noise_files in noise_paths:
-        noise_cache.append(decode_audio(noise_files, tgt_sample_rate=sample_rate))
+        noise = decode_audio(noise_files, tgt_sample_rate=sample_rate)
+        if len(noise) < sample_rate*n_seconds:
+            noise = np.pad(noise, (0, sample_rate*n_seconds-len(noise)), 'constant')
+        else:
+            noise = noise[:sample_rate*n_seconds]
+        noise_cache.append(noise.reshape((-1, 1)))
 
-    print('> cached', len(noise_paths), 'noises')
+    print('> cached', len(noise_cache), 'noises')
 
-    return noise_cache
+    return np.array(noise_cache)
 
 def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=1024):
     """
@@ -143,7 +148,7 @@ def get_tf_filterbanks(signal, sample_rate=16000, frame_size=0.025, frame_stride
 
     return normalized_log_mel_spectrum
 
-def play_n_rec(inputs, noises, cache, noise_strength='random'):
+def play_n_rec(inputs, noises, cache, batch_size):
     """
     Function to add playback & recording simulation to a signal
     :param inputs:          Pair with the signals as first element and the impulse flags as second element
@@ -154,24 +159,9 @@ def play_n_rec(inputs, noises, cache, noise_strength='random'):
     """
 
     signal, impulse = inputs
-
-    output = signal
-
-    if noises is not None and cache is not None:
-
-        speaker = np.array(cache[random.choice(noises['speaker'])], dtype=np.float32)
-        speaker_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(speaker)[0]-1], [0, 0]], 'constant'), speaker, 1, padding='VALID')
-
-        if noise_strength == 'random':
-            noise_strength = tf.clip_by_value(tf.random.normal((1,), 0, 0.00001), 0, 10)
-
-        noise_tensor = tf.random.normal(tf.shape(speaker_output), mean=0, stddev=noise_strength, dtype=tf.float32)
-        speaker_output = tf.add(speaker_output, noise_tensor)
-
-        speaker_flag = tf.math.multiply(speaker_output, tf.expand_dims(tf.expand_dims(impulse[:, 0], 1), 1))
-        output_flag = tf.math.multiply(output, tf.expand_dims(tf.expand_dims(tf.math.abs(tf.math.subtract(impulse[:, 0],1)), 1), 1))
-        output = tf.math.add(speaker_flag, output_flag)
-
+    indexes = np.array(np.random.choice(list(range(len(cache))), batch_size))
+    noise = np.array(cache[indexes,:], dtype=np.float32)
+    output = tf.add(signal, noise)
     return output
 
 def invert_spectrum_griffin_lim(slice_len, x_mag, num_fft, num_hop, ngl):

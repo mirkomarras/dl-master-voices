@@ -28,7 +28,7 @@ def data_pipeline_generator_verifier(x, y, classes, sample_rate=16000, n_seconds
             end_sample = start_sample + sample_rate*n_seconds
             audio = audio[start_sample:end_sample].reshape((1, -1, 1))
             label = y[index]
-            impulse = np.random.randint(2, size=3)
+            impulse = np.array([1,1,1])
             yield {'input_1': audio, 'input_2': impulse}, tf.keras.utils.to_categorical(label, num_classes=classes, dtype='float32')
 
     raise StopIteration()
