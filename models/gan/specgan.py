@@ -19,8 +19,8 @@ class SpecGAN(GAN):
     def __init__(self, name='specgan', id=-1, gender='neutral', latent_dim=100, slice_len=128):
         super().__init__(name, id, gender, latent_dim)
         self.slice_len = slice_len
-        self.kernel_size = 25
-        self.gan_dim = 64
+        self.kernel_size = 5
+        self.gan_dim = 32
         self.upsample = 'zeros'
         self.stride = 2
         self.is_raw = False
@@ -63,7 +63,7 @@ class SpecGAN(GAN):
 
         x = tf.keras.layers.Flatten()(x)
 
-        output = tf.keras.layers.Dense(1)(x)
+        output = tf.keras.layers.Dense(1, activation='sigmoid')(x) # activation='sigmoid'
 
         return tf.keras.Model(inputs=[input], outputs=[output])
 
