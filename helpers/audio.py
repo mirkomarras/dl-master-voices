@@ -157,7 +157,6 @@ def play_n_rec(inputs, noises, cache, batch_size):
     :param noise_strength:  Type of noise strenght to be applied to the speaker noise part - choices ['random']
     :return:                Audio signals with playback & recording simulation according to the impulse flags
     """
-
     signal, impulse = inputs
     indexes = np.array(np.random.choice(list(range(len(cache))), batch_size))
     noise = np.array(cache[indexes,:], dtype=np.float32)
