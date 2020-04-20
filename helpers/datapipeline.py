@@ -7,7 +7,7 @@ import random
 
 from helpers.audio import decode_audio, get_tf_spectrum, get_tf_filterbanks, play_n_rec
 
-def data_pipeline_generator_verifier(x, y, classes, sample_rate=16000, n_seconds=3):
+def data_pipeline_generator_verifier(x, y, classes, sample_rate=16000, n_noise=40, n_seconds=3):
     """
     Function to simulate a (signal, impulse_flags), label generator for training a verifier
     :param x:           List of audio paths
@@ -28,12 +28,12 @@ def data_pipeline_generator_verifier(x, y, classes, sample_rate=16000, n_seconds
             end_sample = start_sample + sample_rate*n_seconds
             audio = audio[start_sample:end_sample].reshape((1, -1, 1))
             label = y[index]
-            impulse = np.array([1,1,1])
+            impulse = np.array([random.randint(0, n_noise-1)])
             yield {'input_1': audio, 'input_2': impulse}, tf.keras.utils.to_categorical(label, num_classes=classes, dtype='float32')
 
     raise StopIteration()
 
-def data_pipeline_verifier(x, y, classes, sample_rate=16000, n_seconds=3, batch=64, prefetch=1024):
+def data_pipeline_verifier(x, y, classes, sample_rate=16000, n_noise=40, n_seconds=3, batch=64, prefetch=1024):
     """
     Function to create a tensorflow data pipeline for training a verifier
     :param x:           List of audio paths
@@ -47,7 +47,7 @@ def data_pipeline_verifier(x, y, classes, sample_rate=16000, n_seconds=3, batch=
     :return:            Data pipeline
     """
 
-    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_verifier(x, y, classes, sample_rate=sample_rate, n_seconds=n_seconds), output_types=({'input_1': tf.float32, 'input_2': tf.float32}, tf.float32), output_shapes=({'input_1': [None, sample_rate*n_seconds, 1], 'input_2': [3]}, [classes]))
+    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_verifier(x, y, classes, sample_rate=sample_rate, n_noise=n_noise, n_seconds=n_seconds), output_types=({'input_1': tf.float32, 'input_2': tf.float32}, tf.float32), output_shapes=({'input_1': [None, sample_rate*n_seconds, 1], 'input_2': [1]}, [classes]))
     dataset = dataset.map(lambda x, y: ((tf.squeeze(x['input_1'], axis=0), x['input_2']), y))
     dataset = dataset.batch(batch)
     dataset = dataset.prefetch(prefetch)

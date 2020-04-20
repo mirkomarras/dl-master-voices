@@ -148,7 +148,7 @@ def get_tf_filterbanks(signal, sample_rate=16000, frame_size=0.025, frame_stride
 
     return normalized_log_mel_spectrum
 
-def play_n_rec(inputs, noises, cache, batch_size):
+def play_n_rec(inputs, cache, batch=256):
     """
     Function to add playback & recording simulation to a signal
     :param inputs:          Pair with the signals as first element and the impulse flags as second element
@@ -157,11 +157,10 @@ def play_n_rec(inputs, noises, cache, batch_size):
     :param noise_strength:  Type of noise strenght to be applied to the speaker noise part - choices ['random']
     :return:                Audio signals with playback & recording simulation according to the impulse flags
     """
-    signal, impulse = inputs
-    indexes = np.array(np.random.choice(list(range(len(cache))), batch_size))
-    noise = np.array(cache[indexes,:], dtype=np.float32)
-    output = tf.add(signal, noise)
-    return output
+    signal_tensor, impulse_tensor = inputs
+    impulse_tensor = tf.reshape(impulse_tensor, [batch])
+    noise_tensor = tf.expand_dims(tf.keras.layers.Embedding(cache.shape[0], cache.shape[1], embeddings_initializer=tf.keras.initializers.Constant(cache), trainable=False)(impulse_tensor), 2)
+    return tf.add(signal_tensor, noise_tensor)
 
 def invert_spectrum_griffin_lim(slice_len, x_mag, num_fft, num_hop, ngl):
     """
