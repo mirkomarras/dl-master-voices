@@ -33,6 +33,12 @@ if __name__ == '__main__':
     parser.add_argument('--batch', dest='batch', default=64, type=int, action='store', help='Training batch size')
     parser.add_argument('--prefetch', dest='prefetch', default=0, type=int, action='store', help='If nonnegative, prefetch examples to this GPU (Tensorflow device num)')
     parser.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Segment lenght in seconds')
+    parser.add_argument('--dsteps', dest='dsteps', default=1, type=int, action='store', help='Discriminator update steps')
+    parser.add_argument('--gsteps', dest='gsteps', default=1, type=int, action='store', help='Generator update steps')
+    parser.add_argument('--lr', dest='lr', default=1e-4, type=float, action='store', help='Learning rate')
+    parser.add_argument('--examples', dest='examples', default=0, type=int, action='store', help='Max number of data samples')
+    
+    
 
     # Parameters for raw audio
     parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')
@@ -42,6 +48,10 @@ if __name__ == '__main__':
     print('Parameters summary')
     print('>', 'Net GAN: {}'.format(args.net))
     print('>', 'Gender GAN: {}'.format(args.gender))
+    print('>', 'D steps: {}'.format(args.dsteps))
+    print('>', 'G steps: {}'.format(args.gsteps))
+    print('>', 'Learning rate: {}'.format(args.lr))
+    
     print('>', 'Latent dim: {}'.format(args.latent_dim))
     print('>', 'Slice len: {}'.format(args.slice_len))
 
@@ -52,6 +62,7 @@ if __name__ == '__main__':
     print('>', 'Batch size: {}'.format(args.batch))
     print('>', 'Prefetch: {}'.format(args.prefetch))
     print('>', 'Max number of seconds: {}'.format(args.n_seconds))
+    print('>', 'Max number of training examples: {}'.format(args.examples))
 
     print('>', 'Sample rate: {}'.format(args.sample_rate))
 
@@ -61,6 +72,10 @@ if __name__ == '__main__':
     mv_user_ids = get_mv_analysis_users(args.mv_data_path)
     x_train, y_train = load_data_set(audio_dir, mv_user_ids)
     x_train, y_train = filter_by_gender(x_train, y_train, args.audio_meta, args.gender)
+    
+    if args.examples > 0:
+        x_train, y_train = x_train[:args.examples], y_train[:args.examples]
+
     classes = len(np.unique(y_train))
 
     # Generator output test
@@ -83,7 +98,9 @@ if __name__ == '__main__':
     # Create GAN
     print('Creating GAN')
     available_nets = {'wavegan': WaveGAN, 'specgan': SpecGAN}
-    gan_model = available_nets[args.net.split('/')[0]](id=(int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1), gender=args.gender, latent_dim=args.latent_dim, slice_len=args.slice_len)
+    model = available_nets[args.net.split('/')[0]]
+    model_id = (int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1)
+    gan_model = model(id=model_id, gender=args.gender, latent_dim=args.latent_dim, slice_len=args.slice_len, lr=args.lr)
 
     # Build the model
     print('Building GAN')
@@ -92,4 +109,4 @@ if __name__ == '__main__':
 
     # Train the model
     print('Training GAN')
-    gan_model.train(train_data, epochs=args.n_epochs, steps_per_epoch=len(x_train)//args.batch)
+    gan_model.train(train_data, epochs=args.n_epochs, batch=args.batch, dsteps=args.dsteps, gsteps=args.gsteps, gradient_penalty=True, preview_interval=20)

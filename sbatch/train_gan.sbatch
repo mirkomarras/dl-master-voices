@@ -16,14 +16,17 @@ module load cuda/10.0.130
 module load cudnn/10.0v7.6.2.24
 module load ffmpeg/intel/3.2.2
 
-export PRJ_PATH="${PWD}"
-export AUDIO_DIR="/beegfs/mm11333/data/voxceleb1/dev,/beegfs/mm11333/data/voxceleb2/dev"
-export NET="wavegan"
-export GENDER="female"
-export SLICE_LEN=65536
 
-export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
 
-python -u $PRJ_PATH/routines/gan/train.py --net $NET --audio_dir $AUDIO_DIR --gender $GENDER --slice_len $SLICE_LEN
+export PRJ_PATH="${PWD}"
+export AUDIO_DIR="/beegfs/mm10572/voxceleb1/dev"
+export NET="wavegan"
+export GENDER="female"
+export SLICE_LEN=32000
+
+export PYTHONPATH=$PRJ_PATH
+
+
+python -u $PRJ_PATH/routines/gan/train.py --net $NET --audio_dir $AUDIO_DIR --gender $GENDER --slice_len $SLICE_LEN 
 

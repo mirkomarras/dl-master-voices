@@ -176,17 +176,20 @@ def quickshow(x, label=None, *, axes=None, cmap='gray'):
         axes.set_xticks([])
         axes.set_yticks([])        
 
-def waveforms(wav, spectrums=True):
+def waveforms(wav, spectrums=True, sampling=16000):
     cols = 2 if spectrum else 1
     
-    fig, axes = sub(len(wav) * cols, ncols=cols)
+    fig, axes = sub(len(wav) * cols, ncols=cols, figwidth=16, figheight=len(wav) * 3.5)
     
     for i, ax in enumerate(axes):
         if i % 2 == 0:
-            ax.plot(wav[i // cols].squeeze())
+            ax.plot(wav[i // cols].squeeze(), alpha=1)
+#             ax.set_xlim([0, 16384 // 8])
+            ax.set_yticks([])
         else:
-            spec = spectrum.get_np_spectrum(wav[i // cols].squeeze())
+            spec = spectrum.get_np_spectrum(wav[i // cols].squeeze(), sampling)[0]
             quickshow(spec, axes=ax)
+            ax.set_ylabel('Frequency')
     return fig
 
 

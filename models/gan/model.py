@@ -18,7 +18,7 @@ class GAN(object):
        Class to represent GAN (SV) models with model saving / loading and playback & recording capabilities
     """
 
-    def __init__(self, name='', id=-1, gender='neutral', latent_dim=100, slice_len=16384):
+    def __init__(self, name='', id=-1, gender='neutral', latent_dim=100, slice_len=16384, lr=1e-4):
         """
         Method to initialize a gan model that will be saved in 'data/pt_models/{name}'
         :param name:        String id for this model
@@ -38,8 +38,8 @@ class GAN(object):
             os.makedirs(self.dir)
         self.id = len(os.listdir(self.dir)) if id < 0 else id
         
-        self.generator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
-        self.discriminator_optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4)
+        self.generator_optimizer = tf.keras.optimizers.Adam(lr)
+        self.discriminator_optimizer = tf.keras.optimizers.Adam(lr)
         
     @property
     def version(self):
@@ -129,7 +129,7 @@ class GAN(object):
             disc_interp = self.discriminator(interpolates)
         
         gradients = disc_tape.gradient(disc_interp, [interpolates])[0]
-        g_norm = tf.math.sqrt(tf.math.reduce_sum(tf.math.square(gradients), axis=(1, 2) if self.name == 'wavegan' else (1, 2, 3)))
+        g_norm = tf.math.sqrt(1e-9 + tf.math.reduce_sum(tf.math.square(gradients), axis=(1, 2) if self.name == 'wavegan' else (1, 2, 3)))
         
         # Add gradient penalty to the original loss
         disc_loss += 10 * tf.math.reduce_mean((g_norm - 1.) ** 2.)
@@ -156,9 +156,9 @@ class GAN(object):
             with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
                 z = tf.random.normal([len(x), self.latent_dim])
 
-                G_z = self.generator(z)
-                D_x = self.discriminator(x)
-                D_G_z = self.discriminator(G_z)
+                G_z = self.generator(z, training=True)
+                D_x = self.discriminator(x, training=True)
+                D_G_z = self.discriminator(G_z, training=True)
 
                 gen_loss = self.generator_loss(D_G_z)
                 disc_loss = self.discriminator_loss(x, G_z, D_x, D_G_z, gradient_penalty)
@@ -166,10 +166,26 @@ class GAN(object):
             grad_gen = gen_tape.gradient(gen_loss, self.generator.trainable_variables)
             grad_dis = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
             
+#             nan_dis = [np.isnan(x).mean() for x in grad_dis]
+#             nan_gen = [np.isnan(x).mean() for x in grad_gen]
+#             stop = False
+            
+#             if any(x > 0 for x in nan_dis):
+#                 stop = True
+#                 print(f'{ds}{gs}:NaNs in dis grads: ', {var.name: nd for nd, var in zip(nan_dis, self.discriminator.trainable_variables)})
+            
+#             if any(x > 0 for x in nan_gen):
+#                 stop = True
+#                 print(f'{ds}{gs}:NaNs in gen grads: ', {var.name: nd for nd, var in zip(nan_gen, self.generator.trainable_variables)})
+                
+#             if stop:
+#                 raise ValueError('Stopping: nan grads')
+                
             if gs == 0:
+#                 print('d')
                 self.discriminator_optimizer.apply_gradients(zip(grad_dis, self.discriminator.trainable_variables))
-#                 self.discriminator_optimizer.apply_gradients(zip([-x for x in grad_dis], self.discriminator.trainable_variables))
-            if ds == 0:    
+            if ds == 0:
+#                 print('g')
                 self.generator_optimizer.apply_gradients(zip(grad_gen, self.generator.trainable_variables))
 
         return gen_loss, disc_loss
@@ -186,7 +202,7 @@ class GAN(object):
         with tqdm(total=epochs, desc=f'{type(self).__name__}: gs={gsteps} ds={dsteps} gp={gradient_penalty}', ncols=140) as pbar:
             
             for epoch in range(epochs):
-                tf.keras.backend.set_learning_phase(1)
+                # tf.keras.backend.set_learning_phase(1)
 
                 gen_losses = []
                 disc_losses = []
@@ -203,8 +219,8 @@ class GAN(object):
                     disc_losses.append(disc_loss.numpy())
 
                     # Log discriminator output for real and fake samples
-                    d_r = self.discriminator(batch_data)
-                    d_f = self.discriminator(self.sample(len(batch_data)))
+                    d_r = self.discriminator(batch_data, training=False)
+                    d_f = self.discriminator(self.sample(len(batch_data)), training=False)
                     d_real.append(np.mean(d_r))
                     d_fake.append(np.mean(d_f))
                     acc = 0.5 * np.mean(d_r >= 0.5) + 0.5 * np.mean(d_f < 0.5)
@@ -231,8 +247,8 @@ class GAN(object):
         z = tf.random.normal([n, self.latent_dim])
         return self.generator(z) 
                 
-    def preview(self, n=25, save=False, epoch=0):
-        tf.keras.backend.set_learning_phase(0)
+    def preview(self, n=9, save=False, epoch=0):
+        # tf.keras.backend.set_learning_phase(0)
         predictions = self.generator(tf.random.normal([n, self.latent_dim]), training=False).numpy()
 
         if predictions.ndim == 4:
@@ -244,8 +260,8 @@ class GAN(object):
             if not os.path.exists(os.path.join(self.dir, self.version)):
                 os.makedirs(os.path.join(self.dir, self.version))
         
-            filename = os.path.join(self.dir, self.version, f'preview_{epoch:04d}.png')
-            plt.savefig(filename, bbox_inches='tight')
+            filename = os.path.join(self.dir, self.version, f'preview_{epoch:04d}.jpg')
+            plt.savefig(filename, bbox_inches='tight', quality=80)
             plt.close()
             return filename
         

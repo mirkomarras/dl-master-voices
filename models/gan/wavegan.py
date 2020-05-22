@@ -16,24 +16,26 @@ class WaveGAN(GAN):
        In: arXiv preprint arXiv:1802.04208.
     """
 
-    def __init__(self, name='wavegan', id=-1, gender='neutral', latent_dim=100, slice_len=16384):
-        super().__init__(name, id, gender, latent_dim)
-        self.slice_len = slice_len
+    def __init__(self, name='wavegan', id=-1, gender='neutral', latent_dim=100, slice_len=16384, lr=1e-4):
+        super().__init__(name, id, gender, latent_dim, slice_len, lr)
+        
+        if slice_len not in {16384, 2 * 16384, 4 * 16384}:
+            raise ValueError('Slice lenght not supported!')
+        
         self.kernel_size = 25
         self.gan_dim = 64
         self.upsample = 'zeros'
         self.phaseshuffle = 2
-        self.stride = 2 if self.slice_len == 32768 else 4
         self.is_raw = True
 
-    def __conv1d_transpose(self, inputs, filters):
+    def __conv1d_transpose(self, inputs, filters, stride=4):
         if self.upsample == 'zeros':
-            return tf.keras.layers.Conv2DTranspose(filters=filters, kernel_size=(1, self.kernel_size), strides=(1, self.stride), padding='SAME')(tf.expand_dims(inputs, axis=1))[:, 0]
+            return tf.keras.layers.Conv2DTranspose(filters=filters, kernel_size=(1, self.kernel_size), strides=(1, stride), padding='SAME')(tf.expand_dims(inputs, axis=1))[:, 0]
         else:
             _, w, nch = inputs.get_shape().as_list()
             x = inputs
             x = tf.expand_dims(x, axis=1)
-            x = tf.image.resize_nearest_neighbor(x, [1, w * self.stride])
+            x = tf.image.resize_nearest_neighbor(x, [1, w * stride])
             x = x[:, 0]
             return tf.keras.layers.Conv1D(filters, self.kernel_size, 1, padding='SAME', dtype='float32')(x)
 
@@ -75,7 +77,7 @@ class WaveGAN(GAN):
         x = tf.maximum(0.2 * x, x)
 
         if self.slice_len == 32768 or self.slice_len == 65536:
-            x = tf.keras.layers.Conv1D(self.gan_dim * 32, self.kernel_size, self.stride, padding='SAME', dtype='float32')(x)
+            x = tf.keras.layers.Conv1D(self.gan_dim * 32, self.kernel_size, 4, padding='SAME', dtype='float32')(x)
             x = tf.keras.layers.BatchNormalization()(x)
             x = tf.maximum(0.2 * x, x)
 
@@ -113,12 +115,20 @@ class WaveGAN(GAN):
         x = tf.keras.layers.BatchNormalization()(x)
         x = tf.keras.layers.ReLU()(x)
 
-        if self.slice_len == 32768 or self.slice_len == 65536:
-            x = self.__conv1d_transpose(x, self.gan_dim * dim_mul)
+        if self.slice_len == 65536:
+            x = self.__conv1d_transpose(x, self.gan_dim)
             x = tf.keras.layers.BatchNormalization()(x)
             x = tf.keras.layers.ReLU()(x)
 
+        if self.slice_len == 32768:
+            x = self.__conv1d_transpose(x, self.gan_dim, 2)
+            x = tf.keras.layers.BatchNormalization()(x)
+            x = tf.keras.layers.ReLU()(x)
+            
         x = self.__conv1d_transpose(x, 1)
         output = tf.nn.tanh(x)
+        
+        if self.slice_len != output.shape[1]:
+            print(f'Error: the output shape ({output.shape[1]}) does not match the requested lenght ({self.slice_len})!')
 
         return tf.keras.Model(inputs=[input], outputs=[output])

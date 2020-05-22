@@ -16,9 +16,8 @@ class SpecGAN(GAN):
        In: arXiv preprint arXiv:1802.04208.
     """
 
-    def __init__(self, name='specgan', id=-1, gender='neutral', latent_dim=100, slice_len=128):
-        super().__init__(name, id, gender, latent_dim)
-        self.slice_len = slice_len
+    def __init__(self, name='specgan', id=-1, gender='neutral', latent_dim=100, slice_len=128, lr=1e-4):
+        super().__init__(name, id, gender, latent_dim, slice_len, lr)
         self.kernel_size = 5
         self.gan_dim = 32
         self.upsample = 'zeros'
@@ -93,5 +92,6 @@ class SpecGAN(GAN):
 
         x = self.__conv2d_transpose(x, 1)
         output = tf.nn.tanh(x)
+#         output = x
 
         return tf.keras.Model(inputs=[input], outputs=[output])
