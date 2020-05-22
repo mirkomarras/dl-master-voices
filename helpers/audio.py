@@ -34,18 +34,16 @@ def load_noise_paths(noise_dir):
 
     assert os.path.exists(noise_dir)
 
-    noise_paths = {}
-    for noise_type in os.listdir(noise_dir):
-        noise_paths[noise_type] = []
-        for file in os.listdir(os.path.join(noise_dir, noise_type)):
-            assert file.endswith('.wav')
-            noise_paths[noise_type].append(os.path.join(noise_dir, noise_type, file))
+    noise_paths = []
+    for file in os.listdir(noise_dir):
+        assert file.endswith('.wav')
+        noise_paths.append(os.path.join(noise_dir, file))
 
-        print('>', noise_type, len(noise_paths[noise_type]))
+    print('> found', len(noise_paths), 'noise paths')
 
     return noise_paths
 
-def cache_noise_data(noise_paths, sample_rate=16000):
+def cache_noise_data(noise_paths, sample_rate=16000, n_seconds=3):
     """
     Function to decode noise audio samples
     :param noise_paths:     Directory path - organized in ./{speaker|room|microphone}/xyz.wav} - returned by load_noise_paths(...)
@@ -55,12 +53,18 @@ def cache_noise_data(noise_paths, sample_rate=16000):
 
     assert sample_rate > 0
 
-    noise_cache = {}
-    for noise_type, noise_files in noise_paths.items():
-        for nf in noise_files:
-            noise_cache[nf] = decode_audio(nf, tgt_sample_rate=sample_rate).reshape((-1, 1, 1))
+    noise_cache = []
+    for noise_files in noise_paths:
+        noise = decode_audio(noise_files, tgt_sample_rate=sample_rate)
+        if len(noise) < sample_rate*n_seconds:
+            noise = np.pad(noise, (0, sample_rate*n_seconds-len(noise)), 'constant')
+        else:
+            noise = noise[:sample_rate*n_seconds]
+        noise_cache.append(noise.reshape((-1, 1)))
 
-    return noise_cache
+    print('> cached', len(noise_cache), 'noises')
+
+    return np.array(noise_cache)
 
 def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=1024):
     """
@@ -144,7 +148,7 @@ def get_tf_filterbanks(signal, sample_rate=16000, frame_size=0.025, frame_stride
 
     return normalized_log_mel_spectrum
 
-def play_n_rec(inputs, noises, cache, noise_strength='random'):
+def play_n_rec(inputs, cache, batch=256):
     """
     Function to add playback & recording simulation to a signal
     :param inputs:          Pair with the signals as first element and the impulse flags as second element
@@ -153,41 +157,10 @@ def play_n_rec(inputs, noises, cache, noise_strength='random'):
     :param noise_strength:  Type of noise strenght to be applied to the speaker noise part - choices ['random']
     :return:                Audio signals with playback & recording simulation according to the impulse flags
     """
-
-    signal, impulse = inputs
-
-    output = signal
-
-    if noises is not None and cache is not None:
-
-        speaker = np.array(cache[random.choice(noises['speaker'])], dtype=np.float32)
-        speaker_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(speaker)[0]-1], [0, 0]], 'constant'), speaker, 1, padding='VALID')
-
-        if noise_strength == 'random':
-            noise_strength = tf.clip_by_value(tf.random.normal((1,), 0, 0.00001), 0, 10)
-
-        noise_tensor = tf.random.normal(tf.shape(speaker_output), mean=0, stddev=noise_strength, dtype=tf.float32)
-        speaker_output = tf.add(speaker_output, noise_tensor)
-
-        speaker_flag = tf.math.multiply(speaker_output, tf.expand_dims(tf.expand_dims(impulse[:, 0], 1), 1))
-        output_flag = tf.math.multiply(output, tf.expand_dims(tf.expand_dims(tf.math.abs(tf.math.subtract(impulse[:, 0],1)), 1), 1))
-        output = tf.math.add(speaker_flag, output_flag)
-
-        room = np.array(cache[random.choice(noises['room'])], dtype=np.float32)
-        room_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(room)[0]-1], [0, 0]], 'constant'), room, 1, padding='VALID')
-
-        room_flag = tf.math.multiply(room_output, tf.expand_dims(tf.expand_dims(impulse[:, 1], 1), 1))
-        output_flag = tf.math.multiply(output, tf.expand_dims(tf.expand_dims(tf.math.abs(tf.math.subtract(impulse[:, 1],1)), 1), 1))
-        output = tf.math.add(room_flag, output_flag)
-
-        microphone = np.array(cache[random.choice(noises['microphone'])], dtype=np.float32)
-        microphone_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(microphone)[0]-1], [0, 0]], 'constant'), microphone, 1, padding='VALID')
-
-        microphone_flag = tf.math.multiply(microphone_output, tf.expand_dims(tf.expand_dims(impulse[:, 2], 1), 1))
-        output_flag = tf.math.multiply(output, tf.expand_dims(tf.expand_dims(tf.math.abs(tf.math.subtract(impulse[:, 2],1)), 1), 1))
-        output = tf.math.add(microphone_flag, output_flag)
-
-    return output
+    signal_tensor, impulse_tensor = inputs
+    impulse_tensor = tf.reshape(impulse_tensor, [batch])
+    noise_tensor = tf.expand_dims(tf.keras.layers.Embedding(cache.shape[0], cache.shape[1], embeddings_initializer=tf.keras.initializers.Constant(cache), trainable=False)(impulse_tensor), 2)
+    return tf.add(signal_tensor, noise_tensor)
 
 def invert_spectrum_griffin_lim(slice_len, x_mag, num_fft, num_hop, ngl):
     """
