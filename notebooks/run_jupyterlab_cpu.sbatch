@@ -55,6 +55,7 @@ fi
 
 directory=$(pwd)
 
-source ../mvenv/bin/activate
-../mvenv/bin/jupyter lab --no-browser --port $port --NotebookApp.notebook_dir=$directory
+cd /beegfs/NYUID/dl-master-voices
+source mvenv/bin/activate
+./mvenv/bin/jupyter lab --no-browser --port $port --NotebookApp.notebook_dir=$directory
 

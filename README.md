@@ -63,23 +63,29 @@ The sbatch folder contains a file for each routine.
 
 ### Running Jupyter notebooks
 
-Run the notebook on HPC:
+Run the notebook on HPC (please replace NYUID with your NYU ID at line 58 in run_jupyterlab_cpu.sbatch):
 ``` 
-sbatch ./notebooks/run_jupyterlab_cpu.sbatch
+cd ./notebooks/
+sbatch ./run_jupyterlab_cpu.sbatch
 ``` 
 
 Open the file .slurm file automatically created in ./notebooks and look for a line similar to the following to get the PORT and the LINK:
 ``` 
-...
+ To access the notebook, open this file in a browser:
+        file:///home/mm11333/.local/share/jupyter/runtime/nbserver-35214-open.html
+    Or copy and paste one of these URLs:
+        http://localhost:7500/?token=8d70f37561638d78b1ad0096de2ffa4abab4862d336084ae
+     or http://127.0.0.1:7500/?token=8d70f37561638d78b1ad0096de2ffa4abab4862d336084ae
 ```
  
 Open a terminal locally in your laptop and run:
 ``` 
-ssh -L PORT:localhost:PORT NYUID@prince.hpc.nyu.edu
+ssh -L 7500:localhost:7500 mm11333@prince.hpc.nyu.edu
 ``` 
 
 Open your browser and paste the LINK retrieved above:
 ``` 
+http://localhost:7500/?token=8d70f37561638d78b1ad0096de2ffa4abab4862d336084ae
 ``` 
 
 ## Using
