@@ -27,7 +27,7 @@ class XVector(Model):
         super().__init__(name, id, noises, cache, n_seconds, sample_rate)
         self.n_filters = 24
 
-    def build(self, classes=None, loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-4):
+    def build(self, classes=None, loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-4, training_phase=True):
         super().build(classes, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay)
         print('>', 'building', self.name, 'model on', classes, 'classes')
 
@@ -42,7 +42,7 @@ class XVector(Model):
         for i, (kernel_size, layer_size) in enumerate(zip(kernel_sizes, layer_sizes)):
             x = tf.keras.layers.Conv1D(kernel_size=kernel_size, filters=layer_size, padding='SAME')(x)
             x = tf.keras.layers.ReLU()(x)
-            x = tf.keras.layers.BatchNormalization(epsilon=1e-3, gamma_initializer=tf.constant_initializer(1.0), beta_initializer=tf.constant_initializer(0.0))(x)
+            x = tf.keras.layers.BatchNormalization(epsilon=1e-3, gamma_initializer=tf.constant_initializer(1.0), beta_initializer=tf.constant_initializer(0.0), trainable=training_phase)(x)
             if i != len(kernel_sizes) - 1:
                 x = tf.keras.layers.Dropout(0.1)(x)
 
@@ -54,12 +54,12 @@ class XVector(Model):
 
         x = tf.keras.layers.Dense(out_dim)(x)
         x = tf.keras.layers.ReLU()(x)
-        x = tf.keras.layers.BatchNormalization(epsilon=1e-3, gamma_initializer=tf.constant_initializer(1.0), beta_initializer=tf.constant_initializer(0.0))(x)
+        x = tf.keras.layers.BatchNormalization(epsilon=1e-3, gamma_initializer=tf.constant_initializer(1.0), beta_initializer=tf.constant_initializer(0.0), trainable=training_phase)(x)
         x = tf.keras.layers.Dropout(0.1)(x)
 
         x = tf.keras.layers.Dense(out_dim, name='fc7')(x)
         x = tf.keras.layers.ReLU()(x)
-        x = tf.keras.layers.BatchNormalization(epsilon=1e-3, gamma_initializer=tf.constant_initializer(1.0), beta_initializer=tf.constant_initializer(0.0))(x)
+        x = tf.keras.layers.BatchNormalization(epsilon=1e-3, gamma_initializer=tf.constant_initializer(1.0), beta_initializer=tf.constant_initializer(0.0), trainable=training_phase)(x)
 
         if loss == 'softmax':
             y = tf.keras.layers.Dense(classes, activation='softmax', kernel_initializer='orthogonal', use_bias=False, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay))(x)

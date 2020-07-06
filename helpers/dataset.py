@@ -116,7 +116,6 @@ def load_test_data_from_file(base_path, trials_path, n_templates=1, n_pairs=10, 
     x2 = []
 
     for i, (path_1, path_2) in enumerate(zip(pairs['path_1'].values[:n_real_pairs], pairs['path_2'].values[:n_real_pairs])):
-
         if (i+1) % print_interval == 0:
             print('\r> pair %5.0f / %5.0f' % (i+1, len(y)), end='')
 
@@ -194,7 +193,7 @@ def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, 
         class_paths = random.sample(mv_paths[class_index*samples_per_user:(class_index+1)*samples_per_user], n_templates)
 
         for path in class_paths:
-            x_mv_test.append(decode_audio(path.replace('.m4a', '.wav'), tgt_sample_rate=sample_rate).reshape((-1, 1))[:sample_rate*n_seconds, :])
+            x_mv_test.append(decode_audio(path.replace('.m4a', '.wav'), tgt_sample_rate=sample_rate).reshape((1, -1, 1)))
             y_mv_test.append(class_index)
 
         if gender_map[class_paths[0].split(os.path.sep)[-3]] == 'm':
@@ -207,3 +206,42 @@ def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, 
     print()
 
     return x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test
+
+def load_mv_list(mv_analysis_path, mv_base_path, audio_meta, n_templates=10):
+    """
+    Function to load data for master voice impersonation
+    :param mv_analysis_path:    File path to master voice analysis metadata
+    :param mv_base_path:        Base path of the dataset from which master-voice-used audio samples are retrieved
+    :param audio_meta:          Path to the file with gender information
+    :param sample_rate:         Sample rate of the audio files to be processed
+    :param n_seconds:           Max number of seconds of an audio sample to be processed
+    :param n_templates:         Number of audio samples per user to be loaded
+    :return:                    (list of audio samples, list of labels, list of male user ids, list of female user ids)
+    """
+    print('Loading master voice data')
+
+    mv_analysis_data = np.load(mv_analysis_path)
+    mv_paths = [os.path.join(mv_base_path, path) for path in mv_analysis_data['x_test']]
+    mv_labels = mv_analysis_data['y_test']
+    print('> found', len(mv_paths), 'paths from', len(np.unique(mv_labels)), 'users')
+
+    data_set_df = pd.read_csv(audio_meta, delimiter=' ')
+    gender_map = {k:v for k, v in zip(data_set_df['id'].values, data_set_df['gender'].values)}
+
+    x_mv_test, y_mv_test, g_mv_test = [], [], []
+    samples_per_user = int(len(mv_paths) // len(np.unique(mv_labels)))
+
+    for class_index, _ in enumerate(np.unique(mv_labels)):
+
+        class_paths = random.sample(mv_paths[class_index*samples_per_user:(class_index+1)*samples_per_user], n_templates)
+
+        for path in class_paths:
+            x_mv_test.append(path.replace('.m4a', '.wav'))
+            y_mv_test.append(class_index)
+            g_mv_test.append(gender_map[class_paths[0].split(os.path.sep)[-3]])
+
+        print('\r> loaded', (class_index+1)*n_templates, '/', len(np.unique(mv_labels))*n_templates, 'audio files', end='')
+
+    print()
+
+    return x_mv_test, y_mv_test, g_mv_test

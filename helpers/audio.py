@@ -16,11 +16,13 @@ def decode_audio(fp, tgt_sample_rate=16000):
     :param tgt_sample_rate: Targeted sample rate
     :return:                Audio sample
     """
-
     assert tgt_sample_rate > 0
 
-    audio_sf, audio_sr = sf.read(fp, dtype='float32')
-    if audio_sf.ndim > 1 or audio_sr != tgt_sample_rate: # Is not mono
+    try:
+        audio_sf, audio_sr = sf.read(fp, dtype='float32')
+        if audio_sf.ndim > 1 or audio_sr != tgt_sample_rate:
+            audio_sf, new_sample_rate = librosa.load(fp, sr=tgt_sample_rate, mono=True)
+    except:
         audio_sf, new_sample_rate = librosa.load(fp, sr=tgt_sample_rate, mono=True)
 
     return audio_sf
@@ -56,10 +58,6 @@ def cache_noise_data(noise_paths, sample_rate=16000, n_seconds=3):
     noise_cache = []
     for noise_files in noise_paths:
         noise = decode_audio(noise_files, tgt_sample_rate=sample_rate)
-        if len(noise) < sample_rate*n_seconds:
-            noise = np.pad(noise, (0, sample_rate*n_seconds-len(noise)), 'constant')
-        else:
-            noise = noise[:sample_rate*n_seconds]
         noise_cache.append(noise.reshape((-1, 1)))
 
     print('> cached', len(noise_cache), 'noises')

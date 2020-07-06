@@ -115,7 +115,7 @@ class Model(object):
         :return:                None
         """
         self.model = None
-        self.inference = None
+        self.inference_model = None
         self.classes = classes
 
     def save(self):
@@ -177,13 +177,13 @@ class Model(object):
             print('> loading augmented model')
             x = tf.keras.layers.Lambda(lambda x: play_n_rec(x, cache, batch), name='playback_layer')([signal_input, impulse_input])
             if mode == 'spectrum':
-                signal_output = tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x), name='acoustic_layer')(x)
+                signal_output = tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x, num_fft=(1024 if self.name == 'vggvox' else 512)), name='acoustic_layer')(x)
             else:
                 signal_output = tf.keras.layers.Lambda(lambda x: get_tf_filterbanks(x), name='acoustic_layer')(x)
         else:
             print('> loading not augmented model')
             if mode == 'spectrum':
-                signal_output =  tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x[0]), name='acoustic_layer')([signal_input, impulse_input])
+                signal_output =  tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x[0], num_fft=(1024 if self.name == 'vggvox' else 512)), name='acoustic_layer')([signal_input, impulse_input])
             else:
                 signal_output =  tf.keras.layers.Lambda(lambda x: get_tf_filterbanks(x[0]), name='acoustic_layer')([signal_input, impulse_input])
 
@@ -210,14 +210,15 @@ class Model(object):
         far, frr = [], []
         similarity_scores = []
         target_scores = []
+        tf.keras.backend.set_learning_phase(0)
         for pair_id, (f1, f2, label) in enumerate(zip(x1, x2, y)):
             inp_1 = get_tf_spectrum(f1) if mode == 'spectrum' else get_tf_filterbanks(f1)
             inp_2 = [get_tf_spectrum(f) if mode == 'spectrum' else get_tf_filterbanks(f) for f in (f2 if isinstance(f2, list) else [f2])]
             emb1 = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(self.embed(inp_1))
             emb2 = [tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(self.embed(inp)) for inp in inp_2]
             target_scores.append(label)
-            similarity_scores.append(tf.keras.layers.Dot(axes=1, normalize=True)([emb1, np.mean(emb2, axis=0)])[0] if policy == 'avg' else np.max([tf.keras.layers.Dot(axes=1, normalize=True)([emb1, emb])[0] for emb in emb2]))
-            if pair_id > 2:
+            similarity_scores.append(tf.keras.layers.Dot(axes=1, normalize=True)([emb1, np.mean(emb2, axis=0)])[0][0] if policy == 'avg' else np.max([tf.keras.layers.Dot(axes=1, normalize=True)([emb1, emb])[0] for emb in emb2]))
+            if (pair_id+1) % 5 == 0:
                 far, tpr, thresholds = roc_curve(target_scores, similarity_scores, pos_label=1)
                 frr = 1 - tpr
                 id_eer = np.argmin(np.abs(far - frr))
@@ -229,17 +230,17 @@ class Model(object):
         print('\n>', 'tested', self.name, 'model')
         if save:
             df = pd.DataFrame({'target': target_scores, 'similarity': similarity_scores})
-            df.to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_results_' + str(round(eer, 4)) + '.csv'))
-            print('>', 'saved results in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_results.csv'))
+            df.to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_vox1_sv_test.csv'))
+            print('>', 'saved results in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_vox1_sv_test.csv'))
         return (eer, far[id_eer], frr[id_eer], thr_eer), (far[id_far1], frr[id_far1], thr_far1)
 
-    def impersonate(self, impostor_signal, threshold, policy, x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10):
+    def impersonate(self, impostor_signal, threshold, policy, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10, mode='spectrum'):
         """
         Method to test this model under impersonation attempts
         :param impostor_signal:     Audio signal against which this model is tested - shape (None, 1)
         :param threshold:           Verification threshold
         :param policy:              Verification policy - choices ['avg', 'any']
-        :param x_mv_test:           Testing users' audio samples - shape (users, n_templates, None, 1)
+        :param x_mv_test_embs:      Testing users' embeddings - shape (users, n_templates, 512)
         :param y_mv_test:           Testing users' labels - shape (users, n_templates)
         :param male_x_mv_test:      Male users' ids
         :param female_x_mv_test:    Female users' ids
@@ -247,14 +248,13 @@ class Model(object):
         :return:                    {'m': impersonation rate against male users, 'f': impersonation rate against female users}
         """
 
-        print('>', 'impersonating', self.name, 'model')
-        mv_emb = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(self.embed(impostor_signal))
+        inp_1 = get_tf_spectrum(impostor_signal) if mode == 'spectrum' else get_tf_filterbanks(impostor_signal)
+        mv_emb = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(self.embed(inp_1))
         mv_fac = np.zeros(len(np.unique(y_mv_test)))
         for class_index, class_label in enumerate(np.unique(y_mv_test)):
-            template = [self.embed(signal) for signal in x_mv_test[class_index*n_templates:(class_index+1)*n_templates]]
+            template = x_mv_test_embs[class_index*n_templates:(class_index+1)*n_templates]
             if policy == 'any':
                 mv_fac[class_index] = len([1 for template_emb in np.array(template) if tf.keras.layers.Dot(axes=1, normalize=True)([template_emb, mv_emb]) > threshold])
             elif policy == 'avg':
-                mv_fac[class_index] = 1 if tf.keras.layers.Dot(axes=1, normalize=True)([mv_emb, np.mean(np.array(template), axis=0)]) else 0
-        print('>', 'impersonated', self.name, 'model')
+                mv_fac[class_index] = 1 if tf.keras.layers.Dot(axes=1, normalize=True)([mv_emb, np.mean(np.array(template), axis=0)]) > threshold else 0
         return {'m': mv_fac[np.array(male_x_mv_test)], 'f': mv_fac[np.array(female_x_mv_test)]}

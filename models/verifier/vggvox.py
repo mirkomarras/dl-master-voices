@@ -21,10 +21,10 @@ class VggVox(Model):
     def __init__(self, name='vggvox', id=-1, noises=None, cache=None, n_seconds=3, sample_rate=16000):
         super().__init__(name, id, noises, cache, n_seconds, sample_rate)
 
-    def __conv_bn_pool(self, inp_tensor, layer_idx, conv_filters, conv_kernel_size, conv_strides, conv_pad, pool='', pool_size=(2, 2), pool_strides=None, conv_layer_prefix='conv', weight_decay=1e-4):
+    def __conv_bn_pool(self, inp_tensor, layer_idx, conv_filters, conv_kernel_size, conv_strides, conv_pad, pool='', pool_size=(2, 2), pool_strides=None, conv_layer_prefix='conv', weight_decay=1e-4, training_phase=True):
         x = tf.keras.layers.ZeroPadding2D(padding=conv_pad, name='pad{}'.format(layer_idx))(inp_tensor)
         x = tf.keras.layers.Conv2D(filters=conv_filters, kernel_size=conv_kernel_size, strides=conv_strides, padding='valid', kernel_initializer='orthogonal', use_bias=False, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), name='{}{}'.format(conv_layer_prefix, layer_idx))(x)
-        x = tf.keras.layers.BatchNormalization(epsilon=1e-5, momentum=1., name='bn{}'.format(layer_idx))(x)
+        x = tf.keras.layers.BatchNormalization(epsilon=1e-5, momentum=1., trainable=training_phase, name='bn{}'.format(layer_idx))(x)
         x = tf.keras.layers.Activation('relu', name='relu{}'.format(layer_idx))(x)
         if pool == 'max':
             x = tf.keras.layers.MaxPooling2D(pool_size=pool_size, strides=pool_strides, name='mpool{}'.format(layer_idx))(x)
@@ -32,21 +32,21 @@ class VggVox(Model):
             x = tf.keras.layers.AveragePooling2D(pool_size=pool_size, strides=pool_strides, name='apool{}'.format(layer_idx))(x)
         return x
 
-    def build(self, classes=None, loss='softmax', aggregation='gvlad', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-4):
+    def build(self, classes=None, loss='softmax', aggregation='gvlad', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-4, training_phase=True):
         super().build(classes, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay)
         print('>', 'building', self.name, 'model on', classes, 'classes')
 
         input_layer = tf.keras.Input(shape=(512,None,1,), name='Input_1')
 
-        x = self.__conv_bn_pool(input_layer, layer_idx=1, conv_filters=96, conv_kernel_size=(7, 7), conv_strides=(2, 2), conv_pad=(1, 1), pool='max', pool_size=(3, 3), pool_strides=(2, 2), weight_decay=weight_decay)
-        x = self.__conv_bn_pool(x, layer_idx=2, conv_filters=256, conv_kernel_size=(5, 5), conv_strides=(2, 2), conv_pad=(1, 1), pool='max', pool_size=(3, 3), pool_strides=(2, 2), weight_decay=weight_decay)
-        x = self.__conv_bn_pool(x, layer_idx=3, conv_filters=384, conv_kernel_size=(3, 3), conv_strides=(1, 1), conv_pad=(1, 1), weight_decay=weight_decay)
-        x = self.__conv_bn_pool(x, layer_idx=4, conv_filters=256, conv_kernel_size=(3, 3), conv_strides=(1, 1), conv_pad=(1, 1), weight_decay=weight_decay)
-        x = self.__conv_bn_pool(x, layer_idx=5, conv_filters=256, conv_kernel_size=(3, 3), conv_strides=(1, 1), conv_pad=(1, 1), pool='max', pool_size=(5, 3), pool_strides=(3, 2), weight_decay=weight_decay)
+        x = self.__conv_bn_pool(input_layer, layer_idx=1, conv_filters=96, conv_kernel_size=(7, 7), conv_strides=(2, 2), conv_pad=(1, 1), pool='max', pool_size=(3, 3), pool_strides=(2, 2), weight_decay=weight_decay, training_phase=training_phase)
+        x = self.__conv_bn_pool(x, layer_idx=2, conv_filters=256, conv_kernel_size=(5, 5), conv_strides=(2, 2), conv_pad=(1, 1), pool='max', pool_size=(3, 3), pool_strides=(2, 2), weight_decay=weight_decay, training_phase=training_phase)
+        x = self.__conv_bn_pool(x, layer_idx=3, conv_filters=384, conv_kernel_size=(3, 3), conv_strides=(1, 1), conv_pad=(1, 1), weight_decay=weight_decay, training_phase=training_phase)
+        x = self.__conv_bn_pool(x, layer_idx=4, conv_filters=256, conv_kernel_size=(3, 3), conv_strides=(1, 1), conv_pad=(1, 1), weight_decay=weight_decay, training_phase=training_phase)
+        x = self.__conv_bn_pool(x, layer_idx=5, conv_filters=256, conv_kernel_size=(3, 3), conv_strides=(1, 1), conv_pad=(1, 1), pool='max', pool_size=(5, 3), pool_strides=(3, 2), weight_decay=weight_decay, training_phase=training_phase)
 
         x = tf.keras.layers.ZeroPadding2D(padding=(0, 0), name='pad{}'.format(6))(x)
         xfc = tf.keras.layers.Conv2D(filters=self.emb_size, kernel_size=(9, 1), strides=(1, 1), padding='valid', kernel_initializer='orthogonal', use_bias=False, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), name='{}{}'.format('fc', 6))(x)
-        xfc = tf.keras.layers.BatchNormalization(epsilon=1e-5, momentum=1., name='bn{}'.format(6))(xfc)
+        xfc = tf.keras.layers.BatchNormalization(epsilon=1e-5, momentum=1., trainable=training_phase, name='bn{}'.format(6))(xfc)
         xfc = tf.keras.layers.Activation('relu', name='relu{}'.format(6))(xfc)
 
         if aggregation == 'avg':
