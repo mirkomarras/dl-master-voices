@@ -1,8 +1,10 @@
 jupyterlab==0.35.4
 Keras==2.2.4
 librosa==0.7.1
+llvmlite==0.31.0
 matplotlib
 matplotlib2tikz==0.6.18
+numba==0.47.0
 numpy
 pandas
 pydub==0.23.1

@@ -94,7 +94,7 @@ def main():
 
     # Data pipeline output test
     print('Checking data pipeline output')
-    train_data = data_pipeline_verifier(x_train, y_train, classes, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
+    train_data = data_pipeline_verifier(x_train, y_train, classes, augment=args.augment, mode=mode, noise_paths=noise_paths, noise_cache=noise_cache, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
 
     for index, x in enumerate(train_data):
         print('>', index, x[0][0].shape, x[0][1].shape, x[1].shape)
@@ -102,14 +102,14 @@ def main():
             break
 
     # Create and train model
-    train_data = data_pipeline_verifier(x_train, y_train, classes, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
+    train_data = data_pipeline_verifier(x_train, y_train, classes, augment=args.augment, mode=mode, noise_paths=noise_paths, noise_cache=noise_cache, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
 
     print('Creating model')
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
     model = available_nets[args.net.split('/')[0]](id=(int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1), noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
     model.build(classes=classes, loss=args.loss, aggregation=args.aggregation, vlad_clusters=args.vlad_clusters, ghost_clusters=args.ghost_clusters, weight_decay=args.weight_decay)
     model.load()
-    model.train(train_data=train_data, val_data=None, cache=noise_cache, augment=args.augment, mode=mode, steps_per_epoch=len(x_train)//args.batch, batch=args.batch, epochs=args.n_epochs, learning_rate=args.learning_rate, optimizer=args.optimizer, decay_factor=args.decay_factor, decay_step=args.decay_step)
+    model.train(train_data=train_data, steps_per_epoch=len(x_train)//args.batch, batch=args.batch, epochs=args.n_epochs, learning_rate=args.learning_rate, optimizer=args.optimizer, decay_factor=args.decay_factor, decay_step=args.decay_step)
 
 if __name__ == '__main__':
     main()

@@ -8,7 +8,7 @@
 #SBATCH --job-name=XVector
 #SBATCH --mail-type=END
 #SBATCH --mail-user=m.marras19@gmail.com
-#SBATCH --output=jobs/slurm_train_resnet34vox_%j.out
+#SBATCH --output=jobs/slurm_train_xvector_%j.out
 
 module purge
 module unload cuda/8.0.44

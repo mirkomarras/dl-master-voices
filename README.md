@@ -12,7 +12,8 @@ A Python toolbox for creating and testing impersonation capabilities of **Master
 audio samples which match large populations of speakers by chance with high probability. 
 
 ## Installation
-Clone the repository:
+
+Clone this repository:
 ``` 
 git clone https://github.com/mirkomarras/dl-master-voices.git
 cd ./dl-master-voices/
@@ -28,12 +29,18 @@ pip install -r requirements.txt
 
 Copy the data folder:
 ``` 
-unzip /archive/m/mm11333/data_original.zip
+unzip /archive/m/mm11333/data_20200706.zip
 ``` 
 
 Create a folder for your sbatch jobs:
 ``` 
 mkdir jobs
+``` 
+
+Add symlinks to voxceleb datasets:
+``` 
+ln -s /beegfs/mm11333/data/voxceleb1 ./data/
+ln -s /beegfs/mm11333/data/voxceleb2 ./data/
 ``` 
 
 ## Getting Started
@@ -42,7 +49,6 @@ mkdir jobs
 
 ``` 
 srun --time=168:00:00 --ntasks-per-node=1 --gres=gpu:1 --mem=8000 --pty /bin/bash
-cd /path/to/dl-master-voices/
 export PRJ_PATH="${PWD}"
 export PYTHONPATH=$PRJ_PATH
 source mvenv/bin/activate
@@ -53,23 +59,42 @@ module load cudnn/10.0v7.6.2.24
 python type/your/script/here param1 param2
 ``` 
 
-### Running scripts in sbatch mode
+### Running scripts in batch mode
 
+Start the batch procedure:
 ``` 
 sbatch ./sbatch/train_verifier.sbatch
 ``` 
 
-The sbatch folder contains a file for each routine. 
+Find the <job id> of the sbatch procedure:
+``` 
+squeue -u $USER
+``` 
+
+Open the output file of the sbatch procedure:
+``` 
+cat ./jobs/slurm-<job id>.out
+``` 
 
 ### Running Jupyter notebooks
 
-Run the notebook on HPC (please replace NYUID with your NYU ID at line 58 in run_jupyterlab_cpu.sbatch):
+Run the notebook on HPC (please replace 'mm11333' with your NYU ID at line 58 in run_jupyterlab_cpu.sbatch):
 ``` 
 cd ./notebooks/
 sbatch ./run_jupyterlab_cpu.sbatch
 ``` 
 
-Open the file .slurm file automatically created in ./notebooks and look for a line similar to the following to get the PORT and the LINK:
+Find the <job id> of the notebook procedure:
+``` 
+squeue -u $USER
+``` 
+
+Open the output file of the sbatch procedure:
+``` 
+cat ./slurm-<job id>.out
+``` 
+
+Find lines similar to the following ones and get the PORT (here 7500) and the Jupyter Notebook URL:
 ``` 
  To access the notebook, open this file in a browser:
         file:///home/mm11333/.local/share/jupyter/runtime/nbserver-35214-open.html
@@ -80,10 +105,10 @@ Open the file .slurm file automatically created in ./notebooks and look for a li
  
 Open a terminal locally in your laptop and run:
 ``` 
-ssh -L 7500:localhost:7500 mm11333@prince.hpc.nyu.edu
+ssh -L <PORT>:localhost:<PORT> <NYU ID>prince.hpc.nyu.edu
 ``` 
 
-Open your browser and paste the LINK retrieved above:
+Open your browser locally and paste the URL retrieved above, here:
 ``` 
 http://localhost:7500/?token=8d70f37561638d78b1ad0096de2ffa4abab4862d336084ae
 ``` 
@@ -92,12 +117,12 @@ http://localhost:7500/?token=8d70f37561638d78b1ad0096de2ffa4abab4862d336084ae
 
 ### Train a speaker verifier
 ``` 
-python -u ./routines/verifier/train.py --net "xvector" --learning_rate 0.001 --aggregation 'gvlad' --batch 32 --decay_step 15
+python -u ./routines/verifier/train.py --net "xvector" --learning_rate 0.001 --batch 32
 ```
 
 ### Test a speaker verifier
 ``` 
-python -u ./routines/verifier/test.py --net "xvector/v000" --aggregation 'gvlad' --test_n_pair 1000
+python -u ./routines/verifier/test.py --net "xvector/v000" --test_n_pair 1000
 ```
 
 ### Train a GAN

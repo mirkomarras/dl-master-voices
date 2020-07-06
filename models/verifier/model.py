@@ -151,7 +151,7 @@ class Model(object):
         """
         return self.inference_model.predict(signal)
 
-    def train(self, train_data, val_data, cache, batch=256, augment=0, mode='spectrum', steps_per_epoch=10, epochs=1, learning_rate=1e-1, decay_factor=0.1, decay_step=10, optimizer='adam'):
+    def train(self, train_data, batch=256, steps_per_epoch=10, epochs=1, learning_rate=1e-1, decay_factor=0.1, decay_step=10, optimizer='adam'):
         """
         Method to train and validate this model
         :param train_data:      Training data pipeline - shape ({'input_1': (batch, None, 1), 'input_2': (batch, 3)}), (batch, classes)
@@ -166,34 +166,13 @@ class Model(object):
         """
 
         print('>', 'training', self.name, 'model')
-        original_name = self.model.name
         schedule = StepDecay(init_alpha=learning_rate, decay_factor=decay_factor, decay_step=decay_step)
         lr_callback = tf.keras.callbacks.LearningRateScheduler(schedule)
 
-        signal_input = tf.keras.Input(shape=(None, 1,), name='Input_1')
-        impulse_input = tf.keras.Input(shape=(3,), name='Input_2')
-
-        if augment:
-            print('> loading augmented model')
-            x = tf.keras.layers.Lambda(lambda x: play_n_rec(x, cache, batch), name='playback_layer')([signal_input, impulse_input])
-            if mode == 'spectrum':
-                signal_output = tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x, num_fft=(1024 if self.name == 'vggvox' else 512)), name='acoustic_layer')(x)
-            else:
-                signal_output = tf.keras.layers.Lambda(lambda x: get_tf_filterbanks(x), name='acoustic_layer')(x)
-        else:
-            print('> loading not augmented model')
-            if mode == 'spectrum':
-                signal_output =  tf.keras.layers.Lambda(lambda x: get_tf_spectrum(x[0], num_fft=(1024 if self.name == 'vggvox' else 512)), name='acoustic_layer')([signal_input, impulse_input])
-            else:
-                signal_output =  tf.keras.layers.Lambda(lambda x: get_tf_filterbanks(x[0]), name='acoustic_layer')([signal_input, impulse_input])
-
-        extractor = tf.keras.models.Model(inputs=[signal_input, impulse_input], outputs=[signal_output])
-        self.sup_model = tf.keras.models.Model(inputs=[signal_input, impulse_input], outputs=[self.model(extractor([signal_input, impulse_input]))])
-        self.sup_model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+        self.model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
 
         for epoch in range(epochs):
-            self.sup_model.fit(train_data, steps_per_epoch=steps_per_epoch, initial_epoch=epoch, epochs=epoch+1, callbacks=[lr_callback])
-            self.model = tf.keras.models.Model(inputs=self.sup_model.get_layer(original_name).input, outputs=self.sup_model.get_layer(original_name).output)
+            self.model.fit(train_data, steps_per_epoch=steps_per_epoch, batch=batch, initial_epoch=epoch, epochs=epoch+1, callbacks=[lr_callback])
             self.save()
 
         print('>', 'trained', self.name, 'model')
