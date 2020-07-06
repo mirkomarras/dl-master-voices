@@ -3,10 +3,11 @@
 #SBATCH --job-name=jupyter
 #SBATCH --nodes=1
 #SBATCH --cpus-per-task=1
-#SBATCH --mem=16GB
+#SBATCH --mem=6GB
 #SBATCH --time=168:00:00
 
 module purge
+module load ffmpeg/intel/3.2.2
 #module load jupyter-kernels/py2.7
 #module load jupyter-kernels/py3.5
 
@@ -54,7 +55,6 @@ fi
 
 directory=$(pwd)
 
-cd /beegfs/mm11333/dl-master-voices
-source mvenv/bin/activate
-./mvenv/bin/jupyter lab --no-browser --port $port --NotebookApp.notebook_dir=$directory
+source ../mvenv/bin/activate
+../mvenv/bin/jupyter lab --no-browser --port $port --NotebookApp.notebook_dir=$directory
 
