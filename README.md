@@ -66,35 +66,35 @@ Start the batch procedure:
 sbatch ./sbatch/train_verifier.sbatch
 ``` 
 
-Find the <job id> of the sbatch procedure:
+Find the ```JOB ID```  of the sbatch procedure:
 ``` 
 squeue -u $USER
 ``` 
 
 Open the output file of the sbatch procedure:
 ``` 
-cat ./jobs/slurm-<job id>.out
+cat ./jobs/slurm-<JOB ID>.out
 ``` 
 
 ### Running Jupyter notebooks
 
-Run the notebook on HPC (please replace 'mm11333' with your NYU ID at line 58 in run_jupyterlab_cpu.sbatch):
+Run the notebook on HPC (please replace ```mm11333``` with your ```NYU ID``` at line 58 in ```run_jupyterlab_cpu.sbatch```):
 ``` 
 cd ./notebooks/
 sbatch ./run_jupyterlab_cpu.sbatch
 ``` 
 
-Find the <job id> of the notebook procedure:
+Find the ```JOB ID``` of the notebook procedure:
 ``` 
 squeue -u $USER
 ``` 
 
 Open the output file of the sbatch procedure:
 ``` 
-cat ./slurm-<job id>.out
+cat ./slurm-<JOB ID>.out
 ``` 
 
-Find lines similar to the following ones and get the PORT (here 7500) and the Jupyter Notebook URL:
+Find lines similar to the following ones and get the ```PORT``` (here 7500) and the Jupyter Notebook ```URL```:
 ``` 
  To access the notebook, open this file in a browser:
         file:///home/mm11333/.local/share/jupyter/runtime/nbserver-35214-open.html
@@ -108,7 +108,7 @@ Open a terminal locally in your laptop and run:
 ssh -L <PORT>:localhost:<PORT> <NYU ID>prince.hpc.nyu.edu
 ``` 
 
-Open your browser locally and paste the URL retrieved above, here:
+Open your browser locally and paste the ```URL``` retrieved above, here:
 ``` 
 http://localhost:7500/?token=8d70f37561638d78b1ad0096de2ffa4abab4862d336084ae
 ``` 
