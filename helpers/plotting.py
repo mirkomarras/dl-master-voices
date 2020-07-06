@@ -1,15 +1,12 @@
 # -*- coding: utf-8 -*-
-import matplotlib.pyplot as plot
 import matplotlib.pylab as plt
+import matplotlib.pyplot as plot
 import numpy as np
-from helpers import spectrum
-
-from skimage.draw import line
-from scipy.ndimage.filters import gaussian_filter
 from skimage.transform import resize
 
+from tests import spectrum
 
-# Helper functions for plotting images in Python (wrapper over matplotlib)    
+# Helper functions for plotting images in Python (wrapper over matplotlib)
 
 def thumbnails(images, n_cols=None):
     

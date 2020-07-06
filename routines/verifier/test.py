@@ -32,7 +32,7 @@ def main():
     parser.add_argument('--weight_decay', dest='weight_decay', default=1e-4, type=float, action='store', help='Weight decay')
 
     # Parameters for testing a verifier against eer
-    parser.add_argument('--test_base_path', dest='test_base_path', default='./data/vs_voxceleb1/test', type=str, action='store', help='Base path for validation trials')
+    parser.add_argument('--test_base_path', dest='test_base_path', default='./data/voxceleb1/test', type=str, action='store', help='Base path for validation trials')
     parser.add_argument('--test_pair_path', dest='test_pair_path', default='./data/ad_voxceleb12/vox1_trial_pairs.csv', type=str, action='store', help='CSV file label, path_1, path_2 triplets')
     parser.add_argument('--test_n_pair', dest='test_n_pair', default=0, type=int, action='store', help='Number of test pairs')
 

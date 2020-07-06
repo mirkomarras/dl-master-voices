@@ -49,15 +49,11 @@ class GAN(object):
         """
         Method to save the weights of this model in 'data/pt_models/{name}/v{id}/model_weights.tf'
         """
-#         print('>', 'saving', self.name, 'model')
-        
         if not os.path.exists(os.path.join(self.dir, self.version)):
             os.makedirs(os.path.join(self.dir, self.version))
         
         self.generator.save_weights(os.path.join(self.dir, self.version, 'gen.h5'))
         self.discriminator.save_weights(os.path.join(self.dir, self.version, 'disc.h5'))
-#         print('>', 'saved', self.name, 'generator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_generator_weights.tf'))
-#         print('>', 'saved', self.name, 'discriminator model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model_discriminator_weights.tf'))
 
     def load(self):
         """
@@ -165,27 +161,10 @@ class GAN(object):
 
             grad_gen = gen_tape.gradient(gen_loss, self.generator.trainable_variables)
             grad_dis = disc_tape.gradient(disc_loss, self.discriminator.trainable_variables)
-            
-#             nan_dis = [np.isnan(x).mean() for x in grad_dis]
-#             nan_gen = [np.isnan(x).mean() for x in grad_gen]
-#             stop = False
-            
-#             if any(x > 0 for x in nan_dis):
-#                 stop = True
-#                 print(f'{ds}{gs}:NaNs in dis grads: ', {var.name: nd for nd, var in zip(nan_dis, self.discriminator.trainable_variables)})
-            
-#             if any(x > 0 for x in nan_gen):
-#                 stop = True
-#                 print(f'{ds}{gs}:NaNs in gen grads: ', {var.name: nd for nd, var in zip(nan_gen, self.generator.trainable_variables)})
-                
-#             if stop:
-#                 raise ValueError('Stopping: nan grads')
-                
+
             if gs == 0:
-#                 print('d')
                 self.discriminator_optimizer.apply_gradients(zip(grad_dis, self.discriminator.trainable_variables))
             if ds == 0:
-#                 print('g')
                 self.generator_optimizer.apply_gradients(zip(grad_gen, self.generator.trainable_variables))
 
         return gen_loss, disc_loss

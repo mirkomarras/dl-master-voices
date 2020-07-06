@@ -34,7 +34,7 @@ def main():
     parser.add_argument('--slice_len', dest='slice_len', default=16384, type=int, choices=[16384, 32768, 65536], action='store', help='Number of dimensions of the latent space')
 
     # Parameters for training
-    parser.add_argument('--audio_dir', dest='audio_dir', default='./data/vs_voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
+    parser.add_argument('--audio_dir', dest='audio_dir', default='./data/voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
     parser.add_argument('--audio_meta', dest='audio_meta', default='./data/ad_voxceleb12/vox12_meta_data.csv', type=str, action='store', help='CSV file with id-gender metadata')
     parser.add_argument('--gender_train', dest='gender_train', default='female', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender')
     parser.add_argument('--n_iterations', dest='n_iterations', default=100, type=int, action='store', help='Number of iterations')
@@ -44,12 +44,12 @@ def main():
     parser.add_argument('--learning_rate', dest='learning_rate', default=1e-2, type=float, action='store', help='Learning rate')
 
     # Parameters for testing verifier against eer
-    parser.add_argument('--sv_base_path', dest='sv_base_path', default='./data/vs_voxceleb1/test', type=str, action='store', help='Trials base path for computing speaker verification thresholds')
+    parser.add_argument('--sv_base_path', dest='sv_base_path', default='./data/voxceleb1/test', type=str, action='store', help='Trials base path for computing speaker verification thresholds')
     parser.add_argument('--sv_pair_path', dest='sv_pair_path', default='./data/ad_voxceleb12/vox1_trial_pairs.csv', type=str, action='store', help='CSV file label, path_1, path_2 speaker verification trials')
     parser.add_argument('--sv_n_pair', dest='sv_n_pair', default=0, type=int, action='store', help='Number of speaker verification trials')
 
     # Parameters for master voice analysis
-    parser.add_argument('--mv_base_path', dest='mv_base_path', default='./data/vs_voxceleb2/', type=str, action='store', help='Trials base path for master voice analysis waveforms')
+    parser.add_argument('--mv_base_path', dest='mv_base_path', default='./data/voxceleb2/', type=str, action='store', help='Trials base path for master voice analysis waveforms')
     parser.add_argument('--mv_meta', dest='mv_meta', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis metadata')
     parser.add_argument('--n_templates', dest='n_templates', type=int, default=10, action='store', help='Enrolment set size')
 

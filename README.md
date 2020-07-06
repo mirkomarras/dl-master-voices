@@ -12,83 +12,105 @@ A Python toolbox for creating and testing impersonation capabilities of **Master
 audio samples which match large populations of speakers by chance with high probability. 
 
 ## Installation
-Please go a to ```/beegfs/{id}``` directory, then:
-
+Clone the repository:
 ``` 
-git clone --single-branch --branch mv_fwk https://github.com/mirkomarras/dl-master-voices.git
-cd dl-master-voices
-chmod +x ./install.sh
-./install.sh
+git clone https://github.com/mirkomarras/dl-master-voices.git
+cd ./dl-master-voices/
 ``` 
 
-This creates a virtual env in ```/beegfs/{id}/dl-master_voices/mvenv``` folder, with all the needed Python packages.
-It also downloads project data in ```/beegfs/{id}/dl-master-voices/data``` folder. 
+Create a Python environment:
+``` 
+module load python3/intel/3.6.3
+python3 -m virtualenv mvenv
+source mvenv/bin/activate
+pip install -r requirements.txt
+``` 
+
+Copy the data folder:
+``` 
+unzip /archive/m/mm11333/data_original.zip
+``` 
+
+Create a folder for your sbatch jobs:
+``` 
+mkdir jobs
+``` 
 
 ## Getting Started
 
-### Train a speaker verification network
-To start training a sample speaker verification model, from the project folder, please run:
+### Running scripts in interactive mode
+
+``` 
+srun --time=168:00:00 --ntasks-per-node=1 --gres=gpu:1 --mem=8000 --pty /bin/bash
+cd /path/to/dl-master-voices/
+source mvenv/bin/activate
+module load ffmpeg/intel/3.2.2
+module load cuda/10.0.130
+module load cudnn/10.0v7.6.2.24
+
+python type/your/script/here param1 param2
+``` 
+
+### Running scripts in sbatch mode
 
 ``` 
 sbatch ./sbatch/train_verifier.sbatch
 ``` 
 
-The output of the job is saved at ``` ./jobs/slurm_train_verifier_{job_id}.out ```.
+The sbatch folder contains a file for each routine. 
 
-The model weights are saved at ```./data/pt_models/{xvector|vggvox|resnet34vox|resnet50vox}/v{version_id}/model_weights.tf```.  
+### Running Jupyter notebooks
 
-### Test a speaker verification network
-To start testing a sample speaker verification model, from the project folder, please run:
-
+Run the notebook on HPC:
 ``` 
-sbatch ./sbatch/test_verifier.sbatch
+sbatch ./notebooks/run_jupyterlab_cpu.sbatch
 ``` 
 
-The output of the job is saved at ``` ./jobs/slurm_test_verifier_{job_id}.out ```.
-
-### Train a generative adversarial network
-To start training a sample generative adversarial model, from the project folder, please run:
-
+Open the file .slurm file and look for a line similar to the following to get the PORT and the LINK:
 ``` 
-sbatch ./sbatch/train_gan.sbatch
+...
+```
+ 
+Open a terminal locally in your laptop and run:
 ``` 
-
-The output of the job is saved at ``` ./jobs/slurm_train_wavegan_{job_id}.out ```.
-
-The generator model is saved at ```./data/pt_models/wavegan/{neutral|male|female}/v{version_id}/generator_weights.tf```.
-
-The discriminator model is saved at ```./data/pt_models/wavegan/{neutral|male|female}/v{version_id}/discriminator_weights.tf```.  
-
-### Test a generative adversarial network
-To start testing a sample generative adversarial model, from the project folder, please run:
-
-``` 
-sbatch ./sbatch/test_gan.sbatch
+ssh -L PORT:localhost:PORT NYUID@prince.hpc.nyu.edu
 ``` 
 
-The output of the job is saved at ``` ./jobs/slurm_test_wavegan_{job_id}.out ```.
-
-Preview samples are saved at ```./data/pt_models/wavegan/{neutral|male|female}/v{version_id}/preview.wav ```.  
-
-### Optimize a master voice
-To start optimizing a master voice, from the project folder, please run:
-
+Open your browser and paste the LINK retrieved above:
 ``` 
-sbatch ./sbatch/train_mv.sbatch
 ``` 
 
-The output of the job is saved at ``` ./jobs/slurm_train_mv_{job_id}.out ```.
+## Using
 
-The master voice sample are saved at ```./data/vs_mv_data/{net}-{netv}_{gan}-{ganv}_{f|m}-{f|m}_{mv|sv}/v{version_id}```.  
-
-### Test a master voice
-To start testing a master voice population, from the project folder, please run:
-
+### Train a speaker verifier
 ``` 
-sbatch ./sbatch/test_mv.sbatch
+...
+```
+
+### Test a speaker verifier
+``` 
+...
+```
+
+### Train a GAN
+``` 
+...
 ``` 
 
-The output of the job is saved at ``` ./jobs/slurm_test_mv_{job_id}.out ```.
+### Test a GAN
+``` 
+...
+``` 
+
+### Optimize a MV
+``` 
+...
+```
+
+### Test a MV
+``` 
+...
+```
 
 ## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 

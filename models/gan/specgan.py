@@ -30,9 +30,9 @@ class SpecGAN(GAN):
         else:
             _, h, w, nch = inputs.get_shape().as_list()
             x = inputs
-            if upsample == 'nn':
+            if self.upsample == 'nn':
                 x = tf.image.resize_nearest_neighbor(x, [h * self.stride, w * self.stride])
-            elif upsample == 'linear':
+            elif self.upsample == 'linear':
                 x = tf.image.resize_bilinear(x, [h * self.stride, w * self.stride])
             else:
                 x = tf.image.resize_bicubic(x, [h * self.stride, w * self.stride])
@@ -92,6 +92,5 @@ class SpecGAN(GAN):
 
         x = self.__conv2d_transpose(x, 1)
         output = tf.nn.tanh(x)
-#         output = x
 
         return tf.keras.Model(inputs=[input], outputs=[output])

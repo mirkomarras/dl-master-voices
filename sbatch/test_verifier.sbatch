@@ -17,11 +17,8 @@ module load cudnn/10.0v7.6.2.24
 module load ffmpeg/intel/3.2.2
 
 export PRJ_PATH="${PWD}"
-export TEST_BASE_PATH="/beegfs/mm11333/data/voxceleb1/test"
-
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
 
-export NET="xvector/v084"
-python -u $PRJ_PATH/routines/verifier/test.py --test_base_path $TEST_BASE_PATH --net $NET --aggregation 'gvlad' --test_n_pair 1000
+python -u $PRJ_PATH/routines/verifier/test.py --net "xvector/v084" --aggregation 'gvlad' --test_n_pair 1000
 

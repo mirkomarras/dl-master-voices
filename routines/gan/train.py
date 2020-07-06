@@ -26,7 +26,7 @@ if __name__ == '__main__':
     parser.add_argument('--slice_len', dest='slice_len', default=16384, type=int, choices=[16384, 32768, 65536], action='store', help='Number of dimensions of the latent space')
 
     # Parameters for training a gan
-    parser.add_argument('--audio_dir', dest='audio_dir', default='./data/vs_voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
+    parser.add_argument('--audio_dir', dest='audio_dir', default='./data/voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
     parser.add_argument('--audio_meta', dest='audio_meta', default='./data/ad_voxceleb12/vox12_meta_data.csv', type=str, action='store', help='CSV file with id-gender metadata')
     parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis')
     parser.add_argument('--epochs', dest='n_epochs', default=1024, type=int, action='store', help='Number of epochs')
@@ -37,8 +37,6 @@ if __name__ == '__main__':
     parser.add_argument('--gsteps', dest='gsteps', default=1, type=int, action='store', help='Generator update steps')
     parser.add_argument('--lr', dest='lr', default=1e-4, type=float, action='store', help='Learning rate')
     parser.add_argument('--examples', dest='examples', default=0, type=int, action='store', help='Max number of data samples')
-    
-    
 
     # Parameters for raw audio
     parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')

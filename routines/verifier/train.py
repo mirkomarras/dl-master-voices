@@ -23,12 +23,12 @@ def main():
     parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Network model architecture')
 
     # Parameters for validation
-    parser.add_argument('--val_base_path', dest='val_base_path', default='./data/vs_voxceleb1/test', type=str, action='store', help='Base path for validation trials')
+    parser.add_argument('--val_base_path', dest='val_base_path', default='./data/voxceleb1/test', type=str, action='store', help='Base path for validation trials')
     parser.add_argument('--val_pair_path', dest='val_pair_path', default='./data/ad_voxceleb12/vox1_trial_pairs.csv', type=str, action='store', help='CSV file label, path_1, path_2 triplets')
     parser.add_argument('--val_n_pair', dest='val_n_pair', default=0, type=int, action='store', help='Number of validation pairs')
 
     # Parameters for training
-    parser.add_argument('--audio_dir', dest='audio_dir', default='./data/vs_voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
+    parser.add_argument('--audio_dir', dest='audio_dir', default='./data/voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
     parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis')
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Training epochs')
     parser.add_argument('--prefetch', dest='prefetch', default=100, type=int, action='store', help='Data pipeline prefetch size')
@@ -85,7 +85,7 @@ def main():
     print('Load impulse response paths')
     noise_paths = load_noise_paths(args.noise_dir)
     print('Cache impulse response data')
-    noise_cache = cache_noise_data(noise_paths, sample_rate=args.sample_rate, n_seconds=args.n_seconds)
+    noise_cache = cache_noise_data(noise_paths, sample_rate=args.sample_rate)
 
     # Load train and validation data
     mv_user_ids = get_mv_analysis_users(args.mv_data_path)

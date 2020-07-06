@@ -80,7 +80,7 @@ def main():
     parser = argparse.ArgumentParser(description='Filterbanks functionality testing')
 
     # Parameters
-    parser.add_argument('--audio_path', dest='audio_path', default='/beegfs/mm10572/voxceleb1/test/id10281/Yw8v8055uPc/00001.wav', type=str, action='store', help='Audio path')
+    parser.add_argument('--audio_path', dest='audio_path', default='./data/voxceleb1/test/id10281/Yw8v8055uPc/00001.wav', type=str, action='store', help='Audio path')
     parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')
 
     args = parser.parse_args()

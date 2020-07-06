@@ -17,11 +17,8 @@ module load cudnn/10.0v7.6.2.24
 module load ffmpeg/intel/3.2.2
 
 export PRJ_PATH="${PWD}"
-export NET="wavegan/v008"
-export GENDER="female"
-
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
 
-python -u $PRJ_PATH/routines/gan/preview.py --net $NET --gender $GENDER
+python -u $PRJ_PATH/routines/gan/preview.py --net "wavegan/v008" --gender "female"
 
