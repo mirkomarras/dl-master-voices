@@ -20,4 +20,4 @@ export PRJ_PATH="${PWD}"
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
 
-python -u $PRJ_PATH/routines/verifier/train.py --audio_dir "/beegfs/mm11333/data/voxceleb1/dev,/beegfs/mm11333/data/voxceleb2/dev" --net "xvector" --learning_rate 0.01 --aggregation 'gvlad' --batch 256 --decay_step 15
+python -u $PRJ_PATH/routines/verifier/train.py --net "xvector" --learning_rate 0.01 --aggregation 'gvlad' --batch 32 --decay_step 15

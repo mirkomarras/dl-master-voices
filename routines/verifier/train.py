@@ -28,7 +28,7 @@ def main():
     parser.add_argument('--val_n_pair', dest='val_n_pair', default=0, type=int, action='store', help='Number of validation pairs')
 
     # Parameters for training
-    parser.add_argument('--audio_dir', dest='audio_dir', default='./data/voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
+    parser.add_argument('--audio_dir', dest='audio_dir', default='./data/voxceleb1/dev,./data/voxceleb2/dev', type=str, action='store', help='Comma-separated audio data directories')
     parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis')
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Training epochs')
     parser.add_argument('--prefetch', dest='prefetch', default=100, type=int, action='store', help='Data pipeline prefetch size')
@@ -94,7 +94,7 @@ def main():
 
     # Data pipeline output test
     print('Checking data pipeline output')
-    train_data = data_pipeline_verifier(x_train, y_train, classes, sample_rate=args.sample_rate, n_seconds=args.n_seconds, n_noise=noise_cache.shape[0], batch=args.batch, prefetch=args.prefetch)
+    train_data = data_pipeline_verifier(x_train, y_train, classes, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
 
     for index, x in enumerate(train_data):
         print('>', index, x[0][0].shape, x[0][1].shape, x[1].shape)
@@ -102,7 +102,7 @@ def main():
             break
 
     # Create and train model
-    train_data = data_pipeline_verifier(x_train, y_train, classes, sample_rate=args.sample_rate, n_seconds=args.n_seconds, n_noise=noise_cache.shape[0], batch=args.batch, prefetch=args.prefetch)
+    train_data = data_pipeline_verifier(x_train, y_train, classes, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch, prefetch=args.prefetch)
 
     print('Creating model')
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}

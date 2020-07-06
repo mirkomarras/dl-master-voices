@@ -171,7 +171,7 @@ class Model(object):
         lr_callback = tf.keras.callbacks.LearningRateScheduler(schedule)
 
         signal_input = tf.keras.Input(shape=(None, 1,), name='Input_1')
-        impulse_input = tf.keras.Input(shape=(1,), name='Input_2')
+        impulse_input = tf.keras.Input(shape=(3,), name='Input_2')
 
         if augment:
             print('> loading augmented model')

@@ -43,6 +43,8 @@ mkdir jobs
 ``` 
 srun --time=168:00:00 --ntasks-per-node=1 --gres=gpu:1 --mem=8000 --pty /bin/bash
 cd /path/to/dl-master-voices/
+export PRJ_PATH="${PWD}"
+export PYTHONPATH=$PRJ_PATH
 source mvenv/bin/activate
 module load ffmpeg/intel/3.2.2
 module load cuda/10.0.130
@@ -66,7 +68,7 @@ Run the notebook on HPC:
 sbatch ./notebooks/run_jupyterlab_cpu.sbatch
 ``` 
 
-Open the file .slurm file and look for a line similar to the following to get the PORT and the LINK:
+Open the file .slurm file automatically created in ./notebooks and look for a line similar to the following to get the PORT and the LINK:
 ``` 
 ...
 ```
@@ -84,12 +86,12 @@ Open your browser and paste the LINK retrieved above:
 
 ### Train a speaker verifier
 ``` 
-...
+python -u ./routines/verifier/train.py --net "xvector" --learning_rate 0.001 --aggregation 'gvlad' --batch 32 --decay_step 15
 ```
 
 ### Test a speaker verifier
 ``` 
-...
+python -u ./routines/verifier/test.py --net "xvector/v000" --aggregation 'gvlad' --test_n_pair 1000
 ```
 
 ### Train a GAN
