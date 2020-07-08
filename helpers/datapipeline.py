@@ -28,11 +28,13 @@ def data_pipeline_generator_verifier(x, y, classes, sample_rate=16000, n_seconds
             end_sample = start_sample + sample_rate*n_seconds
             audio = audio[start_sample:end_sample].reshape((1, -1, 1))
             label = y[index]
-            yield audio, tf.keras.utils.to_categorical(label, num_classes=classes, dtype='float32')
+            impulse = np.random.randint(2, size=3)
+            yield {'input_1': audio, 'input_2': impulse}, tf.keras.utils.to_categorical(label, num_classes=classes, dtype='float32')
 
     raise StopIteration()
 
-def data_pipeline_verifier(x, y, classes, augment=0, mode='spectrum', noise_paths=None, noise_cache=None, sample_rate=16000, n_seconds=3, batch=64, prefetch=1024):
+
+def data_pipeline_verifier(x, y, classes, augment=0, mode='spectrum', noise_paths=None, noise_cache=None, sample_rate=16000, n_seconds=3, batch=64):
     """
     Function to create a tensorflow data pipeline for training a verifier
     :param x:           List of audio paths
@@ -46,24 +48,30 @@ def data_pipeline_verifier(x, y, classes, augment=0, mode='spectrum', noise_path
     :return:            Data pipeline
     """
 
-    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_verifier(x, y, classes, sample_rate=sample_rate, n_seconds=n_seconds), output_types=(tf.float32, tf.float32), output_shapes=([None, sample_rate*n_seconds, 1], [classes]))
-
-    dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y))
-
-    dataset = dataset.batch(batch)
+    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_verifier(x, y, classes, sample_rate=sample_rate, n_seconds=n_seconds), output_types=({'input_1': tf.float32, 'input_2': tf.float32}, tf.float32), output_shapes=({'input_1': [1, sample_rate*n_seconds, 1], 'input_2': [3]}, [classes]))
 
     if augment:
         print('> loading augmented data pipeline')
-        dataset = dataset.map(lambda x, y: (play_n_rec(x, noise_paths, noise_cache), y))
-
-    if mode == 'spectrum':
-        print('> loading data pipeline with spectrums')
-        dataset = dataset.map(lambda x, y: (get_tf_spectrum(x), y))
+        dataset = dataset.map(lambda x, y: (play_n_rec((x['input_1'], x['input_2']), noise_paths, noise_cache), y), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        if mode == 'spectrum':
+            print('> loading data pipeline with spectrums')
+            dataset = dataset.map(lambda x, y: (get_tf_spectrum(x), y), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        else:
+            print('> loading data pipeline with filterbanks')
+            dataset = dataset.map(lambda x, y: (get_tf_filterbanks(x), y), num_parallel_calls=tf.data.experimental.AUTOTUNE)
     else:
-        print('> loading data pipeline with filterbanks')
-        dataset = dataset.map(lambda x, y: (get_tf_filterbanks(x), y))
+        if mode == 'spectrum':
+            print('> loading data pipeline with spectrums')
+            dataset = dataset.map(lambda x, y: (get_tf_spectrum(x['input_1']), y), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        else:
+            print('> loading data pipeline with filterbanks')
+            dataset = dataset.map(lambda x, y: (get_tf_filterbanks(x['input_1']), y), num_parallel_calls=tf.data.experimental.AUTOTUNE)
 
-    dataset = dataset.prefetch(prefetch)
+    dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+
+    dataset = dataset.batch(batch)
+
+    dataset = dataset.prefetch(tf.data.experimental.AUTOTUNE)
 
     return dataset
 

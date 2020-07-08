@@ -29,7 +29,7 @@ pip install -r requirements.txt
 
 Copy the data folder:
 ``` 
-unzip /archive/m/mm11333/data_20200706.zip
+unzip /beegfs/mm11333/data/data_20200706.zip
 ``` 
 
 Create a folder for your sbatch jobs:
@@ -48,13 +48,15 @@ ln -s /beegfs/mm11333/data/voxceleb2 ./data/
 ### Running scripts in interactive mode
 
 ``` 
-srun --time=168:00:00 --ntasks-per-node=1 --gres=gpu:1 --mem=8000 --pty /bin/bash
+srun --time=168:00:00 --ntasks-per-node=1 --gres=gpu:1 --mem=64000 --pty /bin/bash
 export PRJ_PATH="${PWD}"
 export PYTHONPATH=$PRJ_PATH
 source mvenv/bin/activate
 module load ffmpeg/intel/3.2.2
 module load cuda/10.0.130
 module load cudnn/10.0v7.6.2.24
+python -u ./routines/verifier/train.py --net "resnet50vox" --learning_rat 0.001 --batch 32 --augment 0 
+
 
 python type/your/script/here param1 param2
 ``` 
@@ -140,9 +142,9 @@ python -u ./routines/verifier/test.py --net "xvector/v000" --test_n_pair 1000
 ...
 ```
 
-### Test a MV
+### Test a speaker verifier against master voice sets
 ``` 
-...
+python -u ./routines/mv/test2csv.py --net "xvector/v000"
 ```
 
 ## Contribution

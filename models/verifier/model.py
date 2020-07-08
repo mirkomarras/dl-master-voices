@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from scipy.spatial.distance import euclidean, cosine
 from sklearn.metrics import roc_curve
-from scipy import spatial
 import tensorflow as tf
 import pandas as pd
 import numpy as np
@@ -151,7 +151,7 @@ class Model(object):
         """
         return self.inference_model.predict(signal)
 
-    def train(self, train_data, batch=256, steps_per_epoch=10, epochs=1, learning_rate=1e-1, decay_factor=0.1, decay_step=10, optimizer='adam'):
+    def train(self, train_data, val_data, mode='spectrum', steps_per_epoch=10, epochs=1, learning_rate=1e-1, decay_factor=0.1, decay_step=10, optimizer='adam', patience=5):
         """
         Method to train and validate this model
         :param train_data:      Training data pipeline - shape ({'input_1': (batch, None, 1), 'input_2': (batch, 3)}), (batch, classes)
@@ -170,14 +170,26 @@ class Model(object):
         lr_callback = tf.keras.callbacks.LearningRateScheduler(schedule)
 
         self.model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
-
+        num_nonimproving_steps, last_eer = 0, 1.0
         for epoch in range(epochs):
-            self.model.fit(train_data, steps_per_epoch=steps_per_epoch, batch=batch, initial_epoch=epoch, epochs=epoch+1, callbacks=[lr_callback])
-            self.save()
+            self.model.fit(train_data, steps_per_epoch=steps_per_epoch, initial_epoch=epoch, epochs=epoch+1, callbacks=[lr_callback])
+            self.inference_model = tf.keras.Model(inputs=self.model.input, outputs=self.model.get_layer('fc7').output)
+            (eer, _, _, _), _ = self.test(val_data, mode=mode)
+            if eer < last_eer:
+                print('>', 'eer improved from', round(last_eer, 2), 'to', round(eer, 2))
+                num_nonimproving_steps = 0
+                last_eer = eer
+                self.save()
+            else:
+                print('>', 'eer NOT improved from', round(last_eer, 2))
+                num_nonimproving_steps += 1
+            if num_nonimproving_steps == patience:
+                print('>', 'early stopping training after', num_nonimproving_steps, 'non-improving steps')
+                break
 
         print('>', 'trained', self.name, 'model')
 
-    def test(self, test_data, policy='any', mode='spectrum', save=False):
+    def test(self, test_data, policy='any', mode='spectrum', normalize=True, save=False):
         """
         Method to test this model against verification attempts
         :param test_data:       Pre-computed testing data pairs - shape ((pairs, None, 1), (pairs, None, 1)), (pairs, binary_label)
@@ -189,14 +201,20 @@ class Model(object):
         far, frr = [], []
         similarity_scores = []
         target_scores = []
-        tf.keras.backend.set_learning_phase(0)
+
         for pair_id, (f1, f2, label) in enumerate(zip(x1, x2, y)):
             inp_1 = get_tf_spectrum(f1) if mode == 'spectrum' else get_tf_filterbanks(f1)
             inp_2 = [get_tf_spectrum(f) if mode == 'spectrum' else get_tf_filterbanks(f) for f in (f2 if isinstance(f2, list) else [f2])]
             emb1 = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(self.embed(inp_1))
             emb2 = [tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(self.embed(inp)) for inp in inp_2]
+
+            if normalize:
+                emb1 = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(emb1)
+                emb2 = tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(emb2)
+
             target_scores.append(label)
-            similarity_scores.append(tf.keras.layers.Dot(axes=1, normalize=True)([emb1, np.mean(emb2, axis=0)])[0][0] if policy == 'avg' else np.max([tf.keras.layers.Dot(axes=1, normalize=True)([emb1, emb])[0] for emb in emb2]))
+            similarity_scores.append(1 - cosine(emb1, np.mean(emb2, axis=0)) if policy == 'avg' else np.max([1 - cosine(emb1, emb) for emb in emb2]))
+
             if (pair_id+1) % 5 == 0:
                 far, tpr, thresholds = roc_curve(target_scores, similarity_scores, pos_label=1)
                 frr = 1 - tpr
@@ -206,11 +224,14 @@ class Model(object):
                 thr_eer = thresholds[id_eer]
                 thr_far1 = thresholds[id_far1]
                 print('\r> pair', pair_id+1, 'of', len(x1), '- eer', round(eer, 4), 'thr@eer', round(thr_eer, 4), 'thr@far1', round(thr_far1, 4), end='')
+
         print('\n>', 'tested', self.name, 'model')
+
         if save:
             df = pd.DataFrame({'target': target_scores, 'similarity': similarity_scores})
             df.to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_vox1_sv_test.csv'))
             print('>', 'saved results in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_vox1_sv_test.csv'))
+
         return (eer, far[id_eer], frr[id_eer], thr_eer), (far[id_far1], frr[id_far1], thr_far1)
 
     def impersonate(self, impostor_signal, threshold, policy, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10, mode='spectrum'):
