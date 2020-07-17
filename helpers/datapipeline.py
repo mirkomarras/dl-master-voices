@@ -92,7 +92,7 @@ def data_pipeline_generator_gan(x, slice_len, sample_rate=16000):
             start_sample = random.choice(range(len(audio) - slice_len)) if len(audio) - slice_len > 1 else 0
             end_sample = start_sample + slice_len
             audio = audio[start_sample:end_sample]
-        else:
+        elif len(audio) - slice_len < 0:
             pad_end = np.random.randint(slice_len - len(audio))
             pad_start = (slice_len - len(audio)) - pad_end
             audio = np.pad(audio, (pad_start, pad_end), 'constant')

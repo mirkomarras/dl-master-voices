@@ -4,11 +4,6 @@ import argparse
 import numpy as np
 import tensorflow as tf
 
-from tqdm import tqdm
-import matplotlib.pyplot as plt
-
-from helpers import plotting
-
 from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender
 from helpers.datapipeline import data_pipeline_generator_gan, data_pipeline_gan
 
@@ -34,12 +29,11 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
         x_train = x_train.astype(np.float32) / 255.0
         
         train_data = tf.data.Dataset.from_tensor_slices(x_train)
-        # train_data = train_data.map(lambda x: tf.image.pad_to_bounding_box(x, 4, 4, 32, 32))
-        # train_data = train_data.batch(batch)
         train_data = train_data.padded_batch(batch, (32, 32, 1))
 
     elif dataset == 'digits':
-        x_train = [os.path.join('data/digits/train/', x) for x in os.listdir('data/digits/train/')]
+        audio_dir = './data/digits/train'
+        x_train = [os.path.join(audio_dir, x) for x in os.listdir(audio_dir)]
 
         if examples > 0:
             x_train = x_train[:examples]
@@ -52,7 +46,6 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
         audio_dir = './data/voxceleb1/dev'
         audio_dir = audio_dir.split(',')
         
-        # mv_user_ids = get_mv_analysis_users(vox_data)
         x_train, y_train = load_data_set(audio_dir, {})
 
         if gender is not None:
@@ -68,11 +61,9 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
     else:
         raise ValueError(f'Unsupported dataset: {dataset}')
         
-    # Pad the data to supported widths
-    
+    # Set output size for the GAN
     height = train_data.element_spec.shape[1]
-    width = train_data.element_spec.shape[2]
-    
+    width = train_data.element_spec.shape[2]    
     width_ratio = width / height
         
     print(f'{dataset} dataset with {len(x_train)} samples [{train_data.element_spec.shape}]')        
@@ -83,6 +74,8 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
         gan_ = gan.MultiscaleGAN(dataset, patch=height, width_ratio=width_ratio, min_output=8)
     else:
         raise ValueError(f'Unsupported GAN model: {model}')
+
+    gan_.summarize_models()
 
     print(f'Saving results & models to {gan_.dirname()}')
 
