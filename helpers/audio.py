@@ -5,6 +5,7 @@ import tensorflow as tf
 import soundfile as sf
 import numpy as np
 import librosa
+import decimal
 import random
 import math
 import os
@@ -64,7 +65,65 @@ def cache_noise_data(noise_paths, sample_rate=16000):
 
     return noise_cache
 
-def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=1024):
+
+def rolling_window(a, window, step=1):
+    shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
+    strides = a.strides + (a.strides[-1],)
+    return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)[::step]
+
+
+def round_half_up(number):
+    return int(decimal.Decimal(number).quantize(decimal.Decimal('1'), rounding=decimal.ROUND_HALF_UP))
+
+
+def framesig(sig, frame_len, frame_step, winfunc=lambda x: np.ones((x,)), stride_trick=True):
+    slen = len(sig)
+    frame_len = int(round_half_up(frame_len))
+    frame_step = int(round_half_up(frame_step))
+    if slen <= frame_len:
+        numframes = 1
+    else:
+        numframes = 1 + int(math.ceil((1.0 * slen - frame_len) / frame_step)) # LV
+
+    padlen = int((numframes - 1) * frame_step + frame_len)
+
+    zeros = np.zeros((padlen - slen,))
+    padsignal = np.concatenate((sig, zeros))
+    if stride_trick:
+        win = winfunc(frame_len)
+        frames = rolling_window(padsignal, window=frame_len, step=frame_step)
+    else:
+        indices = np.tile(np.arange(0, frame_len), (numframes, 1)) + np.tile(np.arange(0, numframes * frame_step, frame_step), (frame_len, 1)).T
+        indices = np.array(indices, dtype=np.int32)
+        frames = padsignal[indices]
+        win = np.tile(winfunc(frame_len), (numframes, 1))
+
+    return frames * win
+
+
+def normalize_frames(m, epsilon=1e-12):
+    frames = []
+    means = []
+    stds = []
+    for v in m:
+        means.append(np.mean(v))
+        stds.append(np.std(v))
+        frames.append((v - np.mean(v)) / max(np.std(v), epsilon))
+    return np.array(frames), np.array(means), np.array(stds)
+
+
+def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
+    assert signal.ndim == 1, 'Only 1-dim signals supported'
+
+    frames = framesig(signal, frame_len=int(frame_size * sample_rate), frame_step=int(frame_stride * sample_rate), winfunc=np.hamming)
+    fft = abs(np.fft.fft(frames, n=num_fft))
+    fft = fft[:-1, :(num_fft // 2)]
+    fft_norm, fft_mean, fft_std = normalize_frames(fft.T)
+
+    return fft_norm, fft_mean, fft_std
+
+
+def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
     """
     Function to compute a tensorflow spectrum from signal
     :param signal:          Audio signal from which the spectrum will be extracted  - shape (None, 1)
