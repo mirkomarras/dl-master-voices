@@ -1,55 +1,53 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-import argparse
-import glob
-import sys
 import os
+import argparse
+
+import numpy as np
+import tensorflow as tf
+
+import matplotlib.pyplot as plt
 
 from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender
-from models.gan.wavegan import WaveGAN
+from helpers.datapipeline import data_pipeline_generator_gan, data_pipeline_gan
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+from models import gan
+
+
+def preview_gan(model, dataset, version, samples=32, patch=256, aspect=1):
+    
+    print(f'Sampling from {model} on {dataset}')
+                            
+    if model == 'dc-gan':
+        gan_ = gan.DCGAN(dataset, patch=patch, width_ratio=aspect)
+    elif model == 'ms-gan':
+        gan_ = gan.MultiscaleGAN(dataset, version=version, patch=patch, width_ratio=aspect, min_output=8)
+    else:
+        raise ValueError(f'Unsupported GAN model: {model}')
+
+    print(f'GAN model directory: {gan_.dirname()}')
+    gan_.load()
+    gan_.summarize_models()
+    fig = gan_.preview()
+    fig.tight_layout()
+    plt.show(block=True)
+
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Tensorflow GAN model preview')
+    parser = argparse.ArgumentParser(description='GAN training')
 
-    # Parameters for a gan
-    parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Network model architecture')
-    parser.add_argument('--gender', dest='gender', default='neutral', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender')
-    parser.add_argument('--slice_len', dest='slice_len', default=32768, type=int, choices=[16384, 32768, 65536], action='store', help='Number of dimensions of the latent space')
-
-    # Parameters for gan preview
-    parser.add_argument('--genr_pp', dest='genr_pp', default=False, action='store', help='If set, use post-processing filter')
-    parser.add_argument('--preview_n', dest='preview_n', default=32, type=int, action='store', help='Number of samples to preview')
-
-    # Parameters for raw audio
-    parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')
-
+    parser.add_argument('-m', '--model', dest='model', default='ms-gan', type=str, action='store', 
+                        choices=['dc-gan', 'ms-gan'], help='Network model architecture')
+    parser.add_argument('-d', '--dataset', dest='dataset', default='voxceleb', type=str, 
+                        help='Dataset, e.g.: mnist, digits, voxceleb, voxceleb-male, voxceleb-female')
+    parser.add_argument('-v', '--version', dest='version', default=0, type=int, action='store', 
+                        help='Version of the pretrained model')
+    parser.add_argument('-p', '--patch', dest='patch', default=256, type=int, action='store', 
+                        help='Output size')
+    parser.add_argument('-a', '--aspect', dest='aspect', default=1, type=float, action='store', 
+                        help='Aspect ratio')
+    parser.add_argument('-s', '--samples', dest='samples', default=32, type=int, action='store', 
+                        help='Samples')
+        
     args = parser.parse_args()
-
-    print('Parameters summary')
-
-    print('>', 'Net: {}'.format(args.net))
-    print('>', 'Gender: {}'.format(args.gender))
-    print('>', 'Slice len: {}'.format(args.slice_len))
-
-    print('>', 'Genr pp: {}'.format(args.genr_pp))
-    print('>', 'Number of preview samples: {}'.format(args.preview_n))
-
-    print('>', 'Sample rate: {}'.format(args.sample_rate))
-
-    assert '/v' in args.net
-
-    # Creating a gan
-    print('Creating GAN')
-    available_nets = {'wavegan': WaveGAN}
-    gan_model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), slice_len=args.slice_len, gender=args.gender)
-
-    print('Building GAN')
-    gan_model.build()
-    gan_model.load()
-
-    print('Previewing GAN')
-    gan_model.preview(gan_model.get_generator())
+    
+    preview_gan(args.model, args.dataset, args.version, args.samples, args.patch, args.aspect)

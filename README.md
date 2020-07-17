@@ -115,7 +115,7 @@ Open your browser locally and paste the ```URL``` retrieved above, here:
 http://localhost:7500/?token=8d70f37561638d78b1ad0096de2ffa4abab4862d336084ae
 ``` 
 
-## Using
+## Usage
 
 ### Train a speaker verifier
 ``` 
@@ -128,13 +128,13 @@ python -u ./routines/verifier/test.py --net "xvector/v000" --test_n_pair 1000
 ```
 
 ### Train a GAN
-``` 
-...
+```
+> python3 routines/gan/train.py -d voxceleb-male -e 200
 ``` 
 
-### Test a GAN
+### Test a GAN (Show samples)
 ``` 
-...
+> python3 routines/gan/preview.py -d voxceleb-male
 ``` 
 
 ### Optimize a MV
