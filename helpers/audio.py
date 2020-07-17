@@ -145,8 +145,8 @@ def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
     magnitude_spectrum = tf.transpose(magnitude_spectrum, perm=[0, 2, 1])
     magnitude_spectrum = tf.expand_dims(magnitude_spectrum, 3)
 
-    # Slice spectrum
-    magnitude_spectrum = tf.keras.layers.Lambda(lambda x: x[:, :-1, :, :])(magnitude_spectrum)
+    # Drop the last element to get exactly `num_fft` bins
+    magnitude_spectrum = magnitude_spectrum[:, :-1, :, :]
 
     # Normalize frames
     agg_axis = 2

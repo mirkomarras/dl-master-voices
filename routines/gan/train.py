@@ -1,110 +1,114 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
-import tensorflow as tf
-import numpy as np
-import argparse
-import glob
-import sys
 import os
+import argparse
+
+import numpy as np
+import tensorflow as tf
+
+from tqdm import tqdm
+import matplotlib.pyplot as plt
+
+from helpers import plotting
 
 from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender
 from helpers.datapipeline import data_pipeline_generator_gan, data_pipeline_gan
-from models.gan.wavegan import WaveGAN
-from models.gan.specgan import SpecGAN
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+from models import gan
+
+
+def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, epochs=500):
+    
+    print(f'Training {model} on {dataset} ({length}s clips)')
+
+    output = 'spectrum'
+    sample_rate = 16000
+    slice_len = int(length * sample_rate)
+    vox_meta = './data/ad_voxceleb12/vox12_meta_data.csv'
+    vox_data = './data/ad_voxceleb12/vox2_mv_data.npz'
+    
+    if dataset == 'mnist':
+        (x_train, _), (_, _) = tf.keras.datasets.mnist.load_data()
+        
+        if examples > 0:
+            x_train = x_train[:examples]
+        x_train = x_train.reshape((-1, 28, 28, 1))
+        x_train = x_train.astype(np.float32) / 255.0
+        
+        train_data = tf.data.Dataset.from_tensor_slices(x_train)
+        # train_data = train_data.map(lambda x: tf.image.pad_to_bounding_box(x, 4, 4, 32, 32))
+        # train_data = train_data.batch(batch)
+        train_data = train_data.padded_batch(batch, (32, 32, 1))
+
+    elif dataset == 'digits':
+        x_train = [os.path.join('data/digits/train/', x) for x in os.listdir('data/digits/train/')]
+
+        if examples > 0:
+            x_train = x_train[:examples]
+        
+        train_data = data_pipeline_gan(x_train, slice_len=slice_len, sample_rate=sample_rate, batch=batch, 
+                                       prefetch=0, output_type=output, pad_width='auto', resize=resize)
+
+    elif dataset.startswith('voxceleb'):
+        gender = dataset.split('-')[-1] if '-' in dataset else None
+        audio_dir = './data/voxceleb1/dev'
+        audio_dir = audio_dir.split(',')
+        
+        # mv_user_ids = get_mv_analysis_users(vox_data)
+        x_train, y_train = load_data_set(audio_dir, {})
+
+        if gender is not None:
+            x_train, y_train = filter_by_gender(x_train, y_train, vox_meta, gender)
+        
+        if examples > 0:
+            x_train = x_train[:examples]
+            
+        # Create and train model
+        train_data = data_pipeline_gan(x_train, slice_len=slice_len, sample_rate=sample_rate, batch=batch,
+                                       prefetch=0, output_type=output, pad_width='auto', resize=resize)
+    
+    else:
+        raise ValueError(f'Unsupported dataset: {dataset}')
+        
+    # Pad the data to supported widths
+    
+    height = train_data.element_spec.shape[1]
+    width = train_data.element_spec.shape[2]
+    
+    width_ratio = width / height
+        
+    print(f'{dataset} dataset with {len(x_train)} samples [{train_data.element_spec.shape}]')        
+            
+    if model == 'dc-gan':
+        gan_ = gan.DCGAN(dataset, patch=height, width_ratio=width_ratio)
+    elif model == 'ms-gan':
+        gan_ = gan.MultiscaleGAN(dataset, patch=height, width_ratio=width_ratio, min_output=8)
+    else:
+        raise ValueError(f'Unsupported GAN model: {model}')
+
+    print(f'Saving results & models to {gan_.dirname()}')
+
+    gan_.train(train_data, epochs, 10)
+    gan_.save(True, False)
+
 
 if __name__ == '__main__':
 
-    parser = argparse.ArgumentParser(description='Tensorflow GAN model training')
+    parser = argparse.ArgumentParser(description='GAN training')
 
-    # Parameters for a gan
-    parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Network model architecture')
-    parser.add_argument('--gender', dest='gender', default='neutral', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender')
-    parser.add_argument('--latent_dim', dest='latent_dim', default=100, type=int, action='store', help='Number of dimensions of the latent space')
-    parser.add_argument('--slice_len', dest='slice_len', default=16384, type=int, choices=[16384, 32768, 65536], action='store', help='Number of dimensions of the latent space')
-
-    # Parameters for training a gan
-    parser.add_argument('--audio_dir', dest='audio_dir', default='./data/voxceleb1/dev', type=str, action='store', help='Comma-separated audio data directories')
-    parser.add_argument('--audio_meta', dest='audio_meta', default='./data/ad_voxceleb12/vox12_meta_data.csv', type=str, action='store', help='CSV file with id-gender metadata')
-    parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis')
-    parser.add_argument('--epochs', dest='n_epochs', default=1024, type=int, action='store', help='Number of epochs')
-    parser.add_argument('--batch', dest='batch', default=64, type=int, action='store', help='Training batch size')
-    parser.add_argument('--prefetch', dest='prefetch', default=0, type=int, action='store', help='If nonnegative, prefetch examples to this GPU (Tensorflow device num)')
-    parser.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Segment lenght in seconds')
-    parser.add_argument('--dsteps', dest='dsteps', default=1, type=int, action='store', help='Discriminator update steps')
-    parser.add_argument('--gsteps', dest='gsteps', default=1, type=int, action='store', help='Generator update steps')
-    parser.add_argument('--lr', dest='lr', default=1e-4, type=float, action='store', help='Learning rate')
-    parser.add_argument('--examples', dest='examples', default=0, type=int, action='store', help='Max number of data samples')
-
-    # Parameters for raw audio
-    parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')
-
+    parser.add_argument('-m', '--model', dest='model', default='ms-gan', type=str, action='store', 
+                        choices=['dc-gan', 'ms-gan'], help='Network model architecture')
+    parser.add_argument('-d', '--dataset', dest='dataset', default='voxceleb', type=str, 
+                        help='Dataset, e.g.: mnist, digits, voxceleb, voxceleb-male, voxceleb-female')
+    parser.add_argument('-l', '--length', dest='length', default=2.58, type=float, action='store', 
+                        help='Speech length [s] - 2.58 is the default which yields spectrogram of size 256')
+    parser.add_argument('-b', '--batch', dest='batch', default=32, type=int, action='store', 
+                        help='Batch size')
+    parser.add_argument('-s', '--size', dest='size', default=None, type=int, action='store', 
+                        help='Output size (height) - used for resizing the samples')
+    parser.add_argument('-n', '--n_examples', dest='examples', default=0, type=int, action='store', 
+                        help='Number of training examples (defaults to 0 - use all)')
+    parser.add_argument('-e', '--epochs', dest='epochs', default=500, type=int, action='store', 
+                        help='Number of training epochs (defaults to 500)')
+        
     args = parser.parse_args()
-
-    print('Parameters summary')
-    print('>', 'Net GAN: {}'.format(args.net))
-    print('>', 'Gender GAN: {}'.format(args.gender))
-    print('>', 'D steps: {}'.format(args.dsteps))
-    print('>', 'G steps: {}'.format(args.gsteps))
-    print('>', 'Learning rate: {}'.format(args.lr))
     
-    print('>', 'Latent dim: {}'.format(args.latent_dim))
-    print('>', 'Slice len: {}'.format(args.slice_len))
-
-    print('>', 'Audio dirs: {}'.format(args.audio_dir))
-    print('>', 'Audio meta: {}'.format(args.audio_meta))
-    print('>', 'Master voice data: {}'.format(args.mv_data_path))
-    print('>', 'Number of epochs: {}'.format(args.n_epochs))
-    print('>', 'Batch size: {}'.format(args.batch))
-    print('>', 'Prefetch: {}'.format(args.prefetch))
-    print('>', 'Max number of seconds: {}'.format(args.n_seconds))
-    print('>', 'Max number of training examples: {}'.format(args.examples))
-
-    print('>', 'Sample rate: {}'.format(args.sample_rate))
-
-    # Load data set
-    print('Loading data')
-    audio_dir = map(str, args.audio_dir.split(','))
-    mv_user_ids = get_mv_analysis_users(args.mv_data_path)
-    x_train, y_train = load_data_set(audio_dir, mv_user_ids)
-    x_train, y_train = filter_by_gender(x_train, y_train, args.audio_meta, args.gender)
-    
-    if args.examples > 0:
-        x_train, y_train = x_train[:args.examples], y_train[:args.examples]
-
-    classes = len(np.unique(y_train))
-
-    # Generator output test
-    print('Checking generator output')
-    for index, x in enumerate(data_pipeline_generator_gan(x_train[:10], slice_len=args.slice_len, sample_rate=args.sample_rate)):
-        print('>', index, x.shape)
-
-    # Data pipeline output test
-    print('Checking data pipeline output')
-    train_data = data_pipeline_gan(x_train, slice_len=args.slice_len, sample_rate=args.sample_rate, batch=args.batch, prefetch=args.prefetch, output_type='spectrum' if args.net == 'specgan' else 'raw')
-
-    for index, x in enumerate(train_data):
-        print('>', index, x.shape)
-        if index == 10:
-            break
-
-    # Create and train model
-    train_data = data_pipeline_gan(x_train, slice_len=args.slice_len, sample_rate=args.sample_rate, batch=args.batch, prefetch=args.prefetch, output_type='spectrum' if args.net == 'specgan' else 'raw')
-
-    # Create GAN
-    print('Creating GAN')
-    available_nets = {'wavegan': WaveGAN, 'specgan': SpecGAN}
-    model = available_nets[args.net.split('/')[0]]
-    model_id = (int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1)
-    gan_model = model(id=model_id, gender=args.gender, latent_dim=args.latent_dim, slice_len=args.slice_len, lr=args.lr)
-
-    # Build the model
-    print('Building GAN')
-    gan_model.build()
-    gan_model.load()
-
-    # Train the model
-    print('Training GAN')
-    gan_model.train(train_data, epochs=args.n_epochs, batch=args.batch, dsteps=args.dsteps, gsteps=args.gsteps, gradient_penalty=True, preview_interval=20)
+    train_gan(args.model, args.dataset, args.length, args.batch, args.examples, args.size, args.epochs)

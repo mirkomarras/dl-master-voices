@@ -93,12 +93,14 @@ def data_pipeline_generator_gan(x, slice_len, sample_rate=16000):
             end_sample = start_sample + slice_len
             audio = audio[start_sample:end_sample]
         else:
-            audio = np.pad(audio, (0, slice_len - len(audio)), 'constant')
+            pad_end = np.random.randint(slice_len - len(audio))
+            pad_start = (slice_len - len(audio)) - pad_end
+            audio = np.pad(audio, (pad_start, pad_end), 'constant')
         yield audio.reshape((1, -1, 1))
 
     raise StopIteration()
 
-def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024, output_type='raw'):
+def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024, output_type='spectrum', resize=None, pad_width=None):
     """
     Function to create a tensorflow data pipeline for training a gan
     :param x:           List of audio paths
@@ -114,11 +116,26 @@ def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024, 
     dataset = dataset.batch(batch)
 
     if output_type == 'spectrum':
-        dataset = dataset.map(lambda x: tf.pad(x, [[0, 0], [0, 128], [0, 0]], 'CONSTANT'))
-        dataset = dataset.map(lambda x: get_tf_spectrum(x, frame_size=0.016, frame_stride=0.008, num_fft=256))
+        # frame_size=0.016, frame_stride=0.008
+        dataset = dataset.map(lambda x: get_tf_spectrum(x, num_fft=512))
 
+    if pad_width == 'auto':
+        h = dataset.element_spec.shape[1]
+        w = dataset.element_spec.shape[2]        
+        pad_width = 2 ** np.ceil(np.log2(w))
+
+    if pad_width is not None:
+        pad = int(pad_width - dataset.element_spec.shape[2])
+        dataset = dataset.map(lambda x: tf.pad(x, [[0, 0], [0, 0], [0, pad], [0, 0]], 'CONSTANT'))
+
+    if resize is not None:
+        h = dataset.element_spec.shape[1]
+        w = dataset.element_spec.shape[2]
+        resized_width = int(w * resize / h)
+        dataset = dataset.map(lambda x: tf.image.resize(x, (resize, resized_width)))
+        
     dataset = dataset.prefetch(prefetch)
-
+    
     return dataset
 
 def data_pipeline_generator_mv(x, sample_rate=16000, n_seconds=3):
