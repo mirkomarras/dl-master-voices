@@ -39,7 +39,7 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
             x_train = x_train[:examples]
         
         train_data = data_pipeline_gan(x_train, slice_len=slice_len, sample_rate=sample_rate, batch=batch, 
-                                       prefetch=0, output_type=output, pad_width='auto', resize=resize)
+                                       prefetch=1024, output_type=output, pad_width='auto', resize=resize)
 
     elif dataset.startswith('voxceleb'):
         gender = dataset.split('-')[-1] if '-' in dataset else None
@@ -56,7 +56,7 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
             
         # Create and train model
         train_data = data_pipeline_gan(x_train, slice_len=slice_len, sample_rate=sample_rate, batch=batch,
-                                       prefetch=0, output_type=output, pad_width='auto', resize=resize)
+                                       prefetch=1024, output_type=output, pad_width='auto', resize=resize)
     
     else:
         raise ValueError(f'Unsupported dataset: {dataset}')
