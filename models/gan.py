@@ -26,9 +26,16 @@ def l2_normalize(x, eps=1e-12):
 
 class Spectral_Norm(Constraint):
     '''
-    Uses power iteration method to calculate a fast approximation 
-    of the spectral norm (Golub & Van der Vorst)
+    Spectral normalization of layer weights.
+
+    CAUTION This code has not been tested!
+
+    Uses power iteration method to calculate a fast approximation of the spectral norm (Golub & Van der Vorst)
     The weights are then scaled by the inverse of the spectral norm
+
+    References:
+    [1] Spectral Normalization for Generative Adversarial Networks, https://arxiv.org/abs/1802.05957
+    [2] Derek Wilcox, https://colab.research.google.com/drive/1f2Ejlm3UmsthqQni9vFkGmTTcS_ndqXR
     '''
     def __init__(self, power_iters=1):
         self.n_iters = power_iters
@@ -462,6 +469,12 @@ class DCGAN(GAN):
 class MultiscaleGAN(GAN):
 
     def __init__(self, dataset, version=None, z_dim=128, patch=256, width_ratio=1, kernel_size=5, bn=True, drop=0, sn=False, min_output=8, up='conv', gp=True, cd=False):
+        """
+        A Multiscale GAN with direct connection of (multi-scale) generator outputs to corresponding feature maps in the discriminator.
+
+        # References:
+        [1] MSG-GAN: Multi-Scale Gradients for Generative Adversarial Networks, https://arxiv.org/abs/1903.06048
+        """
         super().__init__(dataset, version, gp, cd)
         
         if up not in {'conv', 'interp'}:
@@ -470,7 +483,9 @@ class MultiscaleGAN(GAN):
         if width_ratio not in {0.5, 1, 2, 3, 4, 5, 6, 7, 8}:
             raise ValueError(f'Invalid width ratio: {width_ratio}!')
         
+        # Save hyperparameters for future reference
         self.g_layers = int(np.log2(min(patch, patch * width_ratio)) - 2)
+        self.d_layers = self.g_layers
         self.z_dim = z_dim
         self.patch = patch
         self.width_ratio = width_ratio
@@ -481,8 +496,7 @@ class MultiscaleGAN(GAN):
         self.up = up
         self.kernel_size = kernel_size
     
-        # Generator ----------------------------------------------------------------------------------
-        self.d_layers = self.g_layers
+        # Generator ----------------------------------------------------------------------------------        
         n_conv = 2
         m = 4.0
         interpolate = up == 'interp'
