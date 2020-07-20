@@ -43,7 +43,50 @@ ln -s /beegfs/mm11333/data/voxceleb1 ./data/
 ln -s /beegfs/mm11333/data/voxceleb2 ./data/
 ``` 
 
-## Getting Started
+## Usage (Command Line)
+
+### Train a speaker verifier
+``` 
+python -u ./routines/verifier/train.py --net "xvector" --learning_rate 0.001 --batch 32
+```
+
+### Test a speaker verifier
+``` 
+python -u ./routines/verifier/test.py --net "xvector/v000" --test_n_pair 1000
+```
+
+### Baseline evaluation of a speaker verifier 
+
+``` 
+...
+```
+
+### Train a GAN
+```
+> python3 routines/gan/train.py -d voxceleb-male -e 200
+``` 
+
+### Test a GAN (Show samples)
+``` 
+> python3 routines/gan/preview.py -d voxceleb-male
+``` 
+
+### Optimize MVs
+``` 
+...
+```
+
+### Test a speaker verifier against master voice sets
+``` 
+python -u ./routines/mv/test2csv.py --net "xvector/v000"
+```
+
+## Usage (APIs)
+
+...
+
+## NYU HPC
+
 
 ### Running scripts in interactive mode
 
@@ -115,39 +158,8 @@ Open your browser locally and paste the ```URL``` retrieved above, here:
 http://localhost:7500/?token=8d70f37561638d78b1ad0096de2ffa4abab4862d336084ae
 ``` 
 
-## Usage
+## Contributing to the Code
 
-### Train a speaker verifier
-``` 
-python -u ./routines/verifier/train.py --net "xvector" --learning_rate 0.001 --batch 32
-```
-
-### Test a speaker verifier
-``` 
-python -u ./routines/verifier/test.py --net "xvector/v000" --test_n_pair 1000
-```
-
-### Train a GAN
-```
-> python3 routines/gan/train.py -d voxceleb-male -e 200
-``` 
-
-### Test a GAN (Show samples)
-``` 
-> python3 routines/gan/preview.py -d voxceleb-male
-``` 
-
-### Optimize a MV
-``` 
-...
-```
-
-### Test a speaker verifier against master voice sets
-``` 
-python -u ./routines/mv/test2csv.py --net "xvector/v000"
-```
-
-## Contribution
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
 in this direction. We have done our best to document, refactor, and test the code before publication.
 
