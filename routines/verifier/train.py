@@ -10,8 +10,9 @@ from helpers.datapipeline import data_pipeline_verifier
 from helpers.dataset import get_mv_analysis_users, load_data_set, load_test_data_from_file
 from helpers.audio import load_noise_paths, cache_noise_data
 
-from models.verifier.resnet50vox import ResNet50Vox
-from models.verifier.resnet34vox import ResNet34Vox
+from models.verifier.thinresnet34 import ThinResNet34
+from models.verifier.resnet50 import ResNet50
+from models.verifier.resnet34 import ResNet34
 from models.verifier.xvector import XVector
 from models.verifier.vggvox import VggVox
 
@@ -28,14 +29,17 @@ def main():
     parser.add_argument('--batch', dest='batch', default=64, type=int, action='store', help='Batch size')
     parser.add_argument('--learning_rate', dest='learning_rate', default=0.001, type=float, action='store', help='Learning rate')
     parser.add_argument('--decay_factor', dest='decay_factor', default=0.1, type=float, action='store', help='Decay factor for learning rate')
-    parser.add_argument('--decay_step', dest='decay_step', default=10, type=int, action='store', help='Decay step of learning rate')
+    parser.add_argument('--decay_step', dest='decay_step', default=25, type=int, action='store', help='Decay step of learning rate')
     parser.add_argument('--loss', dest='loss', default='softmax', type=str, choices=['softmax', 'amsoftmax'], action='store', help='Type of loss')
-    parser.add_argument('--aggregation', dest='aggregation', default='avg', type=str, choices=['avg', 'vlad', 'gvlad'], action='store', help='Type of aggregation')
+    parser.add_argument('--aggregation', dest='aggregation', default='gvlad', type=str, choices=['avg', 'vlad', 'gvlad'], action='store', help='Type of aggregation')
     parser.add_argument('--vlad_clusters', dest='vlad_clusters', default=10, type=int, action='store', help='Number of vlad clusters')
     parser.add_argument('--ghost_clusters', dest='ghost_clusters', default=2, type=int, action='store', help='Number of ghost clusters')
     parser.add_argument('--weight_decay', dest='weight_decay', default=1e-4, type=float, action='store', help='Weight decay')
     parser.add_argument('--optimizer', dest='optimizer', default='adam', choices=['adam', 'sgd'], type=str, action='store', help='Type of optimizer')
     parser.add_argument('--patience', dest='patience', default=20, type=int, action='store', help='Number of epochs with non-improving EER')
+    parser.add_argument('--prefetch', dest='prefetch', default=1024, type=int, action='store', help='Number of pre-fetched batches for data pipeline')
+    parser.add_argument('--embs_size', dest='embs_size', default=512, type=int, action='store', help='Size of the speaker embedding')
+    parser.add_argument('--embs_name', dest='embs_name', default='embs', type=str, action='store', help='Name of the layer from which speaker embeddings are extracted')
 
     # Parameters for validation
     parser.add_argument('--val_base_path', dest='val_base_path', default='./data/voxceleb1/test', type=str, action='store', help='Base path for validation trials')
@@ -51,12 +55,12 @@ def main():
 
     args = parser.parse_args()
 
-    mode = ('filterbank' if args.net.split('/')[0] == 'xvector' else 'spectrum')
+    output_type = ('filterbank' if args.net.split('/')[0] == 'xvector' else 'spectrum')
 
     print('Parameters summary')
 
     print('>', 'Net: {}'.format(args.net))
-    print('>', 'Mode: {}'.format(mode))
+    print('>', 'Mode: {}'.format(output_type))
 
     print('>', 'Val pairs dataset path: {}'.format(args.val_base_path))
     print('>', 'Val pairs path: {}'.format(args.val_pair_path))
@@ -73,6 +77,9 @@ def main():
     print('>', 'Aggregation: {}'.format(args.aggregation))
     print('>', 'Optimizer: {}'.format(args.optimizer))
     print('>', 'Patience: {}'.format(args.patience))
+    print('>', 'Prefetch: {}'.format(args.prefetch))
+    print('>', 'Embedding size: {}'.format(args.embs_size))
+    print('>', 'Embedding name: {}'.format(args.embs_name))
 
     print('>', 'Sample rate: {}'.format(args.sample_rate))
     print('>', 'Augmentation flag: {}'.format(args.augment))
@@ -94,7 +101,7 @@ def main():
 
     # Data pipeline output test
     print('Checking data pipeline output')
-    train_data = data_pipeline_verifier(x_train, y_train, classes, augment=args.augment, mode=mode, noise_paths=noise_paths, noise_cache=noise_cache, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch)
+    train_data = data_pipeline_verifier(x_train, y_train, int(args.sample_rate*args.n_seconds), args.sample_rate, args.batch, args.prefetch, output_type)
 
     for index, x in enumerate(train_data):
         print('>', index, x[0].shape, x[1].shape)
@@ -102,14 +109,15 @@ def main():
             break
 
     # Create and train model
-    train_data = data_pipeline_verifier(x_train, y_train, classes, augment=args.augment, mode=mode, noise_paths=noise_paths, noise_cache=noise_cache, sample_rate=args.sample_rate, n_seconds=args.n_seconds, batch=args.batch)
+    train_data = data_pipeline_verifier(x_train, y_train, int(args.sample_rate*args.n_seconds), args.sample_rate, args.batch, args.prefetch, output_type)
 
     print('Creating model')
-    available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
-    model = available_nets[args.net.split('/')[0]](id=(int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1), noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
-    model.build(classes=classes, loss=args.loss, aggregation=args.aggregation, vlad_clusters=args.vlad_clusters, ghost_clusters=args.ghost_clusters, weight_decay=args.weight_decay)
+    available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thinresnet34': ThinResNet34}
+
+    model = available_nets[args.net.split('/')[0]](id=(int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1))
+    model.build(classes, args.embs_size, args.embs_name, args.loss, args.aggregation, args.vlad_clusters, args.ghost_clusters, args.weight_decay, 'train')
     model.load()
-    model.train(train_data=train_data, val_data=val_data, mode=mode, steps_per_epoch=len(x_train)//args.batch, epochs=args.n_epochs, learning_rate=args.learning_rate, optimizer=args.optimizer, decay_factor=args.decay_factor, decay_step=args.decay_step, patience=args.patience)
+    model.train(train_data, val_data, output_type, len(x_train)//args.batch, args.n_epochs, args.learning_rate, args.decay_factor, args.decay_step, args.optimizer)
 
 if __name__ == '__main__':
     main()

@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-import matplotlib.pylab as plt
-import matplotlib.pyplot as plot
-import numpy as np
+
 from skimage.transform import resize
+import matplotlib.pyplot as plot
+import matplotlib.pylab as plt
+import numpy as np
 
 from tests import spectrum
 

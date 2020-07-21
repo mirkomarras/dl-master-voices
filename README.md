@@ -47,12 +47,12 @@ ln -s /beegfs/mm11333/data/voxceleb2 ./data/
 
 ### Train a speaker verifier
 ``` 
-python -u ./routines/verifier/train.py --net "xvector" --learning_rate 0.001 --batch 32
+> python ./routines/verifier/train.py  --net "xvector" --val_n_pair 10000 
 ```
 
 ### Test a speaker verifier
 ``` 
-python -u ./routines/verifier/test.py --net "xvector/v000" --test_n_pair 1000
+> python -u ./routines/verifier/test.py --net "xvector/v000"
 ```
 
 ### Baseline evaluation of a speaker verifier 

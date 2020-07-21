@@ -8,6 +8,7 @@ numba==0.47.0
 numpy
 pandas
 pydub==0.23.1
+pytest
 soundfile==0.10.3.post1
 scikit-learn==0.20.2
 scipy

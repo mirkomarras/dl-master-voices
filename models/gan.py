@@ -1,18 +1,15 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import os
-import json
-import numpy as np
-import tensorflow as tf
-
-from tqdm import tqdm
+from tensorflow.keras.constraints import Constraint
 import matplotlib.pyplot as plt
+import tensorflow as tf
+from tqdm import tqdm
+import numpy as np
+import json
+import os
 
 from helpers import plotting
-
-
-from tensorflow.keras.constraints import Constraint
 
 tfl = tf.keras.layers
 

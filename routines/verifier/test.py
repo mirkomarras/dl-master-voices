@@ -7,10 +7,11 @@ import os
 
 from helpers.dataset import load_test_data_from_file, create_template_trials
 
-from models.verifier.vggvox import VggVox
+from models.verifier.thinresnet34 import ThinResNet34
+from models.verifier.resnet50 import ResNet50
+from models.verifier.resnet34 import ResNet34
 from models.verifier.xvector import XVector
-from models.verifier.resnet50vox import ResNet50Vox
-from models.verifier.resnet34vox import ResNet34Vox
+from models.verifier.vggvox import VggVox
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -26,10 +27,12 @@ def main():
     # Paremeters for verifier internal mechanics
     parser.add_argument('--classes', dest='classes', default=5205, type=int, action='store', help='Classes')
     parser.add_argument('--loss', dest='loss', default='softmax', type=str, choices=['softmax', 'amsoftmax'], action='store', help='Type of loss')
-    parser.add_argument('--aggregation', dest='aggregation', default='avg', type=str, choices=['avg', 'vlad', 'gvlad'], action='store', help='Type of aggregation')
+    parser.add_argument('--aggregation', dest='aggregation', default='gvlad', type=str, choices=['avg', 'vlad', 'gvlad'], action='store', help='Type of aggregation')
     parser.add_argument('--vlad_clusters', dest='vlad_clusters', default=12, type=int, action='store', help='Number of vlad clusters')
     parser.add_argument('--ghost_clusters', dest='ghost_clusters', default=2, type=int, action='store', help='Number of ghost clusters')
     parser.add_argument('--weight_decay', dest='weight_decay', default=1e-4, type=float, action='store', help='Weight decay')
+    parser.add_argument('--embs_size', dest='embs_size', default=512, type=int, action='store', help='Size of the speaker embedding')
+    parser.add_argument('--embs_name', dest='embs_name', default='embs', type=str, action='store', help='Name of the layer from which speaker embeddings are extracted')
 
     # Parameters for testing a verifier against eer
     parser.add_argument('--test_base_path', dest='test_base_path', default='./data/voxceleb1/test', type=str, action='store', help='Base path for validation trials')
@@ -44,15 +47,17 @@ def main():
 
     print('Parameters summary')
 
-    mode = ('filterbank' if args.net.split('/')[0] == 'xvector' else 'spectrum')
+    output_type = ('filterbank' if args.net.split('/')[0] == 'xvector' else 'spectrum')
 
     print('>', 'Net: {}'.format(args.net))
     print('>', 'Policy: {}'.format(args.policy))
     print('>', 'Number of enrolment templates: {}'.format(args.n_templates))
-    print('>', 'Mode: {}'.format(mode))
+    print('>', 'Mode: {}'.format(output_type))
     print('>', 'Classes: {}'.format(args.classes))
     print('>', 'Loss: {}'.format(args.loss))
     print('>', 'Aggregation: {}'.format(args.aggregation))
+    print('>', 'Embedding size: {}'.format(args.embs_size))
+    print('>', 'Embedding name: {}'.format(args.embs_name))
 
     print('>', 'Sample rate: {}'.format(args.sample_rate))
     print('>', 'Test pairs dataset path: {}'.format(args.test_base_path))
@@ -72,15 +77,15 @@ def main():
 
     # Create model
     print('Creating model')
-    available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
-    model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), n_seconds=args.n_seconds, sample_rate=args.sample_rate)
-    model.build(classes=args.classes, loss=args.loss, aggregation=args.aggregation, vlad_clusters=args.vlad_clusters, ghost_clusters=args.ghost_clusters, weight_decay=args.weight_decay, training_phase=False)
+    available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thinresnet34': ThinResNet34}
+    model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')))
+    model.build(0, args.embs_size, args.embs_name, args.loss, args.aggregation, args.vlad_clusters, args.ghost_clusters, args.weight_decay, 'test')
     model.load()
 
     # Test model
     print('Testing model')
     t1 = time.time()
-    results = model.test(test_data, args.policy, mode, save=True)
+    results = model.test(test_data, args.policy, output_type, save=True)
     t2 = time.time()
     print('>', t2-t1, 'seconds for testing with', results)
 
