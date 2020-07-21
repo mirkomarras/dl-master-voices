@@ -19,7 +19,6 @@ def test_compare_inverted_spectrum(original_audio, full=False, sample_rate=16000
 
     if not full:
         sp = np.vstack((sp, sp[::-1]))
-        sp = np.hstack((sp, np.tile(sp[:, [-1]], 1)))
         print('> numpy mirrored spectrum:', sp.shape, np.min(sp), np.max(sp))
 
     inv_signal = spectrum_to_signal(sp.T, len(original_audio))

@@ -200,7 +200,7 @@ def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
     frames = framesig(signal, frame_len=int(frame_size * sample_rate), frame_step=int(frame_stride * sample_rate), winfunc=np.hamming)
     fft = abs(np.fft.fft(frames, n=num_fft))
     if not full:
-        fft = fft[:-1, :(num_fft // 2)]
+        fft = fft[:, :(num_fft // 2)]
     fft_norm, fft_mean, fft_std = normalize_frames(fft.T)
 
     return fft_norm, fft_mean, fft_std
