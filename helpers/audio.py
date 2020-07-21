@@ -184,7 +184,7 @@ def denormalize_frames(spectrum, means, stds, epsilon=1e-12):
     '''
     return np.array([z * max(stds[i],epsilon) + means[i] for i, z in enumerate(spectrum)])
 
-def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, symmetric=False):
+def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, full=False):
     """
     Function to compute a numpy spectrum from signal
     :param signal:          Audio signal from which the spectrum will be extracted  - shape (None, 1)
@@ -199,7 +199,7 @@ def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
 
     frames = framesig(signal, frame_len=int(frame_size * sample_rate), frame_step=int(frame_stride * sample_rate), winfunc=np.hamming)
     fft = abs(np.fft.fft(frames, n=num_fft))
-    if not symmetric:
+    if not full:
         fft = fft[:-1, :(num_fft // 2)]
     fft_norm, fft_mean, fft_std = normalize_frames(fft.T)
 
