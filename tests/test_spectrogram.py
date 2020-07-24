@@ -17,13 +17,14 @@ def rolled_norm(a, b, shift=4):
                 best_shift = (rx, ry)
     return l2, best_shift
 
-
+''' COPIED TO conftest.py TO WORK AS A SESSION FIXTURE '''
+'''
 @pytest.fixture(scope="session")
 def sample_wave():
     audio_path = './tests/original_audio.wav'
     xt = decode_audio(audio_path).astype(np.float32)
     return xt
-
+'''
 
 def test_compare_np_tf(sample_wave):
     
