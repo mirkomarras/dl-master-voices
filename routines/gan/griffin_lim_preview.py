@@ -32,7 +32,9 @@ def griffin_lim_gan(model, dataset, version, n=32, patch=256, aspect=1, sample_r
     #get the samples from the generator
     samples = gan_.sample(n).numpy()
 
-    print(samples[0].shape)
+    #print(samples[0].shape)
+    #print(samples[0][:,0].shape)
+    #print(samples[0].flatten().shape)
 
     #use griffin-lim algorithm
     i = 0
@@ -40,14 +42,14 @@ def griffin_lim_gan(model, dataset, version, n=32, patch=256, aspect=1, sample_r
         print("SAMPLE #{}/{}".format(i+1,len(samples)))
 
         #CONVERTING (gives weird spectrogram)
-        norm, avg, std = tf_samples = get_np_spectrum(s.flatten(), sample_rate=sample_rate,num_fft=512,full=True)
+        norm, avg, std = tf_samples = get_np_spectrum(s[s.sum(axis=1).argmax(),:].flatten(), sample_rate=sample_rate,num_fft=512,full=True)
         sp = denormalize_frames(norm, avg, std)
         
         #INVERTING
         inv_signal = spectrum_to_signal(sp.T, len(s))
 
         #EXPORTING
-        fig = plotting.imsc(sp, cmap='hsv')
+        fig = plotting.imsc(s, cmap='hsv')
         gla_dir = os.path.join(gan_.dirname(make=False), "gla_samples")
         if not os.path.exists(gla_dir):
             os.makedirs(gla_dir)
