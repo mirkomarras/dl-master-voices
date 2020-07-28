@@ -117,7 +117,7 @@ def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024, 
 
     if output_type == 'spectrum':
         # frame_size=0.016, frame_stride=0.008
-        dataset = dataset.map(lambda x: get_tf_spectrum(x, num_fft=512))
+        dataset = dataset.map(lambda x: get_tf_spectrum(x, num_fft=512, normalized=False))
 
     if pad_width == 'auto':
         h = dataset.element_spec.shape[1]

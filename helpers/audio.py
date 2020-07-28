@@ -112,18 +112,21 @@ def normalize_frames(m, epsilon=1e-12):
     return np.array(frames), np.array(means), np.array(stds)
 
 
-def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
+def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, normalized=True):
     assert signal.ndim == 1, 'Only 1-dim signals supported'
 
     frames = framesig(signal, frame_len=int(frame_size * sample_rate), frame_step=int(frame_stride * sample_rate), winfunc=np.hamming)
     fft = abs(np.fft.fft(frames, n=num_fft))
     fft = fft[:-1, :(num_fft // 2)]
+    if not normalized:
+        return fft
+
     fft_norm, fft_mean, fft_std = normalize_frames(fft.T)
 
     return fft_norm, fft_mean, fft_std
 
 
-def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
+def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, normalized=True):
     """
     Function to compute a tensorflow spectrum from signal
     :param signal:          Audio signal from which the spectrum will be extracted  - shape (None, 1)
@@ -147,6 +150,10 @@ def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
 
     # Drop the last element to get exactly `num_fft` bins
     magnitude_spectrum = magnitude_spectrum[:, :-1, :, :]
+    assert magnitude_spectrum.shape[1] == num_fft / 2 and magnitude_spectrum.shape[3] == 1
+
+    if not normalized:
+        return magnitude_spectrum
 
     # Normalize frames
     agg_axis = 2
@@ -155,8 +162,7 @@ def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
     normalized_spectrum = (magnitude_spectrum - tf.expand_dims(mean_tensor, agg_axis)) / tf.maximum(tf.expand_dims(std_dev_tensor, agg_axis), 1e-12)
 
     # Make sure the dimensions are as expected
-    normalized_spectrum_shape = normalized_spectrum.get_shape().as_list()
-    assert normalized_spectrum_shape[1] == num_fft / 2 and normalized_spectrum_shape[3] == 1
+    assert normalized_spectrum.shape[1] == num_fft / 2 and normalized_spectrum.shape[3] == 1
 
     return normalized_spectrum
 
