@@ -35,6 +35,7 @@ def get_mv_analysis_users(mv_analysis_path, type='all'):
 
     return output_users
 
+
 def load_data_set(audio_dir, mv_user_ids, include=False):
     """
     Function to load an audio data with format {user_id}/{video_id}/xyz.wav
@@ -62,6 +63,7 @@ def load_data_set(audio_dir, mv_user_ids, include=False):
     print('>', 'loaded', len(x), 'audio files from', len(np.unique(y)), 'users totally')
 
     return x, y
+
 
 def filter_by_gender(paths, labels, meta_file, gender='neutral'):
     """
@@ -95,6 +97,7 @@ def filter_by_gender(paths, labels, meta_file, gender='neutral'):
 
     return paths, labels
 
+
 def load_test_data_from_file(base_path, trials_path, n_templates=1, n_pairs=10, sample_rate=16000, n_seconds=3, print_interval=100):
     """
     Function lo load raw audio samples for testing
@@ -119,12 +122,13 @@ def load_test_data_from_file(base_path, trials_path, n_templates=1, n_pairs=10, 
         if (i+1) % print_interval == 0:
             print('\r> pair %5.0f / %5.0f' % (i+1, len(y)), end='')
 
-        x1.append(decode_audio(os.path.join(base_path, path_1), tgt_sample_rate=sample_rate).reshape((1, -1, 1)))
-        x2.append([decode_audio(os.path.join(base_path, path), tgt_sample_rate=sample_rate).reshape((1, -1, 1)) for path in (path_2 if isinstance(path_2, list) else [path_2])])
+        x1.append(decode_audio(os.path.join(base_path, path_1), sample_rate=sample_rate).reshape((1, -1, 1)))
+        x2.append([decode_audio(os.path.join(base_path, path), sample_rate=sample_rate).reshape((1, -1, 1)) for path in (path_2 if isinstance(path_2, list) else [path_2])])
 
     print('\n>', 'found', len(x1), 'pairs')
 
     return (x1, x2), y
+
 
 def create_template_trials(base_path, trials_path, n_templates=1, n_pos_pairs=10, n_neg_pairs=10):
     users = os.listdir(base_path)
@@ -164,6 +168,7 @@ def create_template_trials(base_path, trials_path, n_templates=1, n_pos_pairs=10
                 counter_pairs += 1
     print('> computed', counter_pairs-1, 'pairs')
 
+
 def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, n_seconds=3, n_templates=10):
     """
     Function to load data for master voice impersonation
@@ -193,7 +198,7 @@ def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, 
         class_paths = random.sample(mv_paths[class_index*samples_per_user:(class_index+1)*samples_per_user], n_templates)
 
         for path in class_paths:
-            x_mv_test.append(decode_audio(path.replace('.m4a', '.wav'), tgt_sample_rate=sample_rate).reshape((1, -1, 1)))
+            x_mv_test.append(decode_audio(path.replace('.m4a', '.wav'), sample_rate=sample_rate).reshape((1, -1, 1)))
             y_mv_test.append(class_index)
 
         if gender_map[class_paths[0].split(os.path.sep)[-3]] == 'm':
@@ -206,6 +211,7 @@ def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, 
     print()
 
     return x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test
+
 
 def load_mv_list(mv_analysis_path, mv_base_path, audio_meta, n_templates=10):
     """

@@ -8,12 +8,18 @@ import pandas as pd
 import numpy as np
 import os
 
-from helpers.audio import get_tf_spectrum, get_tf_filterbanks, play_n_rec
+from helpers.audio import get_tf_spectrum, get_tf_filterbanks
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class StepDecay():
     def __init__(self, init_alpha=0.01, decay_factor=0.25, decay_step=10):
+        '''
+        Implementation of the learning rate decay along epochs
+        :param init_alpha:      Initial learning rate
+        :param decay_factor:    Decay factor
+        :param decay_step:      Decay step as a number of epochs
+        '''
         self.init_alpha = init_alpha
         self.decay_factor = decay_factor
         self.decay_step = decay_step
@@ -24,8 +30,20 @@ class StepDecay():
         print('Learning rate for next epoch', float(alpha))
         return float(alpha)
 
+
 class VladPooling(tf.keras.layers.Layer):
     def __init__(self, mode, k_centers, g_centers=0, **kwargs):
+        '''
+        Implementation of the VLAD pooling layers
+
+        # References:
+        [1] NetVLAD: CNN architecture for weakly supervised place recognition. https://arxiv.org/pdf/1511.07247.pdf
+        [2] Ghostvlad for set-based face recognition. https://arxiv.org/pdf/1810.09951.pdf
+
+        :param mode:        Type of polling layer: 'vlad' or 'gvlad'
+        :param k_centers:   Number of centroids
+        :param g_centers:   Number of ghost centroids
+        '''
         self.k_centers = k_centers
         self.g_centers = g_centers
         self.mode = mode
@@ -69,89 +87,88 @@ class VladPooling(tf.keras.layers.Layer):
         outputs = tf.keras.backend.reshape(cluster_l2, [-1, int(self.k_centers) * int(num_features)])
         return outputs
 
+
 class Model(object):
-    """
-       Class to represent Speaker Verification (SV) models with model saving / loading and playback & recording capabilities
-    """
 
-    def __init__(self, name='', id=-1, noises=None, cache=None, n_seconds=3, sample_rate=16000, emb_size=1024):
-        """
-        Method to initialize a speaker verification model that will be saved in 'data/pt_models/{name}'
-        :param name:        String id for this model
-        :param id:          Version id for this model - default: auto-increment value along the folder 'data/pt_models/{name}'
-        :param noises:      Dictionary of paths to noise audio samples, e.g., noises['room'] = ['xyz.wav', ...]
-        :param cache:       Dictionary of noise audio samples, e.g., cache['xyz.wav'] = [0.1, .54, ...]
-        :param n_seconds:   Maximum number of seconds of an audio sample to be processed
-        :param sample_rate: Sample rate of an audio sample to be processed
-        """
-        self.noises = noises
-        self.cache = cache
 
-        self.sample_rate=sample_rate
-        self.n_seconds = n_seconds
-        self.emb_size = emb_size
+    def __init__(self, name='', id=-1):
+        '''
+        An Automated Speaker Verification (ASV) model
+        :param name:        Name of the model
+        :param id:          Model instance ID
+        '''
 
         self.name = name
+
         self.dir = os.path.join('.', 'data', 'pt_models', self.name)
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
+
         self.id = len(os.listdir(self.dir)) if id < 0 else id
         if not os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
             os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
+
         print('> created model folder', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
 
-    def get_model(self):
-        return self.inference_model
 
-    def build(self, classes=None, loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-4):
-        """
+    def infer(self):
+        '''
+        Create a model instance ready to generate speaker embeddings
+        :return: Inference model
+        '''
+        return tf.keras.Model(inputs=self.model.input, outputs=self.model.get_layer(self.embs_name).output)
+
+
+    def build(self, classes=None, embs_size=512, embs_name='embs', loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
+        '''
+
         Method to build a speaker verification model that takes audio samples of shape (None, 1) and impulse flags (None, 3)
         :param classes:         Number of classes that this model should manage during training
+        :param embs_size:       Size of the speaker embedding vector to be returned by the model
+        :param embs_name:       Name of the layer from which embeddings are extracted
         :param loss:            Type of loss
         :param aggregation:     Type of aggregation function
         :param vlad_clusters:   Number of vlad clusters in vlad and gvlad
         :param ghost_clusters:  Number of ghost clusters in vlad and gvlad
         :param weight_decay:    Decay of weights in convolutional layers
-        :return:                None
-        """
+        :param mode:            Building mode between 'train' and 'test'
+        :return:
+        '''
+        self.history = []
         self.model = None
-        self.inference_model = None
-        self.classes = classes
+        self.embs_size = embs_size
+        self.embs_name = embs_name
+
 
     def save(self):
         """
-        Method to save the weights of this model in 'data/pt_models/{name}/v{id}/model.tf'
-        :return:            None
+        Save this model
         """
         print('>', 'saving', self.name, 'model')
         self.model.save(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model.h5'))
+        pd.DataFrame(self.history, columns=['loss', 'acc', 'err', 'far@eer', 'frr@eer', 'thr@eer', 'far@far1', 'frr@far1', 'thr@far']).to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'history.csv'), index=False)
         print('>', 'saved', self.name, 'model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
+
 
     def load(self):
         """
-        Method to load weights for this model from 'data/pt_models/{name}/v{id}/model.tf'
-        :return:            None
+        Load this model
         """
         print('>', 'loading', self.name, 'model')
         if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
             if len(os.listdir(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))) > 0:
-                self.model = tf.keras.models.load_model(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model.h5'), custom_objects={'VladPooling':VladPooling})
-                self.inference_model = tf.keras.Model(inputs=self.model.input, outputs=self.model.get_layer('fc7').output)
+                self.model = tf.keras.models.load_model(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model.h5'), custom_objects={'VladPooling': VladPooling})
+                self.history = []
+                if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'history.csv')):
+                    self.history = pd.read_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'history.csv')).values.tolist()
                 print('>', 'loaded model from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
             else:
                 print('>', 'no pre-trained model for', self.name, 'model from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
         else:
             print('>', 'no directory for', self.name, 'model at', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
 
-    def embed(self, signal):
-        """
-        Method to compute the embedding vector extracted by this model from signal with no playback & recording
-        :param signal:      The audio signal from which the embedding vector will be extracted - shape (None,1)
-        :return:            None
-        """
-        return self.inference_model.predict(signal)
 
-    def train(self, train_data, val_data, mode='spectrum', steps_per_epoch=10, epochs=1, learning_rate=1e-1, decay_factor=0.1, decay_step=10, optimizer='adam', patience=5):
+    def train(self, train_data, val_data, output_type='spectrum', steps_per_epoch=10, epochs=1024, learning_rate=1e-3, decay_factor=0.1, decay_step=10, optimizer='adam'):
         """
         Method to train and validate this model
         :param train_data:      Training data pipeline - shape ({'input_1': (batch, None, 1), 'input_2': (batch, 3)}), (batch, classes)
@@ -166,95 +183,56 @@ class Model(object):
         """
 
         print('>', 'training', self.name, 'model')
-        schedule = StepDecay(init_alpha=learning_rate, decay_factor=decay_factor, decay_step=decay_step)
-        lr_callback = tf.keras.callbacks.LearningRateScheduler(schedule)
 
-        self.model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
-        num_nonimproving_steps, last_eer = 0, 1.0
+        lr_callback = tf.keras.callbacks.LearningRateScheduler(StepDecay(init_alpha=learning_rate, decay_factor=decay_factor, decay_step=decay_step))
+
+        self.model.compile(optimizer=optimizer, loss='sparse_categorical_crossentropy', metrics=['accuracy'])
+
         for epoch in range(epochs):
-            self.model.fit(train_data, steps_per_epoch=steps_per_epoch, initial_epoch=epoch, epochs=epoch+1, callbacks=[lr_callback])
-            self.inference_model = tf.keras.Model(inputs=self.model.input, outputs=self.model.get_layer('fc7').output)
-            (eer, _, _, _), _ = self.test(val_data, mode=mode)
-            if eer < last_eer:
-                print('>', 'eer improved from', round(last_eer, 2), 'to', round(eer, 2))
-                num_nonimproving_steps = 0
-                last_eer = eer
-                self.save()
-            else:
-                print('>', 'eer NOT improved from', round(last_eer, 2))
-                num_nonimproving_steps += 1
-            if num_nonimproving_steps == patience:
-                print('>', 'early stopping training after', num_nonimproving_steps, 'non-improving steps')
-                break
+            tf_history = self.model.fit(train_data, steps_per_epoch=steps_per_epoch, initial_epoch=epoch, epochs=epoch + 1, callbacks=[lr_callback]).history
+            self.history.append([tf_history['loss'][0], tf_history['accuracy'][0]] + self.test(val_data, output_type))
+            self.save()
 
         print('>', 'trained', self.name, 'model')
 
-    def test(self, test_data, policy='any', mode='spectrum', normalize=True, save=False):
+    def test(self, test_data, output_type='spectrum', policy='any', save=False):
         """
         Method to test this model against verification attempts
         :param test_data:       Pre-computed testing data pairs - shape ((pairs, None, 1), (pairs, None, 1)), (pairs, binary_label)
         :return:                (Model EER, EER threshold, FAR1% threshold)
         """
         print('>', 'testing', self.name, 'model on policy', policy)
+
         (x1, x2), y = test_data
-        eer, thr_eer, id_eer, thr_far1, id_far1 = 0, 0, 0, 0, 0
-        far, frr = [], []
-        similarity_scores = []
-        target_scores = []
 
+        scores = []
+        labels = []
+        extractor = self.infer()
+        eer, thr_eer, id_eer, thr_far1, id_far1, far, frr = 0, 0, 0, 0, 0, [], []
         for pair_id, (f1, f2, label) in enumerate(zip(x1, x2, y)):
-            inp_1 = get_tf_spectrum(f1) if mode == 'spectrum' else get_tf_filterbanks(f1)
-            inp_2 = [get_tf_spectrum(f) if mode == 'spectrum' else get_tf_filterbanks(f) for f in (f2 if isinstance(f2, list) else [f2])]
-            emb1 = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(self.embed(inp_1))
-            emb2 = [tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(self.embed(inp)) for inp in inp_2]
+            inp_1 = get_tf_spectrum(f1, num_fft=512) if output_type == 'spectrum' else get_tf_filterbanks(f1, n_filters=24)
+            inp_2 = [get_tf_spectrum(f, num_fft=512) if output_type == 'spectrum' else get_tf_filterbanks(f, n_filters=24) for f in (f2 if isinstance(f2, list) else [f2])]
+            emb1 = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(extractor.predict(inp_1))
+            emb2 = [tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(extractor.predict(inp)) for inp in inp_2]
 
-            if normalize:
-                emb1 = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(emb1)
-                emb2 = tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(emb2)
+            labels.append(label)
+            scores.append(1 - cosine(emb1, np.mean(emb2, axis=0)) if policy == 'avg' else np.max([1 - cosine(emb1, emb) for emb in emb2]))
 
-            target_scores.append(label)
-            similarity_scores.append(1 - cosine(emb1, np.mean(emb2, axis=0)) if policy == 'avg' else np.max([1 - cosine(emb1, emb) for emb in emb2]))
-
-            if (pair_id+1) % 5 == 0:
-                far, tpr, thresholds = roc_curve(target_scores, similarity_scores, pos_label=1)
+            if (pair_id + 1) % 5 == 0 and pair_id > 0:
+                far, tpr, thresholds = roc_curve(labels, scores, pos_label=1)
                 frr = 1 - tpr
                 id_eer = np.argmin(np.abs(far - frr))
                 id_far1 = np.argmin(np.abs(far - 0.01))
                 eer = float(np.mean([far[id_eer], frr[id_eer]]))
                 thr_eer = thresholds[id_eer]
                 thr_far1 = thresholds[id_far1]
-                print('\r> pair', pair_id+1, 'of', len(x1), '- eer', round(eer, 4), 'thr@eer', round(thr_eer, 4), 'thr@far1', round(thr_far1, 4), end='')
+                print('\r> pair', pair_id + 1, 'of', len(x1), '- eer', round(eer, 4), 'thr@eer', round(thr_eer, 4), 'thr@far1', round(thr_far1, 4), end='')
 
         print('\n>', 'tested', self.name, 'model')
 
         if save:
-            df = pd.DataFrame({'target': target_scores, 'similarity': similarity_scores})
+            df = pd.DataFrame({'target': scores, 'similarity': labels})
             df.to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_vox1_sv_test.csv'))
             print('>', 'saved results in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_vox1_sv_test.csv'))
 
-        return (eer, far[id_eer], frr[id_eer], thr_eer), (far[id_far1], frr[id_far1], thr_far1)
-
-    def impersonate(self, impostor_signal, threshold, policy, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10, mode='spectrum'):
-        """
-        Method to test this model under impersonation attempts
-        :param impostor_signal:     Audio signal against which this model is tested - shape (None, 1)
-        :param threshold:           Verification threshold
-        :param policy:              Verification policy - choices ['avg', 'any']
-        :param x_mv_test_embs:      Testing users' embeddings - shape (users, n_templates, 512)
-        :param y_mv_test:           Testing users' labels - shape (users, n_templates)
-        :param male_x_mv_test:      Male users' ids
-        :param female_x_mv_test:    Female users' ids
-        :param n_templates:         Number of audio samples to create a user template
-        :return:                    {'m': impersonation rate against male users, 'f': impersonation rate against female users}
-        """
-
-        inp_1 = get_tf_spectrum(impostor_signal) if mode == 'spectrum' else get_tf_filterbanks(impostor_signal)
-        mv_emb = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(self.embed(inp_1))
-        mv_fac = np.zeros(len(np.unique(y_mv_test)))
-        for class_index, class_label in enumerate(np.unique(y_mv_test)):
-            template = x_mv_test_embs[class_index*n_templates:(class_index+1)*n_templates]
-            if policy == 'any':
-                mv_fac[class_index] = len([1 for template_emb in np.array(template) if tf.keras.layers.Dot(axes=1, normalize=True)([template_emb, mv_emb]) > threshold])
-            elif policy == 'avg':
-                mv_fac[class_index] = 1 if tf.keras.layers.Dot(axes=1, normalize=True)([mv_emb, np.mean(np.array(template), axis=0)]) > threshold else 0
-        return {'m': mv_fac[np.array(male_x_mv_test)], 'f': mv_fac[np.array(female_x_mv_test)]}
+        return [eer, far[id_eer], frr[id_eer], thr_eer, far[id_far1], frr[id_far1], thr_far1]

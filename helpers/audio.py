@@ -10,21 +10,21 @@ import random
 import math
 import os
 
-def decode_audio(fp, tgt_sample_rate=16000):
+def decode_audio(fp, sample_rate=16000):
     """
     Function to decode an audio file
     :param fp:              File path to the audio sample
-    :param tgt_sample_rate: Targeted sample rate
+    :param sample_rate: Targeted sample rate
     :return:                Audio sample
     """
-    assert tgt_sample_rate > 0
+    assert sample_rate > 0
 
     try:
         audio_sf, audio_sr = sf.read(fp, dtype='float32')
-        if audio_sf.ndim > 1 or audio_sr != tgt_sample_rate:
-            audio_sf, new_sample_rate = librosa.load(fp, sr=tgt_sample_rate, mono=True)
+        if audio_sf.ndim > 1 or audio_sr != sample_rate:
+            audio_sf, new_sample_rate = librosa.load(fp, sr=sample_rate, mono=True)
     except:
-        audio_sf, new_sample_rate = librosa.load(fp, sr=tgt_sample_rate, mono=True)
+        audio_sf, new_sample_rate = librosa.load(fp, sr=sample_rate, mono=True)
 
     return audio_sf
 
@@ -50,7 +50,7 @@ def load_noise_paths(noise_dir):
 
 def cache_noise_data(noise_paths, sample_rate=16000):
     """
-    Function to decode noise audio samples
+    Function to cache noise audio samples
     :param noise_paths:     Directory path - organized in ./{speaker|room|microphone}/xyz.wav} - returned by load_noise_paths(...)
     :param sample_rate:     Sample rate of an audio sample to be processed
     :return:                Dictionary of noise audio samples, e.g., cache['xyz.wav'] = [0.1, .54, ...]
@@ -61,23 +61,79 @@ def cache_noise_data(noise_paths, sample_rate=16000):
     noise_cache = {}
     for noise_type, noise_files in noise_paths.items():
         for nf in noise_files:
-            noise_cache[nf] = decode_audio(nf, tgt_sample_rate=sample_rate).reshape((-1, 1, 1))
+            noise_cache[nf] = decode_audio(nf, sample_rate=sample_rate).reshape((-1, 1, 1))
 
     return noise_cache
 
 
-def rolling_window(a, window, step=1):
-    shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
-    strides = a.strides + (a.strides[-1],)
-    return np.lib.stride_tricks.as_strided(a, shape=shape, strides=strides)[::step]
+def rolling_window(signal, window, step=1):
+    '''
+    Function to rolling a time window, i.e., creating frames from a signal
+    :param signal:  Signal to be framed
+    :param window:  Window size
+    :param step:    Step size
+    :return:
+    '''
+    shape = signal.shape[:-1] + (signal.shape[-1] - window + 1, window)
+    strides = signal.strides + (signal.strides[-1],)
+    return np.lib.stride_tricks.as_strided(signal, shape=shape, strides=strides)[::step]
 
 
 def round_half_up(number):
+    """
+    Function to round half up a number
+    :param number:      Number to be rounded
+    :return:            Half-up-rounded number
+    """
     return int(decimal.Decimal(number).quantize(decimal.Decimal('1'), rounding=decimal.ROUND_HALF_UP))
 
 
-def framesig(sig, frame_len, frame_step, winfunc=lambda x: np.ones((x,)), stride_trick=True):
-    slen = len(sig)
+def deframesig(frames, siglen, frame_len, frame_step, winfunc=lambda x: np.ones((x,))):
+    '''
+    Function to deframe a signal
+    :param frames:      Original frames
+    :param siglen:      Lenght of the signal
+    :param frame_len:   Lenght of a frame
+    :param frame_step:  Step between two consecutive frames
+    :param winfunc:     Function to be applied to each window
+    :return:            (signal)
+    '''
+    frame_len = round_half_up(frame_len)
+    frame_step = round_half_up(frame_step)
+    numframes = np.shape(frames)[0]
+    assert np.shape(frames)[1] == frame_len, '"frames" matrix is wrong size, 2nd dim is not equal to frame_len'
+
+    indices = np.tile(np.arange(0, frame_len), (numframes, 1)) + np.tile(np.arange(0, numframes * frame_step, frame_step), (frame_len, 1)).T
+    indices = np.array(indices, dtype=np.int32)
+    padlen = (numframes - 1) * frame_step + frame_len
+
+    if siglen <= 0: siglen = padlen
+
+    rec_signal = np.zeros((padlen,))
+    window_correction = np.zeros((padlen,))
+    win = winfunc(frame_len)
+
+    for i in range(0, numframes):
+        window_correction[indices[i, :]] = window_correction[indices[i, :]] + win + 1e-15  # add a little bit so it is never zero
+        rec_signal[indices[i, :]] = rec_signal[indices[i, :]] + frames[i, :]
+
+    rec_signal = rec_signal / window_correction
+    return rec_signal[0:siglen]
+
+    return frames * win
+
+
+def framesig(signal, frame_len, frame_step, winfunc=lambda x: np.ones((x,)), stride_trick=True):
+    """
+    Function to frame a signal
+    :param signal:      Spectrum to normalize
+    :param frame_len:   Lenght of a frame
+    :param frame_step:  Step between two consecutive frames
+    :param winfunc:     Function to be applied to each window
+    :param stride_trick:Flag to select whether applying rolling window or not
+    :return:            Frame matrix
+    """
+    slen = len(signal)
     frame_len = int(round_half_up(frame_len))
     frame_step = int(round_half_up(frame_step))
     if slen <= frame_len:
@@ -88,7 +144,7 @@ def framesig(sig, frame_len, frame_step, winfunc=lambda x: np.ones((x,)), stride
     padlen = int((numframes - 1) * frame_step + frame_len)
 
     zeros = np.zeros((padlen - slen,))
-    padsignal = np.concatenate((sig, zeros))
+    padsignal = np.concatenate((signal, zeros))
     if stride_trick:
         win = winfunc(frame_len)
         frames = rolling_window(padsignal, window=frame_len, step=frame_step)
@@ -101,25 +157,45 @@ def framesig(sig, frame_len, frame_step, winfunc=lambda x: np.ones((x,)), stride
     return frames * win
 
 
-def normalize_frames(m, epsilon=1e-12):
+def normalize_frames(spectrum, epsilon=1e-12):
+    """
+    Function to compute a numpy spectrum from signal
+    :param spectrum:        Spectrum to normalize
+    :param epsilon:         Maximum standard deviation
+    :return:                Normalized spectrum
+    """
     frames = []
     means = []
     stds = []
-    for v in m:
+    for v in spectrum:
         means.append(np.mean(v))
         stds.append(np.std(v))
         frames.append((v - np.mean(v)) / max(np.std(v), epsilon))
     return np.array(frames), np.array(means), np.array(stds)
 
+def denormalize_frames(spectrum, means, stds, epsilon=1e-12):
+    '''
+    Function to denormalize a spectrum
+    :param spectrum:    Spectrum to denormalize
+    :param means:       Pre-computed means for this spectrum
+    :param stds:        Pre-computed std deviations for this spectrum
+    :param epsilon:     Maximum standard deviation
+    :return:
+    '''
+    return np.array([z * max(stds[i],epsilon) + means[i] for i, z in enumerate(spectrum)])
 
-def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, normalized=True):
+def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, normalized=True, full=False):
     assert signal.ndim == 1, 'Only 1-dim signals supported'
 
     frames = framesig(signal, frame_len=int(frame_size * sample_rate), frame_step=int(frame_stride * sample_rate), winfunc=np.hamming)
     fft = abs(np.fft.fft(frames, n=num_fft))
+
     fft = fft[:-1, :(num_fft // 2)]
     if not normalized:
         return fft
+
+    if not full:
+        fft = fft[:, :(num_fft // 2)]
 
     fft_norm, fft_mean, fft_std = normalize_frames(fft.T)
 
@@ -134,7 +210,7 @@ def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
     :param frame_size:      Size of a frame in seconds
     :param frame_stride:    Stride of a frame in seconds
     :param num_fft:         Number of FFT bins
-    :return:                Spectrum - shape (None, num_fft / 2 + 1, None, 1)
+    :return:                Spectrum - shape (None, num_fft / 2, None, 1)
     """
 
     assert sample_rate > 0 and frame_size > 0 and frame_stride > 0 and num_fft > 0
@@ -207,7 +283,7 @@ def get_tf_filterbanks(signal, sample_rate=16000, frame_size=0.025, frame_stride
 
     return normalized_log_mel_spectrum
 
-def play_n_rec(inputs, noises, cache, noise_strength='random'):
+def get_play_n_rec_audio(inputs, noises, cache, noise_strength='random'):
     """
     Function to add playback & recording simulation to a signal
     :param inputs:          Pair with the signals as first element and the impulse flags as second element
@@ -252,52 +328,21 @@ def play_n_rec(inputs, noises, cache, noise_strength='random'):
 
     return output
 
-def invert_spectrum_griffin_lim(slice_len, x_mag, num_fft, num_hop, ngl):
-    """
-    Method to imvert a spectrum to the corresponding raw signal via the Griffin lim algorithm
-    :param slice_len:   Lenght of the target raw signal
-    :param x_mag:       Spectrum to be inverted
-    :param num_fft:     Size of the fft
-    :param num_hop:     Number of hops of the fft
-    :param ngl:         Minimum accepted value
-    :return:            Raw signal
-    """
-    x = tf.complex(x_mag, tf.zeros_like(x_mag))
+def inv_stft(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
+    return np.fft.fft(framesig(signal, frame_len=frame_size*sample_rate, frame_step=frame_stride*sample_rate, winfunc=np.hamming), n=num_fft)
 
-    def b(i, x_best):
-        x = tf.signal.inverse_stft(x_best, num_fft, num_hop)
-        x_est = tf.signal.stft(x, num_fft, num_hop)
-        phase = x_est / tf.cast(tf.maximum(1e-8, tf.math.abs(x_est)), tf.complex64)
-        x_best = x * phase
-        return i + 1, x_best
+def inv_istft(spectrum, slice_length, sample_rate=16000, frame_stride=0.01, num_fft=512):
+    return deframesig(np.fft.ifft(spectrum, n=num_fft), slice_length, frame_len=num_fft, frame_step=frame_stride*sample_rate, winfunc=np.hamming)
 
-    i = tf.constant(0)
-    c = lambda i, _: tf.math.less(i, ngl)
-    _, x = tf.while_loop(c, b, [i, x], back_prop=False)
+def spectrum_to_signal(spectrum, slice_length, iter=300, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
+    inv_signal = np.random.randn(slice_length)
 
-    x = tf.signal.inverse_stft(x, num_fft, num_hop)
-    x = x[:, :slice_len]
+    for i in range(iter):
+        inv_spectrum_angle = np.angle(inv_stft(inv_signal, sample_rate, frame_size, frame_stride, num_fft))
+        inv_spectrum = spectrum * np.exp(1.0j * inv_spectrum_angle)
+        inv_signal = inv_istft(inv_spectrum, slice_length, sample_rate, frame_stride, num_fft)
+        error = np.sqrt(np.sum((spectrum - abs(inv_spectrum))**2) / spectrum.size)
+        print('\rIteration: {}/{} - Error: {} '.format(i+1, iter, error), end='')
+    print()
 
-    return x
-
-def spectrum_to_signal(slice_len, x_norm, x_mean, x_std, num_fft=256, num_hop=128, ngl=16, clip_nstd=3.):
-    """
-    Method to invert a normalized spectrum to a raw signal
-    :param slice_len:   Lenght of the target raw signal
-    :param x_norm:      Normalized spectrum
-    :param x_mean:      Per-bin spectrum mean
-    :param x_std:       Per-bin spectrum std
-    :param num_fft:     Size of the fft
-    :param num_hop:     Number of hops of the fft
-    :param ngl:         Minimum accepted value
-    :param clip_nstd:   Clipping to n times of std
-    :return:
-    """
-    x_norm = x_norm[:, :, :, 0]
-    x_norm = tf.pad(x_norm, [[0,0], [0,0], [0,1]])
-    x_norm *= clip_nstd
-    x_lmag = (x_norm * x_std) + x_mean
-    x_mag = tf.math.exp(x_lmag)
-    x = invert_spectrum_griffin_lim(slice_len, x_mag, num_fft, num_hop, ngl)
-    x = tf.reshape(x, [-1, slice_len, 1])
-    return x
+    return inv_signal

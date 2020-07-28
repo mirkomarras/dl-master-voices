@@ -6,13 +6,16 @@ import tensorflow as tf
 
 import matplotlib.pyplot as plt
 
-from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender
-from helpers.datapipeline import data_pipeline_generator_gan, data_pipeline_gan
+# from helpers.audio import get_np_spectrum, denormalize_frames, spectrum_to_signal
+# from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender
+# from helpers.datapipeline import data_pipeline_generator_gan, data_pipeline_gan
+from helpers.audio import *
+from helpers import plotting
 
 from models import gan
 
 
-def preview_gan(model, dataset, version, samples=32, patch=256, aspect=1):
+def griffin_lim_gan(model, dataset, version, n=32, patch=256, aspect=1, sample_rate=16000):
     
     print(f'Sampling from {model} on {dataset}')
                             
@@ -25,10 +28,41 @@ def preview_gan(model, dataset, version, samples=32, patch=256, aspect=1):
 
     print(f'GAN model directory: {gan_.dirname()}')
     gan_.load()
+
+    #get the samples from the generator
+    samples = gan_.sample(n).numpy()
+
+    #print(samples[0].shape)
+    #print(samples[0][:,0].shape)
+    #print(samples[0].flatten().shape)
+
+    #use griffin-lim algorithm
+    i = 0
+    for s in samples:
+        print("SAMPLE #{}/{}".format(i+1,len(samples)))
+
+        #CONVERTING (gives weird spectrogram)
+        norm, avg, std = tf_samples = get_np_spectrum(s[s.sum(axis=1).argmax(),:].flatten(), sample_rate=sample_rate,num_fft=512,full=True)
+        sp = denormalize_frames(norm, avg, std)
+        
+        #INVERTING
+        inv_signal = spectrum_to_signal(sp.T, len(s))
+
+        #EXPORTING
+        fig = plotting.imsc(s, cmap='hsv')
+        gla_dir = os.path.join(gan_.dirname(make=False), "gla_samples")
+        if not os.path.exists(gla_dir):
+            os.makedirs(gla_dir)
+        sf.write(os.path.join(gla_dir, f'inverted_full_audio' + (str(i)) + '.wav'), inv_signal, sample_rate)
+        fig.savefig(os.path.join(gla_dir, f'inverted_full_audio_' + (str(i)) + '.png'))
+
+        i += 1
+    '''
     gan_.summarize_models()
     fig = gan_.preview()
     fig.tight_layout()
     plt.show(block=True)
+    '''
 
 
 if __name__ == '__main__':
@@ -50,4 +84,4 @@ if __name__ == '__main__':
         
     args = parser.parse_args()
     
-    preview_gan(args.model, args.dataset, args.version, args.samples, args.patch, args.aspect)
+    griffin_lim_gan(args.model, args.dataset, args.version, args.samples, args.patch, args.aspect)
