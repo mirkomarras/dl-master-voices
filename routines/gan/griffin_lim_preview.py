@@ -32,6 +32,7 @@ def griffin_lim_gan(model, dataset, version, n=32, patch=256, aspect=1, sample_r
     #get the samples from the generator
     samples = gan_.sample(n).numpy()
 
+    #print(samples)
     #print(samples[0].shape)
     #print(samples[0][:,0].shape)
     #print(samples[0].flatten().shape)
@@ -42,17 +43,37 @@ def griffin_lim_gan(model, dataset, version, n=32, patch=256, aspect=1, sample_r
         print("SAMPLE #{}/{}".format(i+1,len(samples)))
 
         #CONVERTING (gives weird spectrogram)
-        norm, avg, std = tf_samples = get_np_spectrum(s[s.sum(axis=1).argmax(),:].flatten(), sample_rate=sample_rate,num_fft=512,full=True)
-        sp = denormalize_frames(norm, avg, std)
-        
-        #INVERTING
-        inv_signal = spectrum_to_signal(sp.T, len(s))
+        #norm, avg, std = tf_samples = get_np_spectrum(s[s.sum(axis=1).argmax(),:].flatten(), sample_rate=sample_rate,num_fft=512,full=True)
+        #sp = denormalize_frames(norm, avg, std)
+        s2 = s.squeeze()
 
-        #EXPORTING
-        fig = plotting.imsc(s, cmap='hsv')
         gla_dir = os.path.join(gan_.dirname(make=False), "gla_samples")
         if not os.path.exists(gla_dir):
             os.makedirs(gla_dir)
+
+        sp = np.vstack((s2, np.zeros((1, s2.shape[1])), s2[:0:-1]))
+
+        #print(sp)
+        sp = sp.clip(0)
+        #print(sp)
+
+        #sp = sp - sp.min()
+
+        f2 = plotting.imsc(sp)
+        f2.savefig(os.path.join(gla_dir, f'test_audio' + (str(i)) + '.png'))
+        #print(sp)
+
+        
+        
+        #INVERTING
+        inv_signal = spectrum_to_signal(sp.T, int(2.57*16000))
+
+        print(inv_signal)
+
+        #EXPORTING
+        #fig = plotting.imsc(s, cmap='hsv')
+        fig = plotting.imsc(sp, cmap='hsv')
+        
         sf.write(os.path.join(gla_dir, f'inverted_full_audio' + (str(i)) + '.wav'), inv_signal, sample_rate)
         fig.savefig(os.path.join(gla_dir, f'inverted_full_audio_' + (str(i)) + '.png'))
 
