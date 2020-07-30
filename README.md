@@ -115,10 +115,10 @@ Detailed information on ASVs performance can be computed within the ```speaker_v
 > python3 routines/mv/create_pairs.py --mv_set "real_f-f_sv/v0" 
 ``` 
 
-This script creates a folder ```./data/vs_mv_pairs/mv/specgan_m-m_sv/v000``` with trials pairs for 
+This script creates a folder ```./data/vs_mv_pairs/mv/real_f-f_sv/v000``` with trials pairs for 
 all the audio waveforms in the target master voice set. Specifically, for each audio waveform, this
 script creates a csv file into the above folder, including trials pairs for each user belonging to the
-Vox2-Master-Voice-Analysis set (columns: label, uservoice_path, mastervoice_path, gender).  
+Vox2-Master-Voice-Analysis set (columns: label, path1, path2, gender).  
 
 If ```--mv_set``` is not specified, this script creates a csv file for each set in ```./data/vs_mv_pairs/mv```.
 
@@ -130,11 +130,12 @@ If ```--mv_set``` is not specified, this script creates a csv file for each set 
 
 This script creates a folder ```./data/pt_models/xvector/v000/mvcmp_any/```. For each csv file in
 ```./data/vs_mv_pairs/mv/```, this script computes the similarity scores returned by ```xvector/v000``` 
-for all the trial pairs in the current csv. Finally, a copy of the csv file with an additional
+for each trial pair in the current csv. Finally, a copy of the csv file with an additional
 column that includes the computed similarity scores is saved into the folder ```mvcmp_any``` (columns: 
 score, label, path1, path2, gender). 
 
 **Step 5.** Open the notebook ```./notebooks/speaker_verifier.ipynb``` to inspect speaker verifiers' performance in terms of Equal Error Rate and Impersonation Rate.  
+This notebook will use all the csv files generated above. 
 
 ## Usage (APIs)
 
