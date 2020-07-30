@@ -79,6 +79,8 @@ Pretrained models can be downloaded from [here](https://drive.google.com/drive/f
 |     xvector/v000 |   stop | 12.5133 |  0.4682 |   0.6128 |  41.9512 |     37720 | 0.1421 | 0.9923 |
 |     xvector/v001 |    run |  8.7778 |  0.8587 |   0.8953 |  30.6840 |     37720 | 0.9885 | 0.8660 |
 
+Detailed information on ASVs performance can be computed within the ```speaker_verifier.ipynb``` notebook.  
+
 ### Spectrogram Generation (GAN)
 
 #### Train
@@ -121,13 +123,13 @@ Vox2-Master-Voice-Analysis set (columns: label, uservoice_path, mastervoice_path
 **Step 4.** Run a routine to create a csv of trial pairs with similarity scores. 
 
 ``` 
-> python3 routines/mv/test_pairs.py --net "xvector/v000" --mvset "specgan_m-m_sv/v000" --policy "any" --n_templates 10
+> python3 routines/mv/test_pairs.py --net "xvector/v000" --mvset "specgan_m-m_sv/v000" --policy "any"
 ``` 
 
-This script creates a folder ```./data/pt_models/xvector/v000/mvcmp-any-10/```. Then, for each csv file in
+This script creates a folder ```./data/pt_models/xvector/v000/mvcmp-any/```. Then, for each csv file in
 ```./data/vs_mv_pairs/mv/specgan_m-m_sv/v000```, this script computes the similarity scores returned 
 by ```xvector/v000``` for all the trial pairs in that csv. Finally, a copy of the csv file with an additional
-column including the computed similarity scores is saved into the folder ```mvcmp-any-10``` (columns: 
+column including the computed similarity scores is saved into the folder ```mvcmp-any``` (columns: 
 label, uservoice_path, mastervoice_path, similarity_score, gender)
 
 *NOTICE* This step should be adapted to support also the avg-10 policy. 
