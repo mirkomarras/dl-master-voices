@@ -126,13 +126,13 @@ Vox2-Master-Voice-Analysis set (columns: label, uservoice_path, mastervoice_path
 > python3 routines/mv/test_pairs.py --net "xvector/v000" --mvset "specgan_m-m_sv/v000" --policy "any"
 ``` 
 
-This script creates a folder ```./data/pt_models/xvector/v000/mvcmp-any/```. Then, for each csv file in
+This script creates a folder ```./data/pt_models/xvector/v000/mvcmp-any/```. For each csv file in
 ```./data/vs_mv_pairs/mv/specgan_m-m_sv/v000```, this script computes the similarity scores returned 
 by ```xvector/v000``` for all the trial pairs in that csv. Finally, a copy of the csv file with an additional
 column including the computed similarity scores is saved into the folder ```mvcmp-any``` (columns: 
 label, uservoice_path, mastervoice_path, similarity_score, gender)
 
-*NOTICE* This step should be adapted to support also the avg-10 policy. 
+*NOTICE* This step should be adapted to support also the avg policy. 
 
 **Step 5.** Open the notebook ```./notebooks/speaker_verifier.ipynb``` to inspect speaker verifiers' performance in terms of Equal Error Rate and Impersonation Rate.  
 
