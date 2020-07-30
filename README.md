@@ -104,7 +104,7 @@ Detailed information on ASVs performance can be computed within the ```speaker_v
 **Step 1.** Create a folder for your master voice set in ```./data/vs_mv_data```. For instance:
 
 ``` 
-> mkdir -p ./data/vs_mv_data/real_f-f_sv/v0
+> mkdir -p ./data/vs_mv_data/real_f-f_sv/v000
 ``` 
 
 **Step 2.** Copy the audio waveforms belonging to your master voice set in the new folder. 
@@ -112,7 +112,7 @@ Detailed information on ASVs performance can be computed within the ```speaker_v
 **Step 3.** Run a routine to create a csv of trial pairs against a master voice.
 
 ``` 
-> python3 routines/mv/create_pairs.py --mv_set "real_f-f_sv/v0" 
+> python3 routines/mv/create_pairs.py --mv_set "real_f-f_sv/v000" 
 ``` 
 
 This script creates a folder ```./data/vs_mv_pairs/mv/real_f-f_sv/v000``` with trials pairs for 
@@ -122,7 +122,12 @@ Vox2-Master-Voice-Analysis set (columns: label, path1, path2, gender).
 
 If ```--mv_set``` is not specified, this script creates a csv file for each set in ```./data/vs_mv_pairs/mv```.
 
-**Step 4.** Run a routine to test all the master voice sets against the target verifier. 
+**Step 4.** Create a noise folder
+```
+> mkdir ./data/vs_noise_data
+```
+
+**Step 5.** Run a routine to test all the master voice sets against the target verifier. 
 
 ``` 
 > python3 routines/mv/test_pairs.py --net "xvector/v000" 
