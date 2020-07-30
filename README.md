@@ -134,8 +134,7 @@ for each trial pair in the current csv. Finally, a copy of the csv file with an 
 column that includes the computed similarity scores is saved into the folder ```mvcmp_any``` (columns: 
 score, label, path1, path2, gender). 
 
-**Step 5.** Open the notebook ```./notebooks/speaker_verifier.ipynb``` to inspect speaker verifiers' performance in terms of Equal Error Rate and Impersonation Rate.  
-This notebook will use all the csv files generated above. 
+**Step 5.** Open the notebook ```./notebooks/speaker_verifier.ipynb``` to inspect speaker verifiers' performance in terms of Equal Error Rate and Impersonation Rate. This notebook will use all the csv files generated above. 
 
 ## Usage (APIs)
 
