@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from scipy.spatial.distance import euclidean, cosine
+from scipy.spatial.distance import cosine
 import tensorflow as tf
 import pandas as pd
-import numpy as np
 import argparse
-import random
 import os
 
 from helpers.audio import load_noise_paths, cache_noise_data, decode_audio, get_tf_spectrum, get_tf_filterbanks
-from helpers.dataset import load_test_data_from_file, load_mv_data, create_template_trials
-from helpers.utils import save_obj
 
-from models.verifier.resnet50vox import ResNet50Vox
-from models.verifier.resnet34vox import ResNet34Vox
+from models.verifier.thinresnet34 import ThinResNet34
+from models.verifier.resnet50 import ResNet50
+from models.verifier.resnet34 import ResNet34
 from models.verifier.xvector import XVector
 from models.verifier.vggvox import VggVox
 
@@ -43,10 +40,10 @@ def main():
 
     print('Parameters summary')
 
-    mode = ('filterbank' if args.net.split('/')[0] == 'xvector' else 'spectrum')
+    output_type = ('filterbank' if args.net.split('/')[0] == 'xvector' else 'spectrum')
 
     print('>', 'Net: {}'.format(args.net))
-    print('>', 'Mode: {}'.format(mode))
+    print('>', 'Mode: {}'.format(output_type))
 
     print('>', 'Master voice base path: {}'.format(args.mv_base_path))
     print('>', 'Test list: {}'.format(args.test_list))
@@ -64,63 +61,73 @@ def main():
 
     # Create and restore model
     print('Creating model')
-    available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
-    model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
+    available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thin_resnet': ThinResNet34}
+    model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')))
+    model.build(classes=0, mode='test')
     model.load()
 
     # Create save path
-    result_save_path = os.path.join(args.save_path, args.net, 'mvcmp')
+    result_save_path = os.path.join(args.save_path, args.net, 'mvcmp_any')
     if not os.path.exists(result_save_path):
         os.makedirs(result_save_path)
 
     # Compute similarity scores
     print('Compute similarity scores')
+    extractor = model.infer()
     embs = {}
     if os.path.isdir(args.test_list):
         for mvset in os.listdir(args.test_list):
-            for tfile in os.listdir(os.path.join(args.test_list, mvset)):
-                df_1 = pd.read_csv(os.path.join(args.test_list, mvset, tfile), names=['label', 'path1', 'path2', 'gender'], sep=' ')
-                fp_tfile = os.path.join(args.test_list, mvset, tfile)
-                sc = []
-                lab = []
-                for index, row in df_1.iterrows():
-                    if row['path1'] in embs:
-                        emb_1 = embs[row['path1']]
+            for version in os.listdir(os.path.join(args.test_list, mvset)):
+                for tfile in os.listdir(os.path.join(args.test_list, mvset, version)):
+                    if not os.path.exists(os.path.join(result_save_path, mvset, version, tfile)):
+                        print('> opening', os.path.join(args.test_list, mvset, version, tfile))
+                        df_1 = pd.read_csv(os.path.join(args.test_list, mvset, version, tfile), names=['label', 'path1', 'path2', 'gender'])
+
+                        fp_tfile = os.path.join(args.test_list, mvset, version, tfile)
+                        sc = []
+                        lab = []
+                        for index, row in df_1.iterrows():
+                            if row['path1'] in embs:
+                                emb_1 = embs[row['path1']]
+                            else:
+                                audio_1 = decode_audio(os.path.join(args.mv_base_path, row['path1']))
+                                audio_1 = audio_1.reshape((1, -1, 1))
+                                inp_1 = get_tf_spectrum(audio_1) if output_type == 'spectrum' else get_tf_filterbanks(audio_1)
+                                emb_1 = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(extractor.predict(inp_1))
+                                embs[row['path1']] = emb_1
+
+                            if row['path2'] in embs:
+                                emb_2 = embs[row['path2']]
+                            else:
+                                audio_2 = decode_audio(os.path.join(args.mv_base_path, row['path2']))
+                                audio_2 = audio_2.reshape((1, -1, 1))
+                                inp_2 = get_tf_spectrum(audio_2) if output_type == 'spectrum' else get_tf_filterbanks(audio_2)
+                                emb_2 = tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(extractor.predict(inp_2))
+                                embs[row['path2']] = emb_2
+
+                            computed_score = 1 - cosine(emb_1, emb_2)
+
+                            lab.append(row['label'])
+                            sc.append(computed_score)
+                            if (index + 1) % 10 == 0:
+                                print('\r> pair', index + 1, '/', len(df_1.index), '-', mvset, version, tfile, '- ver score example', computed_score, end='')
+
+                        print()
+
+                        df = pd.DataFrame(list(zip(sc, lab)), columns=['score', 'label'])
+                        df['path1'] = df_1['path1']
+                        df['path2'] = df_1['path2']
+                        df['gender'] = df_1['gender']
+
+                        if not os.path.exists(os.path.join(result_save_path, mvset, version)):
+                            os.makedirs(os.path.join(result_save_path, mvset, version))
+                        df.to_csv(os.path.join(result_save_path, mvset, version, tfile), index=False)
+
+                        print('> saved', fp_tfile, 'scores in', os.path.join(result_save_path, mvset, version, tfile))
+
                     else:
-                        audio_1 = decode_audio(os.path.join(args.mv_base_path, row['path1']))
-                        audio_1 = audio_1.reshape((1, -1, 1))
-                        inp_1 = get_tf_spectrum(audio_1) if mode == 'spectrum' else get_tf_filterbanks(audio_1)
-                        emb_1 = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(model.embed(inp_1))
-                        embs[row['path1']] = emb_1
 
-                    if row['path2'] in embs:
-                        emb_2 = embs[row['path2']]
-                    else:
-                        audio_2 = decode_audio(os.path.join(args.mv_base_path, row['path2']))
-                        audio_2 = audio_2.reshape((1, -1, 1))
-                        inp_2 = get_tf_spectrum(audio_2) if mode == 'spectrum' else get_tf_filterbanks(audio_2)
-                        emb_2 = tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(model.embed(inp_2))
-                        embs[row['path2']] = emb_2
-
-                    computed_score = 1 - cosine(emb_1, emb_2)
-
-                    lab.append(row['label'])
-                    sc.append(computed_score)
-                    if (index + 1) % 10 == 0:
-                        print('\r> pair', index + 1, 'of', len(df_1.index), 'with score', computed_score, end='')
-
-                print()
-
-                df = pd.DataFrame(list(zip(sc, lab)), columns=['score', 'label'])
-                df['path1'] = df_1['path1']
-                df['path2'] = df_1['path2']
-                df['gender'] = df_1['gender']
-
-                if not os.path.exists(os.path.join(result_save_path, mvset)):
-                    os.makedirs(os.path.join(result_save_path, mvset))
-                df.to_csv(os.path.join(result_save_path, mvset, tfile), index=False)
-
-                print('> saved', fp_tfile, 'scores in', os.path.join(result_save_path, mvset, tfile))
+                        print('> skipped', os.path.join(result_save_path, mvset, version, tfile))
 
 if __name__ == '__main__':
     main()

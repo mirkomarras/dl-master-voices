@@ -101,10 +101,10 @@ Detailed information on ASVs performance can be computed within the ```speaker_v
 
 #### Test
 
-**Step 1.** Create a folder for your master voice set in ```./data/vs_mv_data```. 
+**Step 1.** Create a folder for your master voice set in ```./data/vs_mv_data```. For instance:
 
 ``` 
-> mkdir -p ./data/vs_mv_data/specgan_m-m_sv/v000
+> mkdir -p ./data/vs_mv_data/real_f-f_sv/v0
 ``` 
 
 **Step 2.** Copy the audio waveforms belonging to your master voice set in the new folder. 
@@ -112,7 +112,7 @@ Detailed information on ASVs performance can be computed within the ```speaker_v
 **Step 3.** Run a routine to create a csv of trial pairs against a master voice.
 
 ``` 
-> python3 routines/mv/create_pairs.py --mvset "specgan_m-m_sv/v000" 
+> python3 routines/mv/create_pairs.py --mv_set "real_f-f_sv/v0" 
 ``` 
 
 This script creates a folder ```./data/vs_mv_pairs/mv/specgan_m-m_sv/v000``` with trials pairs for 
@@ -120,19 +120,19 @@ all the audio waveforms in the target master voice set. Specifically, for each a
 script creates a csv file into the above folder, including trials pairs for each user belonging to the
 Vox2-Master-Voice-Analysis set (columns: label, uservoice_path, mastervoice_path, gender).  
 
-**Step 4.** Run a routine to create a csv of trial pairs with similarity scores. 
+If ```--mv_set``` is not specified, this script creates a csv file for each set in ```./data/vs_mv_pairs/mv```.
+
+**Step 4.** Run a routine to test all the master voice sets against the target verifier. 
 
 ``` 
-> python3 routines/mv/test_pairs.py --net "xvector/v000" --mvset "specgan_m-m_sv/v000" --policy "any"
+> python3 routines/mv/test_pairs.py --net "xvector/v000" 
 ``` 
 
-This script creates a folder ```./data/pt_models/xvector/v000/mvcmp-any/```. For each csv file in
-```./data/vs_mv_pairs/mv/specgan_m-m_sv/v000```, this script computes the similarity scores returned 
-by ```xvector/v000``` for all the trial pairs in that csv. Finally, a copy of the csv file with an additional
-column including the computed similarity scores is saved into the folder ```mvcmp-any``` (columns: 
-label, uservoice_path, mastervoice_path, similarity_score, gender)
-
-*NOTICE* This step should be adapted to support also the avg policy. 
+This script creates a folder ```./data/pt_models/xvector/v000/mvcmp_any/```. For each csv file in
+```./data/vs_mv_pairs/mv/```, this script computes the similarity scores returned by ```xvector/v000``` 
+for all the trial pairs in the current csv. Finally, a copy of the csv file with an additional
+column that includes the computed similarity scores is saved into the folder ```mvcmp_any``` (columns: 
+score, label, path1, path2, gender). 
 
 **Step 5.** Open the notebook ```./notebooks/speaker_verifier.ipynb``` to inspect speaker verifiers' performance in terms of Equal Error Rate and Impersonation Rate.  
 
