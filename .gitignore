@@ -3,4 +3,5 @@ mvenv/*
 jobs/*
 *.pyc
 data/*
+pt_models/*
 

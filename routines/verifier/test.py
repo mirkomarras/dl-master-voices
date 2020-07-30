@@ -77,7 +77,7 @@ def main():
 
     # Create model
     print('Creating model')
-    available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thinresnet34': ThinResNet34}
+    available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thin_resnet': ThinResNet34}
     model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')))
     model.build(0, args.embs_size, args.embs_name, args.loss, args.aggregation, args.vlad_clusters, args.ghost_clusters, args.weight_decay, 'test')
     model.load()
@@ -85,7 +85,7 @@ def main():
     # Test model
     print('Testing model')
     t1 = time.time()
-    results = model.test(test_data, args.policy, output_type, save=True)
+    results = model.test(test_data, output_type=output_type, policy=args.policy, save=True)
     t2 = time.time()
     print('>', t2-t1, 'seconds for testing with', results)
 

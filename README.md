@@ -45,41 +45,96 @@ ln -s /beegfs/mm11333/data/voxceleb2 ./data/
 
 ## Usage (Command Line)
 
-### Train a speaker verifier
+### Speaker Verification
+
+#### Train
 ``` 
-> python ./routines/verifier/train.py  --net "xvector" --val_n_pair 10000 
+> python3 ./routines/verifier/train.py  --net "xvector" --val_n_pair 10000 
 ```
 
-### Test a speaker verifier
+This script will save the model in ```./data/pt_models/xvector/v000/model.h5```.  
+
+#### Test
 ``` 
-> python -u ./routines/verifier/test.py --net "xvector/v000"
+> python3 -u ./routines/verifier/test.py --net "xvector/v000"
 ```
 
-### Baseline evaluation of a speaker verifier 
+This script will test the model on Vox1-Test and finally save a CSV file with a trial pair and a 
+similarity score per row in ```./data/pt_models/xvector/v000/test_vox1_sv_test.csv```.  
 
-``` 
-...
-```
+#### Pretrained Models
 
-### Train a GAN
+Pretrained models can be downloaded from [here](https://drive.google.com/drive/folders/15_ElEam7brk6lPheVV0fVXDQ2i3W_Iw5?usp=sharing).
+
+|-----------------:|-------:|--------:|--------:|---------:|---------:|----------:|-------:|-------:|
+|                  | status |     eer | thr@eer | thr@far1 | frr@far1 | no-trials |   loss |    acc |
+|-----------------:|-------:|--------:|--------:|---------:|---------:|----------:|-------:|-------:|
+|    resnet34/v000 |    run |  8.4464 |  0.8104 |   0.8629 |  32.7041 |     37720 | 1.7815 | 0.7809 |
+|    resnet34/v001 |    run |  9.4989 |  0.7724 |   0.8385 |  35.5673 |     37720 | 3.9065 | 0.5765 |
+|    resnet50/v000 |    run |  6.2195 |  0.7387 |   0.8118 |  25.9862 |     37720 | 0.6100 | 0.9616 |
+|    resnet50/v001 |    run |  5.7688 |  0.7787 |   0.8436 |  21.5536 |     37720 | 2.3848 | 0.6683 |
+| thin_resnet/v000 |    run |  6.2328 |  0.7559 |   0.8094 |  21.6914 |     37720 | 1.0338 | 0.9414 |
+| thin_resnet/v001 |    run | 10.8059 |  0.7924 |   0.8719 |  41.5695 |     37720 | 4.2113 | 0.4495 |
+|      vggvox/v000 |   stop | 10.7105 |  0.7095 |   0.8093 |  43.2291 |     37720 | 1.2410 | 0.8295 |
+|      vggvox/v001 |    run |  8.1230 |  0.6839 |   0.7883 |  33.6957 |     37720 | 3.0182 | 0.5633 |
+|     xvector/v000 |   stop | 12.5133 |  0.4682 |   0.6128 |  41.9512 |     37720 | 0.1421 | 0.9923 |
+|     xvector/v001 |    run |  8.7778 |  0.8587 |   0.8953 |  30.6840 |     37720 | 0.9885 | 0.8660 |
+|-----------------:|-------:|--------:|--------:|---------:|---------:|----------:|-------:|-------:|
+
+### Spectrogram Generation (GAN)
+
+#### Train
+
 ```
 > python3 routines/gan/train.py -d voxceleb-male -e 200
 ``` 
 
-### Test a GAN (Show samples)
+#### Test (show samples)
 ``` 
 > python3 routines/gan/preview.py -d voxceleb-male
 ``` 
 
-### Optimize MVs
-``` 
-...
-```
+### Master Voice Optimization
 
-### Test a speaker verifier against master voice sets
+#### Generation
+...
+
+#### Test
+
+**Step 1.** Create a folder for your master voice set in ```./data/vs_mv_data```. 
+
 ``` 
-python -u ./routines/mv/test2csv.py --net "xvector/v000"
-```
+> mkdir -p ./data/vs_mv_data/specgan_m-m_sv/v000
+``` 
+
+**Step 2.** Copy the audio waveforms belonging to your master voice set in the new folder. 
+
+**Step 3.** Run a routine to create a csv of trial pairs against a master voice.
+
+``` 
+> python3 routines/mv/create_pairs.py --mvset "specgan_m-m_sv/v000" 
+``` 
+
+This script creates a folder ```./data/vs_mv_pairs/mv/specgan_m-m_sv/v000``` with trials pairs for 
+all the audio waveforms in the target master voice set. Specifically, for each audio waveform, this
+script creates a csv file into the above folder, including trials pairs for each user belonging to the
+Vox2-Master-Voice-Analysis set (columns: label, uservoice_path, mastervoice_path, gender).  
+
+**Step 4.** Run a routine to create a csv of trial pairs with similarity scores. 
+
+``` 
+> python3 routines/mv/test_pairs.py --net "xvector/v000" --mvset "specgan_m-m_sv/v000" --policy "any" --n_templates 10
+``` 
+
+This script creates a folder ```./data/pt_models/xvector/v000/mvcmp-any-10/```. Then, for each csv file in
+```./data/vs_mv_pairs/mv/specgan_m-m_sv/v000```, this script computes the similarity scores returned 
+by ```xvector/v000``` for all the trial pairs in that csv. Finally, a copy of the csv file with an additional
+column including the computed similarity scores is saved into the folder ```mvcmp-any-10``` (columns: 
+label, uservoice_path, mastervoice_path, similarity_score, gender)
+
+*NOTICE* This step should be adapted to support also the avg-10 policy. 
+
+**Step 5.** Open the notebook ```./notebooks/speaker_verifier.ipynb``` to inspect speaker verifiers' performance in terms of Equal Error Rate and Impersonation Rate.  
 
 ## Usage (APIs)
 
