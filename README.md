@@ -66,7 +66,6 @@ similarity score per row in ```./data/pt_models/xvector/v000/test_vox1_sv_test.c
 
 Pretrained models can be downloaded from [here](https://drive.google.com/drive/folders/15_ElEam7brk6lPheVV0fVXDQ2i3W_Iw5?usp=sharing).
 
-|-----------------:|-------:|--------:|--------:|---------:|---------:|----------:|-------:|-------:|
 |                  | status |     eer | thr@eer | thr@far1 | frr@far1 | no-trials |   loss |    acc |
 |-----------------:|-------:|--------:|--------:|---------:|---------:|----------:|-------:|-------:|
 |    resnet34/v000 |    run |  8.4464 |  0.8104 |   0.8629 |  32.7041 |     37720 | 1.7815 | 0.7809 |
@@ -79,7 +78,6 @@ Pretrained models can be downloaded from [here](https://drive.google.com/drive/f
 |      vggvox/v001 |    run |  8.1230 |  0.6839 |   0.7883 |  33.6957 |     37720 | 3.0182 | 0.5633 |
 |     xvector/v000 |   stop | 12.5133 |  0.4682 |   0.6128 |  41.9512 |     37720 | 0.1421 | 0.9923 |
 |     xvector/v001 |    run |  8.7778 |  0.8587 |   0.8953 |  30.6840 |     37720 | 0.9885 | 0.8660 |
-|-----------------:|-------:|--------:|--------:|---------:|---------:|----------:|-------:|-------:|
 
 ### Spectrogram Generation (GAN)
 
