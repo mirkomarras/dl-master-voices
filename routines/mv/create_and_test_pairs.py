@@ -41,6 +41,9 @@ def main():
 	parser.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Segment lenght in seconds')
 	parser.add_argument('--noise_dir', dest='noise_dir', default='./data/vs_noise_data', type=str, action='store', help='Noise directory')
 
+	parser.add_argument('--avg_ver', dest='avg_ver', action='store_true', help='Execute average 10 verification policy')
+	parser.set_defaults(avg_ver=False)
+
 	args = parser.parse_args()
 
 	if(args.mv_set == ''):
@@ -73,6 +76,8 @@ def main():
 	print('>', 'Sample rate: {}'.format(args.sample_rate))
 	print('>', 'Maximum number of seconds: {}'.format(args.n_seconds))
 	print('>', 'Noise dir: {}'.format(args.noise_dir))
+	if args.avg_ver:
+		print('>', 'Running AVG 10 Verification policy')
 
 
 	# -- preloading -- #
@@ -126,6 +131,12 @@ def main():
 						fp_tfile = os.path.join(args.test_list, mvset, version, tfile)
 						sc = []
 						lab = []
+
+
+						emb10p1 = []		#10 embedding samples per user test to use for averaging
+						avg10_sc = []
+						avg10_lab = []
+
 						for index, row in df_1.iterrows():
 							if row['path1'] in embs:
 								emb_1 = embs[row['path1']]
@@ -149,8 +160,32 @@ def main():
 
 							lab.append(row['label'])
 							sc.append(computed_score)
+
+							#add for avg 10 policy done later
+							emb10.append(embs[row['path1']])
+
+							# after 10 samples
 							if (index + 1) % 10 == 0:
 								print('\r> pair', index + 1, '/', len(df_1.index), '-', mvset, version, tfile, '- ver score example', computed_score, end='')
+
+
+								#perform average 10 policy
+								if args.avg_ver:
+									#get average of samples and master voice embeddings to compare
+									avg_emb = np.average(emb10, axis=0)  #create average embedding of the 10
+									master_emb = embs[row['path2']]      #use most recent path2 assuming the last 10 paths for the master voice are the same
+									
+									#compute cosine similarity
+									avg_cos_score = 1 - cosine(avg_emb, master_emb)
+									
+									#save to set like with any policy above
+									avg10_lab.append(row['label'])
+									avg10_sc.append(avg_cos_score)
+
+
+								emb10 = []		#reset the avg 10 embedding list (even if not in use)
+
+
 
 						print()
 
@@ -159,14 +194,28 @@ def main():
 						df['path2'] = df_1['path2']
 						df['gender'] = df_1['gender']
 
-						if not os.path.exists(os.path.join(result_save_path, mvset, version)):
-							os.makedirs(os.path.join(result_save_path, mvset, version))
-						df.to_csv(os.path.join(result_save_path, mvset, version, tfile), index=False)
+						if not os.path.exists(os.path.join(result_save_path, mvset, version, 'any')):
+							os.makedirs(os.path.join(result_save_path, mvset, version, 'any'))
+						df.to_csv(os.path.join(result_save_path, mvset, version, 'any', tfile), index=False)
 
 						print('> saved', fp_tfile, 'scores in', os.path.join(result_save_path, mvset, version, tfile))
 
-					else:
+						#save average 10 policy output
+						if args.avg_ver:
+							#set up dataframe to export to csv
+							df10 = pd.DataFrame(list(zip(avg10_sc, avg10_lab)), columns=['score', 'label'])
+							df10['master_voice'] = df_1['path2']
+							df10['gender'] = df_1['gender']
 
+							#check if directory exists first
+							output_avg10_dir = os.path.join(result_save_path, mvset, version, 'avg10')
+							if not os.path.exists(output_avg10_dir):
+								os.makedirs(output_avg10_dir)
+							
+							#export to csv
+							df10.to_csv(os.path.join(output_avg10_dir, tfile), index=False)
+
+					else:
 						print('> skipped', os.path.join(result_save_path, mvset, version, tfile))
 
 if __name__ == '__main__':
