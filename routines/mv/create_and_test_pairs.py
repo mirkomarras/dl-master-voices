@@ -100,6 +100,11 @@ def main():
 	if not os.path.exists(result_save_path):
 		os.makedirs(result_save_path)
 
+	if args.avg_ver:
+		avg_result_save_path = os.path.join(args.save_path, args.net, 'mvcmp_avg10')
+		if not os.path.exists(avg_result_save_path):
+			os.makedirs(avg_result_save_path)
+
 	# -- creation of pair csv file -- #
 	for mv_set in ([args.mv_set] if args.mv_set else [os.path.join(mv_set, version) for mv_set in os.listdir('./data/vs_mv_data') for version in os.listdir(os.path.join('./data/vs_mv_data', mv_set))]):
 		for mv_file in os.listdir(os.path.join('./data/vs_mv_data', mv_set)):
@@ -206,9 +211,9 @@ def main():
 						df['path2'] = df_1['path2']
 						df['gender'] = df_1['gender']
 
-						if not os.path.exists(os.path.join(result_save_path, mvset, version, 'any')):
-							os.makedirs(os.path.join(result_save_path, mvset, version, 'any'))
-						df.to_csv(os.path.join(result_save_path, mvset, version, 'any', tfile), index=False)
+						if not os.path.exists(os.path.join(result_save_path, mvset, version)):
+							os.makedirs(os.path.join(result_save_path, mvset, version))
+						df.to_csv(os.path.join(result_save_path, mvset, version, tfile), index=False)
 
 						print('> saved', fp_tfile, 'scores in', os.path.join(result_save_path, mvset, version, tfile))
 
@@ -220,7 +225,7 @@ def main():
 							#df10['gender'] = df_1['gender']
 
 							#check if directory exists first
-							output_avg10_dir = os.path.join(result_save_path, mvset, version, 'avg10')
+							output_avg10_dir = os.path.join(avg_result_save_path, mvset, version)
 							if not os.path.exists(output_avg10_dir):
 								os.makedirs(output_avg10_dir)
 							
@@ -229,7 +234,7 @@ def main():
 							print('> saved avg 10 policy scores in', os.path.join(output_avg10_dir, tfile))
 
 					else:
-						print('> skipped', os.path.join(result_save_path, mvset, version, tfile))
+						print('> skipped', os.path.join(avg_result_save_path, mvset, version, tfile))
 
 if __name__ == '__main__':
 	main()
