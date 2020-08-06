@@ -122,8 +122,14 @@ def main():
 	embs = {}
 	if os.path.isdir(args.test_list):
 		for mvset in os.listdir(args.test_list):
+			if mvset.startswith('.'):	#ignore .
+				continue;
 			for version in os.listdir(os.path.join(args.test_list, mvset)):
+				if version.startswith('.'):	#ignore .
+					continue;
 				for tfile in os.listdir(os.path.join(args.test_list, mvset, version)):
+					if tfile.startswith('.'):	#ignore .
+						continue;
 					if not os.path.exists(os.path.join(result_save_path, mvset, version, tfile)):
 						print('> opening', os.path.join(args.test_list, mvset, version, tfile))
 						df_1 = pd.read_csv(os.path.join(args.test_list, mvset, version, tfile), names=['label', 'path1', 'path2', 'gender'])
@@ -132,10 +138,13 @@ def main():
 						sc = []
 						lab = []
 
-
-						emb10p1 = []		#10 embedding samples per user test to use for averaging
+						#average 10 policy list sets
+						emb10 = []		
+						emb10_files = []
 						avg10_sc = []
 						avg10_lab = []
+						avg10_wavset = []
+						avg10_gender = []
 
 						for index, row in df_1.iterrows():
 							if row['path1'] in embs:
@@ -163,6 +172,7 @@ def main():
 
 							#add for avg 10 policy done later
 							emb10.append(embs[row['path1']])
+							emb10_files.append(row['path1'])
 
 							# after 10 samples
 							if (index + 1) % 10 == 0:
@@ -181,10 +191,12 @@ def main():
 									#save to set like with any policy above
 									avg10_lab.append(row['label'])
 									avg10_sc.append(avg_cos_score)
+									avg10_wavset.append((','.join(emb10_files)))
+									avg10_gender.append(row['gender'])
 
 
 								emb10 = []		#reset the avg 10 embedding list (even if not in use)
-
+								emb10_files = []
 
 
 						print()
@@ -203,9 +215,9 @@ def main():
 						#save average 10 policy output
 						if args.avg_ver:
 							#set up dataframe to export to csv
-							df10 = pd.DataFrame(list(zip(avg10_sc, avg10_lab)), columns=['score', 'label'])
-							df10['master_voice'] = df_1['path2']
-							df10['gender'] = df_1['gender']
+							df10 = pd.DataFrame(list(zip(avg10_sc, avg10_lab, df_1['path2'], avg10_wavset, avg10_gender)), columns=['score', 'label', 'master_voice', 'avg_set', 'gender'])
+							#df10['master_voice'] = df_1['path2']
+							#df10['gender'] = df_1['gender']
 
 							#check if directory exists first
 							output_avg10_dir = os.path.join(result_save_path, mvset, version, 'avg10')
@@ -214,6 +226,7 @@ def main():
 							
 							#export to csv
 							df10.to_csv(os.path.join(output_avg10_dir, tfile), index=False)
+							print('> saved avg 10 policy scores in', os.path.join(output_avg10_dir, tfile))
 
 					else:
 						print('> skipped', os.path.join(result_save_path, mvset, version, tfile))
