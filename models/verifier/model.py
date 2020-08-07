@@ -151,6 +151,13 @@ class Model(object):
         print('>', 'saved', self.name, 'model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
 
 
+    def save_params(self, params):
+        with open(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'params.txt'), "w") as file:
+            for arg in vars(params):
+                file.write("%s,%s\n" % (arg, getattr(params, arg)))
+        print('> params saved in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'params.txt'))
+
+
     def load(self):
         """
         Load this model

@@ -83,9 +83,12 @@ by running the following script and indicating that specific type of speaker mod
 python3 ./routines/verifier/train.py  --net "xvector"
 ```
 
-This script will save the model in ```./data/vs_mv_models/xvector/v{XXX}/model.h5```. If you want to restart
-training an existing model, you just need to specify the model version in the net argument (e.g., 
-``` --net "xvector/v000"``` ).
+The training script will save in ```./data/vs_mv_models/{net}/v{xxx}/```: 
+- the model ```model.h5```;
+- the training history ```history.csv``` (format per line/epoch: loss,  acc, err, far@eer, frr@eer, thr@eer, far@far1, frr@far1, thr@far);
+- the training parameters in ```params.txt``` (format per line: key, value). 
+
+To resume the training of an existing model, the model version must be specified in the net argument (e.g., ``` --net "xvector/v000"``` ).
 
 The training script can be configured in order to train different types of models with proper parameters. The
 most common parameters that can be customized are provided below.
@@ -93,13 +96,13 @@ most common parameters that can be customized are provided below.
 ``` 
 --net 'x-vector'                   (Model in ['x-vector','vggvox','thin_resnet','resnet34','resnet50'])
 --audio_dir "./data/voxceleb1/dev" (Directories with wav training files)
---n_epochs  1024                   (Number of training epochs)
---batch     64                     (Size of the training batches)
+--n_epochs 1024                    (Number of training epochs)
+--batch 64                         (Size of the training batches)
 --learning_rate 0.001              (Starting learning rate)
 --loss 'softmax'                   (Type of loss in ['softmax','amsoftmax'])
 --aggregation 'gvlad'              (Type of aggregation in ['avg','vlad','gvlad'])
---val_n_pair 1000                  (Number of validation trials)
---n_seconds 3                      (Segment lenght in seconds')
+--val_n_pair 1000                  (Number of validation trials pairs)
+--n_seconds 3                      (Training audio lenght in seconds)
 ``` 
 
 #### Test

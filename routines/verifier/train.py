@@ -114,6 +114,7 @@ def main():
     print('Creating model')
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thin_resnet': ThinResNet34}
     model = available_nets[args.net.split('/')[0]](id=(int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1))
+    model.save_params(args)
     model.build(classes, args.embs_size, args.embs_name, args.loss, args.aggregation, args.vlad_clusters, args.ghost_clusters, args.weight_decay, 'train')
     model.load()
     model.train(train_data, val_data, output_type, len(x_train)//args.batch, args.n_epochs, args.learning_rate, args.decay_factor, args.decay_step, args.optimizer)
