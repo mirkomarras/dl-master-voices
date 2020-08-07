@@ -163,18 +163,55 @@ Each set is named with the following convention: ```{netv-vxxx}_{netg-vxxx|real}
 where ```netv-vxxx``` are the speaker model and its version; ```netg-vxx``` are the gan model and its version; 
 ```real``` is a name for non-gan-generated sets; ```seed_gender``` is the gender against which the gan has been
 trained or, in general, the gender of the individuals in the audio files (f:female, m:male, n:neutral); ```opt_gender```
-is the gender against which the seed voice has been optimized, ```sv``` indicates seed voice sets; ```mv``` indicates 
+is the gender against which the seed voice has been optimized; ```sv``` indicates seed voice sets; ```mv``` indicates 
 their corresponding master voice sets.
 
 #### Generation
-...
+This toolbox includes three main ways of optimizing master voices:
+
+1. Optimize an individual seed voice: 
+    ``` 
+    python -u ./routines/mv/train.py --netv "vggvox/v003" --seed_voice "./tests/original_audio.wav" 
+    ``` 
+    This command will save seed/master voices in ```{netv-vxxx}_{real}_{opt_gender}_{sv|mv}```. 
+    
+2. Optimize a set of seed voices: 
+    ``` 
+    python -u ./routines/mv/train.py --netv "vggvox/v003" --seed_voice "./data/vs_mv_data/vggvox-v000_real_f-f_mv/v000"
+    ``` 
+    This command will save seed/master voices in ```{netv-vxxx}_{real}_{opt_gender}_{sv|mv}```.
+    
+3. Optimize a set of gan--generated voices: 
+    ``` 
+    python -u ./routines/mv/train.py --netv "vggvox/v003" --netg "ms-gan/v001"
+    ``` 
+    This command will save seed/master voices in ```{netv-vxxx}_{netg-vxxx}_{seed_gender}-{opt_gender}_{sv|mv}```.
+
+For each master voice, the following files will be saved (we provide an example for a sample_0 master voice):
+- the master voice file ```sample_0.wav```;
+- the master voice spectrogram/latent-vector ```sample_0.npy```;
+- the master voice optimization history ```sample_0.hist``` (list of impersonation rates at EER and FAR1% thrs). 
+
+The optimization script can be configured in order to optimize different types of master voices with proper parameters. 
+The most common parameters that can be customized are provided below.
+
+``` 
+--netg_gender 'female'             (Peculiar gender of the GAN in ['neutral','female','male'])
+--mv_gender 'female'               (Gender of optimization audio files in ['neutral','female','male'])
+--n_examples 100                   (Number of master voices to generate - only for GAN-based processes)
+--n_epochs 1024                    (Number of optimization epochs)
+--batch 64                         (Size of the optimization batches)
+--learning_rate 0.001              (Starting learning rate for optimization)
+--n_templates 10                   (Number of enrolled templates per user to test impersonation)
+--n_seconds 3                      (Optimization audio lenght in seconds)
+``` 
 
 #### Test
 
 **Step 1.** Create a folder for your master voice set in ```./data/vs_mv_data```. For instance:
 
 ``` 
-> mkdir -p ./data/vs_mv_data/real_f-f_sv/v000
+python -u ./routines/mv/train.py --netv "vggvox/v003" --seed_voice "./tests/original_audio.wav" 
 ``` 
 
 **Step 2.** Copy the audio waveforms belonging to your master voice set in the new folder. 

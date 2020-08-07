@@ -47,7 +47,6 @@ def main():
 
     # Parameters for verifier
     parser.add_argument('--netv', dest='netv', default='', type=str, action='store', help='Speaker verification model, e.g., xvector/v000')
-    parser.add_argument('--policy', dest='policy', default='avg', type=str, choices=['avg','any'], action='store', help='Speaker verification policy')
 
     # Parameters for generative adversarial model or of the seed voice
     # Note: if netg is specified, the master voices will be created by sampling spectrums from the GAN; otherwise, you need to specify a seed voice to optimize as a master voice
@@ -77,7 +76,6 @@ def main():
     print('Parameters summary')
 
     print('>', 'Net Verifier: {}'.format(args.netv))
-    print('>', 'Policy: {}'.format(args.policy))
     print('>', 'Output type: {}'.format(output_type))
     print('>', 'Sampling source: {}'.format('seed voice' if not args.netg else 'gan'))
 
