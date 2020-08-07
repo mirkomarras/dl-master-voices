@@ -85,10 +85,10 @@ python3 ./routines/verifier/train.py  --net "xvector"
 
 The training script will save in ```./data/vs_mv_models/{net}/v{xxx}/```: 
 - the model ```model.h5```;
-- the training history ```history.csv``` (format per line/epoch: loss,  acc, err, far@eer, frr@eer, thr@eer, far@far1, frr@far1, thr@far);
-- the training parameters in ```params.txt``` (format per line: key, value). 
+- the training history ```history.csv``` (loss, acc, err, far@eer, frr@eer, thr@eer, far@far1, frr@far1, thr@far);
+- the training parameters in ```params.txt``` (line: key, value). 
 
-To resume the training of an existing model, the model version must be specified in the net argument (e.g., ``` --net "xvector/v000"``` ).
+To resume the training of an existing model, the model version must be specified (e.g., ``` --net "xvector/v000"``` ).
 
 The training script can be configured in order to train different types of models with proper parameters. The
 most common parameters that can be customized are provided below.
