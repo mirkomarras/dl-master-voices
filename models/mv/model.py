@@ -40,7 +40,7 @@ class SiameseModel(object):
         print('> created seed voice dir', os.path.join(self.dir_sv, 'v' + self.id_sv))
         print('> created master voice dir', os.path.join(self.dir_mv, 'v' + self.id_mv))
 
-        with open(os.path.join(os.path.join(self.dir_sv, 'v' + self.id_mv), 'params.txt'), "w") as file:
+        with open(os.path.join(os.path.join(self.dir_mv, 'v' + self.id_mv), 'params.txt'), "w") as file:
             for arg in vars(params):
                 file.write("%s,%s\n" % (arg, getattr(params, arg)))
         print('> params saved in', os.path.join(dir_mv, 'v' + self.id_mv, 'params.txt'))
@@ -207,7 +207,7 @@ class SiameseModel(object):
         sf.write(os.path.join(self.dir_sv, 'v' + self.id_sv, 'sample_' + str(iter) + '.wav'), inv_signal, self.sample_rate)
 
         # We update and save the current impersonation rate history
-        np.savez(os.path.join(self.dir_sv, 'v' + self.id_sv, 'sample_' + str(iter) + '.hist'), cur_mv_eer_results=cur_mv_eer_results, cur_mv_far1_results=cur_mv_far1_results)
+        np.savez(os.path.join(self.dir_mv, 'v' + self.id_mv, 'sample_' + str(iter) + '.hist'), cur_mv_eer_results=cur_mv_eer_results, cur_mv_far1_results=cur_mv_far1_results)
 
     def test(self, input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10):
         """
