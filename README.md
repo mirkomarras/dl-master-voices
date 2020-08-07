@@ -115,12 +115,12 @@ python3 -u ./routines/verifier/test.py --net "xvector/v003"
 
 By default, this script will test the model on the standard VoxCeleb1 trial verification pairs provided together
 with the original dataset (37,720 pairs). The CSV file with the similarity scores returned by the model for each
-trial pair will be saved in ```./data/vs_mv_models/{net}/v{xxx}/test_vox1_sv_test.csv``` (similarity,label). 
+trial pair will be saved in ```./data/vs_mv_models/{net}/v{xxx}/scores_vox1_test.csv``` (similarity,label). 
   
 The current speaker model can be tested also on a set of trial verification pairs of the VoxCeleb2-Dev part devoted
 to master voice training (37,720 randomly-generated pairs). To do this, the following two parameters must be specified:
 ```--test_base_path "./data/voxceleb2/dev" --test_pair_path "./data/vs_mv_pairs/trial_pairs_vox2_test.csv"```.
-The resulting labels and similarity scores will be saved in ```./data/vs_mv_models/{net}/v{xxx}/test_vox2_sv_test.csv```.
+The resulting labels and similarity scores will be saved in ```./data/vs_mv_models/{net}/v{xxx}/scores_vox2_test.csv```.
 
 ### Spectrogram Generation (GAN)
 
