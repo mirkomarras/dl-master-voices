@@ -208,45 +208,33 @@ The most common parameters that can be customized are provided below.
 
 #### Test
 
-**Step 1.** Create a folder for your master voice set in ```./data/vs_mv_data```. For instance:
+This toolbox provides a script to compute the similarity scores between the audio files belonging to the master voice
+sets and the audio files belonging to the enrolled templates of users in the master-voice analysis part of VoxCeleb2-Dev.
+These scores will be then used to computer the impersonation rates of each audio example in the considered sets. To this
+end, the following script will scan all the master voice sets in ```./data/vs_mv_data``` and compute the similarity
+scores for each voice in those sets, given a certain speaker model. 
+
+This toolbox includes two verification policy, which influence the way the similarity scores are computed and saved:
+- ```any```: the similarity score for each enrolled user's template and master voice is computed;
+- ```avg```: the embeddings of the enrolled user's templates are averaged and a unique similarity score per user is saved. 
+
+For instance, to compute similarity scores from a pre-trained xvector model, the following command should be run: 
 
 ``` 
-python -u ./routines/mv/train.py --netv "vggvox/v003" --seed_voice "./tests/original_audio.wav" 
+python3 routines/mv/test.py --net "xvector/v000" 
 ``` 
 
-**Step 2.** Copy the audio waveforms belonging to your master voice set in the new folder. 
+By default, this script will compute similarity scores for both the policies. First, a sub-folder that includes
+all the csv files with the testing results is created in ```./data/vs_mv-models/{net}/{vxxx}```, namely ```mvcmp_any``` 
+for the any policy and ```mvcmp_avg``` for the avg policy. Then, for each audio file in the master voice sets saved 
+in ```./data/vs_mv_data```, this scripts creates a csv file that includes the trial verification pair results 
+(columns: score, label, path1, path2, gender). For the any policy, by default, ten rows per user are saved in each 
+csv file (10 enrolled templates per user). For the avg policy, only one row per user is saved in each csv file. 
 
-**Step 3.** Run a routine to create a csv of trial pairs against a master voice.
-
-``` 
-> python3 routines/mv/create_pairs.py --mv_set "real_f-f_sv/v000" 
-``` 
-
-This script creates a folder ```./data/vs_mv_pairs/mv/real_f-f_sv/v000``` with trials pairs for 
-all the audio waveforms in the target master voice set. Specifically, for each audio waveform, this
-script creates a csv file into the above folder, including trials pairs for each user belonging to the
-Vox2-Master-Voice-Analysis set (columns: label, path1, path2, gender).  
-
-If ```--mv_set``` is not specified, this script creates a csv file for each set in ```./data/vs_mv_pairs/mv```.
-
-**Step 4.** Create a noise folder
-```
-> mkdir ./data/vs_noise_data
-```
-
-**Step 5.** Run a routine to test all the master voice sets against the target verifier. 
-
-``` 
-> python3 routines/mv/test_pairs.py --net "xvector/v000" 
-``` 
-
-This script creates a folder ```./data/vs_mv_models/xvector/v000/mvcmp_any/```. For each csv file in
-```./data/vs_mv_pairs/mv/```, this script computes the similarity scores returned by ```xvector/v000``` 
-for each trial pair in the current csv. Finally, a copy of the csv file with an additional
-column that includes the computed similarity scores is saved into the folder ```mvcmp_any``` (columns: 
-score, label, path1, path2, gender). 
-
-**Step 5.** Open the notebook ```./notebooks/speaker_verifier.ipynb``` to inspect speaker verifiers' performance in terms of Equal Error Rate and Impersonation Rate. This notebook will use all the csv files generated above. 
+#### Analysis
+This tollbox is accompanied by a notebook ```./notebooks/speaker_verifier.ipynb``` that includes the code needed to
+test speaker model performance in terms of Equal Error Rate and Impersonation Rate. This notebook will use all the csv 
+files generated as described in the Test section. 
 
 ## Usage (APIs)
 
