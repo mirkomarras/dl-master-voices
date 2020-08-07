@@ -13,8 +13,8 @@ audio samples which match large populations of speakers by chance with high prob
 
 ## Table of Contents
 - [Installation](#installation)
+- [Data Folder Description](#data-folder-description) 
 - [Usage (Command Line)](#usage-command-line)
-    - [Data Folder Description](#data-folder-description) 
     - [Speaker Modelling](#speaker-modelling)
         - [Train](#train)
         - [Test](#test)
@@ -65,9 +65,7 @@ ln -s /beegfs/mm11333/data/voxceleb1 ./data/
 ln -s /beegfs/mm11333/data/voxceleb2 ./data/
 ``` 
 
-## Usage (Command Line)
-
-### Data Folder Description 
+## Data Folder Description 
 
 ``` 
 data
@@ -106,6 +104,8 @@ data
     ├── room
     └── speaker
 ``` 
+
+## Usage (Command Line)
 
 ### Speaker Modelling
 
