@@ -76,9 +76,26 @@ on the verification pairs provided with the VoxCeleb1-Test dataset are reported 
 
 #### Train
 
+This toolbox allows you to train a speaker model from scratch. For instance, a x-vector model can be trained
+by running the following script and indicating that specific type of speaker model to train. 
+
 ``` 
-python3 ./routines/verifier/train.py  --net "xvector" --val_n_pair 10000 
+python3 ./routines/verifier/train.py  --net "xvector"
 ```
+
+The training script can be configured in order to train different types of models with proper parameters. The
+most common parameters that can be customized are provided below.
+
+``` 
+--audio_dir "./data/voxceleb1/dev,./data/voxceleb2/dev" (Directories with wav training files)
+--n_epochs  1024                                        (Number of training epochs)
+--batch     64                                          (Size of the training batches)
+--learning_rate 0.001                                   (Starting learning rate)
+--loss 'softmax'                                        (Type of loss in ['softmax', 'amsoftmax'])
+--aggregation 'gvlad'                                   (Type of frame aggregation in ['avg', 'vlad', 'gvlad'])
+--val_n_pair 1000                                       (Number of validation trials)
+--n_seconds 3                                           (Segment lenght in seconds')
+``` 
 
 This script will save the model in ```./data/vs_mv_models/xvector/v000/model.h5```.  
 
