@@ -83,19 +83,21 @@ by running the following script and indicating that specific type of speaker mod
 python3 ./routines/verifier/train.py  --net "xvector"
 ```
 
-This script will save the model in ```./data/vs_mv_models/xvector/v{XXX}/model.h5```.  
+This script will save the model in ```./data/vs_mv_models/xvector/v{XXX}/model.h5```. If you want to restart
+training an existing model, you just need to specify the model version in the net argument (e.g., 
+``` --net "xvector/v000"``` ).
 
 The training script can be configured in order to train different types of models with proper parameters. The
 most common parameters that can be customized are provided below.
 
 ``` 
---net 'x-vector'                   (Type of model in ['x-vector', 'vggvox', 'thin_resnet', 'resnet34', 'resnet50'])
+--net 'x-vector'                   (Model type in ['x-vector','vggvox','thin_resnet','resnet34','resnet50'])
 --audio_dir "./data/voxceleb1/dev" (Directories with wav training files)
 --n_epochs  1024                   (Number of training epochs)
 --batch     64                     (Size of the training batches)
 --learning_rate 0.001              (Starting learning rate)
---loss 'softmax'                   (Type of loss in ['softmax', 'amsoftmax'])
---aggregation 'gvlad'              (Type of aggregation in ['avg', 'vlad', 'gvlad'])
+--loss 'softmax'                   (Type of loss in ['softmax','amsoftmax'])
+--aggregation 'gvlad'              (Type of aggregation in ['avg','vlad','gvlad'])
 --val_n_pair 1000                  (Number of validation trials)
 --n_seconds 3                      (Segment lenght in seconds')
 ``` 
