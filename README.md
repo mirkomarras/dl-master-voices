@@ -159,7 +159,12 @@ master voice sets are provided below.
 | vggvox-v000_wavegan-v000_n-f_sv |                 5 |                                                   |
 | vggvox-v000_wavegan-v000_n-m_sv |                 5  |                                                   |
 
-Each set is named with the following convention: ```{netv-vxxx}_{netg-vxxx|real}_{seed_gender}-{opt_gender}_{sv/mv}```.
+Each set is named with the following convention: ```{netv-vxxx}_{netg-vxxx|real}_{seed_gender}-{opt_gender}_{sv|mv}```,
+where ```netv-vxxx``` are the speaker model and its version; ```netg-vxx``` are the gan model and its version; 
+```real``` is a name for non-gan-generated sets; ```seed_gender``` is the gender against which the gan has been
+trained or, in general, the gender of the individuals in the audio files (f:female, m:male, n:neutral); ```opt_gender```
+is the gender against which the seed voice has been optimized, ```sv``` indicates seed voice sets; ```mv``` indicates 
+their corresponding master voice sets.
 
 #### Generation
 ...
