@@ -53,9 +53,8 @@ def griffin_lim_gan(model, dataset, version, n=32, patch=256, aspect=1, sample_r
 
         sp = np.vstack((s2, np.zeros((1, s2.shape[1])), s2[:0:-1]))
 
-        #print(sp)
+        # clip the audio to remove noise
         sp = sp.clip(0)
-        #print(sp)
 
         #sp = sp - sp.min()
 
@@ -68,14 +67,14 @@ def griffin_lim_gan(model, dataset, version, n=32, patch=256, aspect=1, sample_r
         #INVERTING
         inv_signal = spectrum_to_signal(sp.T, int(2.57*16000))
 
-        print(inv_signal)
+        #print(inv_signal)
 
         #EXPORTING
         #fig = plotting.imsc(s, cmap='hsv')
         fig = plotting.imsc(sp, cmap='hsv')
         
-        sf.write(os.path.join(gla_dir, f'inverted_full_audio' + (str(i)) + '.wav'), inv_signal, sample_rate)
-        fig.savefig(os.path.join(gla_dir, f'inverted_full_audio_' + (str(i)) + '.png'))
+        sf.write(os.path.join(gla_dir, dataset + "_" + (str(i)) + '.wav'), inv_signal, sample_rate)
+        fig.savefig(os.path.join(gla_dir, dataset + "_" + (str(i)) + '.png'))
 
         i += 1
     '''

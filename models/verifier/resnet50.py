@@ -40,7 +40,7 @@ class ResNet50(Model):
                 x = tf.keras.layers.Reshape((-1, embs_size))(x)
             else:
                 x = tf.keras.layers.GlobalAveragePooling2D(name='avg_pool')(x)
-                x = tf.keras.layers.Reshape((1, embs_size))(x)
+                x = tf.keras.layers.Reshape((-1, embs_size))(x)
 
         elif aggregation == 'vlad':
             x_k_center = tf.keras.layers.Conv2D(vlad_clusters, (7, 1), strides=(1, 1), kernel_initializer='orthogonal', use_bias=True, trainable=True, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='vlad_center_assignment')(x)
