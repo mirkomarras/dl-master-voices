@@ -57,7 +57,7 @@ directly the raw audio, the audio spectrogram, or the audio filterbank (see [her
 for a more detailed discussion).  
 
 With this repository, a range of pretrained models are available and can be downloaded from
-[here](https://drive.google.com/drive/folders/15_ElEam7brk6lPheVV0fVXDQ2i3W_Iw5?usp=sharing). Each model 
+[here](https://drive.google.com/drive/folders/1KYmizReZ3HHd6qH9r8Hpu24iHVXd8Ikb?usp=sharing). Each model 
 should be copied into the appropriate sub-folder in ```./data/vs_mv_models```. The best model performance 
 on the verification pairs provided with the VoxCeleb1-Test dataset are reported below. 
 
@@ -136,6 +136,28 @@ The resulting labels and similarity scores will be saved in ```./data/vs_mv_mode
 ``` 
 
 ### Master Voice Optimization
+
+Master voices are defined as a family of adversarial audio files which match large populations of speakers 
+by chance with high probability. This toolbox organizes master voices in sets according to the speaker model and 
+the seed voices used for optimization. With this repository, a range of seed and master voice sets are available 
+and can be downloaded from [here](https://drive.google.com/drive/folders/1gQeWT7kI6eYXIBoVg4yTkJgw5UdDt0BW?usp=sharing). 
+Each set should be copied into the appropriate sub-folder in ```./data/vs_mv_data```. Some details on the current
+master voice sets are provided below. 
+
+|                     Set ID | Number of Samples |                                          Comments |
+|---------------------------:|------------------:|--------------------------------------------------:|
+|    vggvox-v000_real_f-f_mv |                50 | Uniformly sampled based on the impersonation rate |
+|    vggvox-v000_real_m-m_mv |                50 | Uniformly sampled based on the impersonation rate |
+| vggvox-v000_wavegan_f-f_mv |                 5 |                                                   |
+| vggvox-v000_wavegan_m-m_mv |                 5 |                                                   |
+| vggvox-v000_wavegan_n-f_mv |                 5 |                                                   |
+| vggvox-v000_wavegan_n-m_mv |                 5 |                                                   |
+|    vggvox-v000_real_f-f_sv |                50 | Uniformly sampled based on the impersonation rate |
+|    vggvox-v000_real_m-m_sv |                50 | Uniformly sampled based on the impersonation rate |
+| vggvox-v000_wavegan_f-f_sv |                 5 |                                                   |
+| vggvox-v000_wavegan_m-m_sv |                 5 |                                                   |
+| vggvox-v000_wavegan_n-f_sv |                 5 |                                                   |
+| vggvox-v000_wavegan_n-m_sv |                   |                                                   |
 
 #### Generation
 ...
