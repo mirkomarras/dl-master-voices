@@ -29,7 +29,7 @@ pip install -r requirements.txt
 
 Copy the data folder:
 ``` 
-wget "<link>"
+wget "https://drive.google.com/drive/folders/1AWj7dInvvfl-wCVUnz8u8GpM1EBjclbU?usp=sharing"
 unzip data_20200807.zip
 rm -r data_20200807.zip
 ``` 
@@ -46,6 +46,46 @@ ln -s /beegfs/mm11333/data/voxceleb2 ./data/
 ``` 
 
 ## Usage (Command Line)
+
+### Data Folder Description 
+
+``` 
+data
+├── voxceleb1 -> /beegfs/mm11333/data/voxceleb1
+├── voxceleb2 -> /beegfs/mm11333/data/voxceleb2
+├── vs_mv_data (sets of master voices)
+│   ├── vggvox-v000_real_f-f_mv
+│   ├── vggvox-v000_real_f-f_sv
+│   ├── vggvox-v000_real_m-m_mv
+│   ├── vggvox-v000_real_m-m_sv
+│   ├── vggvox-v000_wavegan-v000_f-f_mv
+│   ├── vggvox-v000_wavegan-v000_f-f_sv
+│   ├── vggvox-v000_wavegan-v000_m-m_mv
+│   ├── vggvox-v000_wavegan-v000_m-m_sv
+│   ├── vggvox-v000_wavegan-v000_n-f_mv
+│   ├── vggvox-v000_wavegan-v000_n-f_sv
+│   ├── vggvox-v000_wavegan-v000_n-m_mv
+│   └── vggvox-v000_wavegan-v000_n-m_sv
+├── vs_mv_models (sets of pre-trained speaker models)
+│   ├── ms-gan
+│   ├── resnet34
+│   ├── resnet50
+│   ├── thin_resnet
+│   ├── vggvox
+│   └── xvector
+├── vs_mv_pairs (set of utility data)
+│   ├── data_mv_vox2_all.npz (train-test splits for master voice analysis in VoxCeleb2-Dev)
+│   ├── meta_data_vox12_all.csv (id-gender correspondence for VoxCeleb1-2 users)
+│   ├── mv (folder that includes csv files with trial verification pairs for master voices)
+│   ├── trial_pairs_vox1_test.csv (trial verification pairs from VoxCeleb1-Test)
+│   └── trial_pairs_vox2_test.csv (trial verification pairs from VoxCeleb2-Dev MV-Train)
+│   ├── trial_pairs_vox2_mv.csv (paths to enrolled templates for users in VoxCeleb2-Dev MV-Test)
+└── vs_noise_data (sets of background noise files for playback-n-recording)
+    ├── general
+    ├── microphone
+    ├── room
+    └── speaker
+``` 
 
 ### Speaker Modelling
 
