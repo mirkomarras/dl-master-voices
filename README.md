@@ -231,7 +231,7 @@ in ```./data/vs_mv_data```, this scripts creates a csv file that includes the tr
 (columns: score, label, path1, path2, gender), obtained by computing the similarity scores between the current master 
 voice and the audio files belonging to the enrolled templates of users in the master-voice analysis part of 
 VoxCeleb2-Dev. For the any policy, by default, ten rows per user are saved in each 
-csv file (10 enrolled templates per user). For the avg policy, only one row per user is saved in each csv file. 
+csv file (10 templates per user). For the avg policy, one row per user is saved in each csv file. 
 
 #### Analysis
 This toolbox is accompanied by a notebook ```./notebooks/speaker_verifier.ipynb``` that includes the code needed to
