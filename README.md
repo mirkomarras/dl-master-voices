@@ -52,14 +52,14 @@ ln -s /beegfs/mm11333/data/voxceleb2 ./data/
 Speaker models aim to provide compact 1-D floating-point representations (i.e., embeddings) of vocal audio files, 
 so that the embeddings extracted from vocal audio files of the same speaker are similar to each other (high
 intra-class similarity) and those extracted from vocal audio files of different speakers are very dissimilar to
-each other (low inter-class similarity). Depending on the architecture, a speaker model can take directly the raw
-audio, the audio spectrogram, or the audio filterbank (see [here](https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning.html) 
+each other (low inter-class similarity). Depending on the architecture, a speaker model can take as ian input 
+directly the raw audio, the audio spectrogram, or the audio filterbank (see [here](https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning.html) 
 for a more detailed discussion).  
 
 With this repository, a range of pretrained models are available and can be downloaded from
 [here](https://drive.google.com/drive/folders/15_ElEam7brk6lPheVV0fVXDQ2i3W_Iw5?usp=sharing). Each model 
 should be copied into the appropriate sub-folder in ```./data/vs_mv_models```. The best model performance 
-on the trial verification pairs provided with the VoxCeleb1-Test dataset are reported below. 
+on the verification pairs provided with the VoxCeleb1-Test dataset are reported below. 
 
 |                  | input  |     eer | thr@eer | thr@far1 | frr@far1 | 
 |-----------------:|-------:|--------:|--------:|---------:|---------:|
