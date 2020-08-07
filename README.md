@@ -146,14 +146,14 @@ master voice sets are provided below.
 
 |                     Set ID      | Number of Samples |                                          Comments |
 |--------------------------------:|------------------:|--------------------------------------------------:|
-|    vggvox-v000_real_f-f_mv      |                50 | Uniformly sampled based on the impersonation rate |
-|    vggvox-v000_real_m-m_mv      |                50 | Uniformly sampled based on the impersonation rate |
+|    vggvox-v000_real_f-f_mv      |                50 | Uniformly sampled based on the false accepts |
+|    vggvox-v000_real_m-m_mv      |                50 | Uniformly sampled based on the false accepts |
 | vggvox-v000_wavegan-v000_f-f_mv |                 5 |                                                   |
 | vggvox-v000_wavegan-v000_m-m_mv |                 5 |                                                   |
 | vggvox-v000_wavegan-v000_n-f_mv |                 5 |                                                   |
 | vggvox-v000_wavegan-v000_n-m_mv |                 5 |                                                   |
-|    vggvox-v000_real_f-f_sv      |                50 | Uniformly sampled based on the impersonation rate |
-|    vggvox-v000_real_m-m_sv      |                50 | Uniformly sampled based on the impersonation rate |
+|    vggvox-v000_real_f-f_sv      |                50 | Uniformly sampled based on the false accepts |
+|    vggvox-v000_real_m-m_sv      |                50 | Uniformly sampled based on the false accepts |
 | vggvox-v000_wavegan-v000_f-f_sv |                 5 |                                                   |
 | vggvox-v000_wavegan-v000_m-m_sv |                 5 |                                                   |
 | vggvox-v000_wavegan-v000_n-f_sv |                 5 |                                                   |
