@@ -159,7 +159,7 @@ master voice sets are provided below.
 | vggvox-v000_wavegan-v000_n-f_sv |                 5 |                                                   |
 | vggvox-v000_wavegan-v000_n-m_sv |                 5  |                                                   |
 
-Each set is named with the following convention: ```{netv-vxxx}_{netg-vxxx|real}_{netg_gender}-{opt_gender}_{sv/mv}```.
+Each set is named with the following convention: ```{netv-vxxx}_{netg-vxxx|real}_{seed_gender}-{opt_gender}_{sv/mv}```.
 
 #### Generation
 ...
