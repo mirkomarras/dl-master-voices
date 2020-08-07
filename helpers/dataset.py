@@ -169,7 +169,7 @@ def create_template_trials(base_path, trials_path, n_templates=1, n_pos_pairs=10
     print('> computed', counter_pairs-1, 'pairs')
 
 
-def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, n_seconds=3, n_templates=10):
+def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, n_templates=10):
     """
     Function to load data for master voice impersonation
     :param mv_analysis_path:    File path to master voice analysis metadata
@@ -180,7 +180,7 @@ def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, 
     :param n_templates:         Number of audio samples per user to be loaded
     :return:                    (list of audio samples, list of labels, list of male user ids, list of female user ids)
     """
-    print('Loading master voice data')
+    print('Loading audio files for master voice validation')
 
     mv_analysis_data = np.load(mv_analysis_path)
     mv_paths = [os.path.join(mv_base_path, path) for path in mv_analysis_data['x_test']]

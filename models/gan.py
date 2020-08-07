@@ -65,7 +65,7 @@ class GAN(object):
     
     def __init__(self, dataset, version=None, gradient_penalty=True, clip_discriminator=False):
         self.dataset = dataset
-        self.root_dir = './data/models/gan/'        
+        self.root_dir = './data/pt_models/'
         self.gradient_penalty = gradient_penalty
         self.clip_discriminator = clip_discriminator
         self.performance = {'gen': [], 'disc': [], 'accuracy': []}
@@ -101,7 +101,7 @@ class GAN(object):
         """
         dirname = os.path.join(self.root_dir, self.model_code, self.dataset)
         if hasattr(self, 'version') and self.version is not None:
-            dirname = os.path.join(dirname, f'v{self.version:03d}')
+            dirname = os.path.join(dirname, 'v' + str('{:03d}'.format(self.version)))
         if make and not os.path.isdir(dirname):
             os.makedirs(dirname)
         return dirname
@@ -145,7 +145,7 @@ class GAN(object):
             else:
                 self.generator.load_weights(os.path.join(dirname, 'generator.h5'))
         except Exception as e:
-            print(f'ERROR Error loading generator: {e}')
+            print('ERROR Error loading generator: '+ str(e))
         
         try:
             if replace_models:
@@ -154,7 +154,7 @@ class GAN(object):
             else:
                 self.discriminator.load_weights(os.path.join(dirname, 'discriminator.h5'))
         except Exception as e:
-            print(f'ERROR Error loading discriminator: {e}')
+            print('ERROR Error loading generator: '+ str(e))
     
     def sample(self, n=1, strip_scales=True):
         samples = self.generator(tf.random.normal([n, 128]), training=False)
@@ -256,8 +256,8 @@ class GAN(object):
             self.generator_optimizer.apply_gradients(zip(grad_gen, self.generator.trainable_variables))
             
         return gen_loss, disc_loss
-                    
-    
+
+
     def train(self, train_data, epochs=500, preview_interval=10, gsteps=1, dsteps=1, lr_g=1e-4, lr_d=2.5e-4):
         
         self.discriminator_optimizer = tf.keras.optimizers.Adam(lr_d)
@@ -338,7 +338,7 @@ class GAN(object):
                 fig = plotting.waveforms(samples, spectrums=True)
             
         if save:
-            filename = os.path.join(self.dirname(make=True), f'preview_{epoch:04d}.jpg')
+            filename = os.path.join(self.dirname(make=True), str('review_{:04d}.jpg'.format(epoch)))
             plt.savefig(filename, bbox_inches='tight', quality=80)
             plt.close()
             return filename
@@ -362,30 +362,15 @@ class GAN(object):
         axes[2].set_title('discriminator on')
         
         if save:
-            filename = os.path.join(self.dirname(make=True), f'progress.png')
+            filename = os.path.join(self.dirname(make=True), 'progress.png')
             fig.savefig(filename, bbox_inches='tight')
             plt.close()
             return filename
         else:
             return fig
-            
-    def summarize_models(self):
-        if isinstance(self.generator.outputs, list):
-            print(f'Generator [{self.generator.count_params():,d}]: {self.generator.input.shape[1:]} -> {len(self.generator.outputs)} outputs=', end='')
-            for o in self.generator.outputs:
-                print(f' {o.shape[1:]}', end='')
-            print('')
-        else:
-            print(f'Generator: {self.generator.input.shape[1:]} -> {self.generator.output.shape[1:]}')
-        
-        if isinstance(self.discriminator.input, list):
-            print(f'Discriminator [{self.discriminator.count_params():,d}]: {len(self.discriminator.input)} inputs=', end='')
-            for o in self.discriminator.input:
-                print(f' {o.shape[1:]}', end='')
-            print(f' -> {self.discriminator.outputs[0].shape[1:]}:')
-        else:
-            print(f'Discriminator [{self.discriminator.count_params():,d}]: {self.discriminator.input.shape[1:]} -> {self.discriminator.output.shape[1:]}')
 
+    def get_generator(self):
+        return self.generator
 
 # %%
 
@@ -450,18 +435,6 @@ class DCGAN(GAN):
     def model_code(self):
         return 'dc-gan'
 
-    def __str__(self):
-        args = [
-            f'{self.dataset}', 
-            f'z={self.z_dim}', 
-            f'o={self.patch}x{self.patch}', 
-            f'bn={self.bn!s:.1}', 
-            f'sn={self.sn!s:.1}', 
-            f'gp={self.gradient_penalty!s:.1}',
-            f'clip={self.clip_discriminator!s:.1}'
-        ]
-        return f'DC-GAN[{",".join(args)}]'
-
 
 class MultiscaleGAN(GAN):
 
@@ -473,12 +446,6 @@ class MultiscaleGAN(GAN):
         [1] MSG-GAN: Multi-Scale Gradients for Generative Adversarial Networks, https://arxiv.org/abs/1903.06048
         """
         super().__init__(dataset, version, gp, cd)
-        
-        if up not in {'conv', 'interp'}:
-            raise ValueError(f'Invalid upsampling: {up}!')
-            
-        if width_ratio not in {0.5, 1, 2, 3, 4, 5, 6, 7, 8}:
-            raise ValueError(f'Invalid width ratio: {width_ratio}!')
         
         # Save hyperparameters for future reference
         self.g_layers = int(np.log2(min(patch, patch * width_ratio)) - 2)
@@ -523,8 +490,7 @@ class MultiscaleGAN(GAN):
             if min_output is None or x.shape[1] >= min_output:
                 o = tfl.Conv2D(1, 1, use_bias=True, padding='SAME')(x)
                 outputs.append(o)
-                            
-        self._scales = ','.join([f'{out.shape[1]}x{out.shape[2]}' for out in outputs])
+
         self.generator = tf.keras.Model(inputs=z, outputs=outputs)
         self.n_scales = len(outputs)
     
@@ -569,17 +535,4 @@ class MultiscaleGAN(GAN):
     @property
     def model_code(self):
         return 'ms-gan'
-
-    def __str__(self):
-        args = [
-            f'{self.dataset}', 
-            f'z={self.z_dim}', 
-            f'o={self._scales}', 
-            f'up={self.up}', 
-            f'bn={self.bn!s:.1}', 
-            f'sn={self.sn!s:.1}', 
-            f'gp={self.gradient_penalty!s:.1}',
-            f'clip={self.clip_discriminator!s:.1}'
-        ]
-        return f'MS-GAN[{",".join(args)}]'
         

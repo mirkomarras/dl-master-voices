@@ -334,7 +334,7 @@ def inv_stft(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num
 def inv_istft(spectrum, slice_length, sample_rate=16000, frame_stride=0.01, num_fft=512):
     return deframesig(np.fft.ifft(spectrum, n=num_fft), slice_length, frame_len=num_fft, frame_step=frame_stride*sample_rate, winfunc=np.hamming)
 
-def spectrum_to_signal(spectrum, slice_length, iter=300, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
+def spectrum_to_signal(spectrum, slice_length, iter=300, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, verbose=True):
     inv_signal = np.random.randn(slice_length)
 
     for i in range(iter):
@@ -342,7 +342,9 @@ def spectrum_to_signal(spectrum, slice_length, iter=300, sample_rate=16000, fram
         inv_spectrum = spectrum * np.exp(1.0j * inv_spectrum_angle)
         inv_signal = inv_istft(inv_spectrum, slice_length, sample_rate, frame_stride, num_fft)
         error = np.sqrt(np.sum((spectrum - abs(inv_spectrum))**2) / spectrum.size)
-        print('\rIteration: {}/{} - Error: {} '.format(i+1, iter, error), end='')
-    print()
+        if verbose:
+            print('\rIteration: {}/{} - Error: {} '.format(i+1, iter, error), end='')
+    if verbose:
+        print()
 
     return inv_signal

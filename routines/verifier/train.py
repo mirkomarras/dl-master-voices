@@ -43,7 +43,7 @@ def main():
 
     # Parameters for validation
     parser.add_argument('--val_base_path', dest='val_base_path', default='./data/voxceleb1/test', type=str, action='store', help='Base path for validation trials')
-    parser.add_argument('--val_pair_path', dest='val_pair_path', default='./data/ad_voxceleb12/vox1_trial_pairs.csv', type=str, action='store', help='CSV file with validation trials')
+    parser.add_argument('--val_pair_path', dest='val_pair_path', default='./data/vs_mv_pairs/trial_pairs_vox1_test.csv', type=str, action='store', help='CSV file with validation trials')
     parser.add_argument('--val_n_pair', dest='val_n_pair', default=1000, type=int, action='store', help='Number of validation trials')
     parser.add_argument('--n_templates', dest='n_templates', default=1, type=int, action='store', help='Number of enrolment templates')
 
@@ -113,7 +113,6 @@ def main():
 
     print('Creating model')
     available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thin_resnet': ThinResNet34}
-
     model = available_nets[args.net.split('/')[0]](id=(int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1))
     model.build(classes, args.embs_size, args.embs_name, args.loss, args.aggregation, args.vlad_clusters, args.ghost_clusters, args.weight_decay, 'train')
     model.load()
