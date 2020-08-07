@@ -210,13 +210,13 @@ The most common parameters that can be customized are provided below.
 
 This toolbox provides a script to compute the similarity scores between the audio files belonging to the master voice
 sets and the audio files belonging to the enrolled templates of users in the master-voice analysis part of VoxCeleb2-Dev.
-These scores will be then used to computer the impersonation rates of each audio example in the considered sets. To this
+These scores will be then used to compute the impersonation rates of each master voice in the considered sets. To this
 end, the following script will scan all the master voice sets in ```./data/vs_mv_data``` and compute the similarity
-scores for each voice in those sets, given a certain speaker model. 
+scores for each voice in those sets, given a certain speaker model (already processed sets will be skipped). 
 
 This toolbox includes two verification policy, which influence the way the similarity scores are computed and saved:
 - ```any```: the similarity score for each enrolled user's template and master voice is computed;
-- ```avg```: the embeddings of the enrolled user's templates are averaged and a unique similarity score per user is saved. 
+- ```avg```: the embeddings of the user's templates are averaged and a unique similarity score per user is saved. 
 
 For instance, to compute similarity scores from a pre-trained xvector model, the following command should be run: 
 
@@ -224,11 +224,13 @@ For instance, to compute similarity scores from a pre-trained xvector model, the
 python3 routines/mv/test.py --net "xvector/v000" 
 ``` 
 
-By default, this script will compute similarity scores for both the policies. First, a sub-folder that includes
-all the csv files with the testing results is created in ```./data/vs_mv-models/{net}/{vxxx}```, namely ```mvcmp_any``` 
-for the any policy and ```mvcmp_avg``` for the avg policy. Then, for each audio file in the master voice sets saved 
+By default, this script will compute similarity scores for both the policies. First, two sub-folders that include
+all the csv files with the testing results are created in ```./data/vs_mv-models/{net}/{vxxx}```, namely ```mvcmp_any``` 
+for the any policy and ```mvcmp_avg``` for the avg policy. Then, for each audio in the master voice sets saved 
 in ```./data/vs_mv_data```, this scripts creates a csv file that includes the trial verification pair results 
-(columns: score, label, path1, path2, gender). For the any policy, by default, ten rows per user are saved in each 
+(columns: score, label, path1, path2, gender), obtained by computing the similarity scores between the current master 
+voice and the audio files belonging to the enrolled templates of users in the master-voice analysis part of 
+VoxCeleb2-Dev. For the any policy, by default, ten rows per user are saved in each 
 csv file (10 enrolled templates per user). For the avg policy, only one row per user is saved in each csv file. 
 
 #### Analysis
