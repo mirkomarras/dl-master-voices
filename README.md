@@ -14,10 +14,21 @@ audio samples which match large populations of speakers by chance with high prob
 ## Table of Contents
 - [Installation](#installation)
 - [Usage (Command Line)](#usage-command-line)
+    - [Data Folder Description](#data-folder-description) 
+    - [Speaker Modelling](#speaker-modelling)
+        - [Train](#train)
+        - [Test](#test)
+    - [Spectrogram Generation (GAN)](#spectrogram-generation-gan)
+        - [Train](#train-1)
+        - [Test](#test-show-samples)
+    - [Master Voice Optimization](#master-voice-optimization)
+        - [Generation](#generation)
+        - [Test](#test-1)
+        - [Analysis](#analysis)
 - [Usage (APIs)](#usage-apis)
 - [Usage (NYU HPC)](#usage-nyu-hpc)
 - [Contributing](#contributing)
-- [Citations](#credits)
+- [Citations](#citations)
 - [License](#license)
 
 ## Installation
