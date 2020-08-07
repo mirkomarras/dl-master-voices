@@ -52,7 +52,7 @@ ln -s /beegfs/mm11333/data/voxceleb2 ./data/
 Speaker models aim to provide compact 1-D floating-point representations (i.e., embeddings) of vocal audio files, 
 so that the embeddings extracted from vocal audio files of the same speaker are similar to each other (high
 intra-class similarity) and those extracted from vocal audio files of different speakers are very dissimilar to
-each other (low inter-class similarity). Depending on the architecture, a speaker model can take as ian input 
+each other (low inter-class similarity). Depending on the architecture, a speaker model can take as an input 
 directly the raw audio, the audio spectrogram, or the audio filterbank (see [here](https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning.html) 
 for a more detailed discussion).  
 
@@ -61,18 +61,18 @@ With this repository, a range of pretrained models are available and can be down
 should be copied into the appropriate sub-folder in ```./data/vs_mv_models```. The best model performance 
 on the verification pairs provided with the VoxCeleb1-Test dataset are reported below. 
 
-|                  | Input  | Shape          |   Size  |     EER | THR@EER | THR@FAR1% | FRR@FAR1% | 
-|-----------------:|-------:|---------------:|--------:|--------:|--------:|----------:|----------:|
-|    resnet34/v002 |   spec |   (256,None,1) |    360  |   6.763 |  0.8488 |   0.8834 |  24.0244 | 
-|    resnet34/v003 |   spec |   (256,None,1) |    360  |   8.207 |  0.7161 |   0.7982 |  31.8823 | 
-|    resnet50/v002 |   spec |   (256,None,1) |    427  |   6.182 |  0.7395 |   0.8110 |  25.6734 |
-|    resnet50/v003 |   spec |   (256,None,1) |    427  |   5.015 |  0.7721 |   0.8277 |  17.6193 |
-| thin_resnet/v002 |   spec |   (256,None,1) |    128  |   5.570 |  0.7700 |   0.8159 |  18.4783 |
-| thin_resnet/v003 |   spec |   (256,None,1) |    128  |   9.310 |  0.7607 |   0.8411 |  36.4104 |
-|      vggvox/v002 |   spec |   (256,None,1) |    100  |  10.710 |  0.7095 |   0.8093 |  43.2291 |
-|      vggvox/v003 |   spec |   (256,None,1) |    100  |   6.932 |  0.7625 |   0.8292 |  27.6087 |
-|     xvector/v002 |   filt |   (None, 24)   |    104  |  12.513 |  0.4682 |   0.6128 |  41.9512 |
-|     xvector/v003 |   filt |   (None, 24)   |    104  |   8.245 |  0.8430 |   0.8817 |  28.2503 |
+|                  | Input  | Shape          |   Size (MB)  |     EER | THR@EER | THR@FAR1% | FRR@FAR1% | 
+|-----------------:|-------:|---------------:|-------------:|--------:|--------:|----------:|----------:|
+|    resnet34/v002 |   spec |   (256,None,1) |    360       |   6.763 |  0.8488 |   0.8834 |  24.0244 | 
+|    resnet34/v003 |   spec |   (256,None,1) |    360       |   8.207 |  0.7161 |   0.7982 |  31.8823 | 
+|    resnet50/v002 |   spec |   (256,None,1) |    427       |   6.182 |  0.7395 |   0.8110 |  25.6734 |
+|    resnet50/v003 |   spec |   (256,None,1) |    427       |   5.015 |  0.7721 |   0.8277 |  17.6193 |
+| thin_resnet/v002 |   spec |   (256,None,1) |    128       |   5.570 |  0.7700 |   0.8159 |  18.4783 |
+| thin_resnet/v003 |   spec |   (256,None,1) |    128       |   9.310 |  0.7607 |   0.8411 |  36.4104 |
+|      vggvox/v002 |   spec |   (256,None,1) |    100       |  10.710 |  0.7095 |   0.8093 |  43.2291 |
+|      vggvox/v003 |   spec |   (256,None,1) |    100       |   6.932 |  0.7625 |   0.8292 |  27.6087 |
+|     xvector/v002 |   filt |   (None, 24)   |    104       |  12.513 |  0.4682 |   0.6128 |  41.9512 |
+|     xvector/v003 |   filt |   (None, 24)   |    104       |   8.245 |  0.8430 |   0.8817 |  28.2503 |
 
 #### Train
 
