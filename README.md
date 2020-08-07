@@ -167,7 +167,7 @@ is the gender against which the seed voice has been optimized; ```sv``` indicate
 their corresponding master voice sets.
 
 #### Generation
-This toolbox includes three main ways of optimizing master voices:
+This toolbox includes three main ways of generating master voices:
 
 1. Optimize an individual seed voice: 
     ``` 
@@ -177,11 +177,11 @@ This toolbox includes three main ways of optimizing master voices:
     
 2. Optimize a set of seed voices: 
     ``` 
-    python -u ./routines/mv/train.py --netv "vggvox/v003" --seed_voice "./data/vs_mv_data/vggvox-v000_real_f-f_mv/v000"
+    python -u ./routines/mv/train.py --netv "vggvox/v003" --seed_voice "vggvox-v000_real_f-f_mv/v000"
     ``` 
     This command will save seed/master voices in ```{netv-vxxx}_{real}_{opt_gender}_{sv|mv}```.
     
-3. Optimize a set of gan--generated voices: 
+3. Optimize a set of gan-generated voices: 
     ``` 
     python -u ./routines/mv/train.py --netv "vggvox/v003" --netg "ms-gan/v001"
     ``` 
@@ -190,7 +190,7 @@ This toolbox includes three main ways of optimizing master voices:
 For each master voice, the following files will be saved (we provide an example for a sample_0 master voice):
 - the master voice file ```sample_0.wav```;
 - the master voice spectrogram/latent-vector ```sample_0.npy```;
-- the master voice optimization history ```sample_0.hist``` (list of impersonation rates at EER and FAR1% thrs). 
+- the master voice optimization history ```sample_0.hist``` (list of training impersonation rates at EER and FAR1% thrs). 
 
 The optimization script can be configured in order to optimize different types of master voices with proper parameters. 
 The most common parameters that can be customized are provided below.
