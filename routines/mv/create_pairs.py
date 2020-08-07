@@ -24,16 +24,17 @@ def main():
 
     for mv_set in ([args.mv_set] if args.mv_set else [os.path.join(mv_set, version) for mv_set in os.listdir('./data/vs_mv_data') for version in os.listdir(os.path.join('./data/vs_mv_data', mv_set))]):
         for mv_file in os.listdir(os.path.join('./data/vs_mv_data', mv_set)):
-            print('> processing set', mv_set, 'File', mv_file)
-            df = pd.read_csv(args.mv_trials, names=['label', 'path1', 'gender'])
-            df['path2'] = os.path.join('vs_mv_data', mv_set, mv_file)
+            if mv_file.endswith('.wav'):
+                print('> processing set', mv_set, 'File', mv_file)
+                df = pd.read_csv(args.mv_trials, names=['label', 'path1', 'gender'])
+                df['path2'] = os.path.join('vs_mv_data', mv_set, mv_file)
 
-            # Create save path
-            if not os.path.exists(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set)):
-                os.makedirs(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set))
+                # Create save path
+                if not os.path.exists(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set)):
+                    os.makedirs(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set))
 
-            df[['label', 'path1', 'path2', 'gender']].to_csv(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set, mv_file.replace('.wav', '.csv')), index=False, header=False)
-            print('> saved', mv_file, 'scores in', os.path.join('data', 'vs_mv_pairs', 'mv', mv_set, mv_file.replace('.wav', '.csv')))
+                df[['label', 'path1', 'path2', 'gender']].to_csv(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set, mv_file.replace('.wav', '.csv')), index=False, header=False)
+                print('> saved', mv_file, 'scores in', os.path.join('data', 'vs_mv_pairs', 'mv', mv_set, mv_file.replace('.wav', '.csv')))
 
 if __name__ == '__main__':
     main()
