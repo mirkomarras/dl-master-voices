@@ -204,7 +204,7 @@ class Model(object):
         print('>', 'trained', self.name, 'model')
 
 
-    def test(self, test_data, output_type='spectrum', policy='any', save=False):
+    def test(self, test_data, output_type='spectrum', policy='any', save=False, filename='vox1'):
         """
         Method to test this model against verification attempts
         :param test_data:       Pre-computed testing data pairs - shape ((pairs, None, 1), (pairs, None, 1)), (pairs, binary_label)
@@ -241,8 +241,8 @@ class Model(object):
 
         if save:
             df = pd.DataFrame({'target': scores, 'similarity': labels})
-            df.to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_vox1_sv_test.csv'))
-            print('>', 'saved results in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_vox1_sv_test.csv'))
+            df.to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'scores_' + filename + '_test.csv'))
+            print('>', 'saved results in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'scores_' + filename + '_test.csv'))
 
         return [eer, far[id_eer], frr[id_eer], thr_eer, far[id_far1], frr[id_far1], thr_far1]
 

@@ -120,10 +120,7 @@ trial pair will be saved in ```./data/vs_mv_models/{net}/v{xxx}/test_vox1_sv_tes
 The current speaker model can be tested also on a set of trial verification pairs of the VoxCeleb2-Dev part devoted
 to master voice training (37,720 randomly-generated pairs). To do this, the following two parameters must be specified:
 ```--test_base_path "./data/voxceleb2/dev" --test_pair_path "./data/vs_mv_pairs/trial_pairs_vox2_test.csv"```.
-The resulting label and similarity scores will be saved in ```./data/vs_mv_models/{net}/v{xxx}/test_vox2_sv_test.csv```.
-
-#### Pretrained Models
-
+The resulting labels and similarity scores will be saved in ```./data/vs_mv_models/{net}/v{xxx}/test_vox2_sv_test.csv```.
 
 ### Spectrogram Generation (GAN)
 

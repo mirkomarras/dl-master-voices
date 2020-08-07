@@ -85,7 +85,7 @@ def main():
     # Test model
     print('Testing model')
     t1 = time.time()
-    results = model.test(test_data, output_type=output_type, policy=args.policy, save=True)
+    results = model.test(test_data, output_type=output_type, policy=args.policy, save=True, filename=args.test_pair_path.split('/')[-1].replace('.csv', '').split('_')[-2])
     t2 = time.time()
     print('>', t2-t1, 'seconds for testing with', results)
 
