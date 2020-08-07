@@ -20,5 +20,5 @@ export PRJ_PATH="${PWD}"
 export PYTHONPATH=$PRJ_PATH
 source $PRJ_PATH/mvenv/bin/activate
 
-python -u $PRJ_PATH/routines/verifier/test.py --net "xvector/v000" --aggregation 'gvlad' --test_n_pair 1000
+python -u $PRJ_PATH/routines/verifier/test.py --net "xvector/v003"
 

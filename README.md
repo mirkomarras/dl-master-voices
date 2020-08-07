@@ -199,8 +199,6 @@ source mvenv/bin/activate
 module load ffmpeg/intel/3.2.2
 module load cuda/10.0.130
 module load cudnn/10.0v7.6.2.24
-python -u ./routines/verifier/train.py --net "resnet50vox" --learning_rat 0.001 --batch 32 --augment 0 
-
 
 python type/your/script/here param1 param2
 ``` 
