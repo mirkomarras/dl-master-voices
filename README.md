@@ -91,7 +91,7 @@ The training script can be configured in order to train different types of model
 most common parameters that can be customized are provided below.
 
 ``` 
---net 'x-vector'                   (Model type in ['x-vector','vggvox','thin_resnet','resnet34','resnet50'])
+--net 'x-vector'                   (Model in ['x-vector','vggvox','thin_resnet','resnet34','resnet50'])
 --audio_dir "./data/voxceleb1/dev" (Directories with wav training files)
 --n_epochs  1024                   (Number of training epochs)
 --batch     64                     (Size of the training batches)
