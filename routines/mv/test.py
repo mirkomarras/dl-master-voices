@@ -31,13 +31,13 @@ def main():
 
     # Parameters for testing verifier against eer
     parser.add_argument('--sv_base_path', dest='sv_base_path', default='./data/voxceleb1/test', type=str, action='store', help='Trials base path for computing speaker verification thresholds')
-    parser.add_argument('--sv_pair_path', dest='sv_pair_path', default='./data/ad_voxceleb12/vox1_trial_pairs.csv', type=str, action='store', help='CSV file label, path_1, path_2 speaker verification trials')
+    parser.add_argument('--sv_pair_path', dest='sv_pair_path', default='./data/vs_mv_pairs/trial_pairs_vox1_test.csv', type=str, action='store', help='CSV file label, path_1, path_2 speaker verification trials')
     parser.add_argument('--sv_n_pair', dest='sv_n_pair', default=2500, type=int, action='store', help='Number of speaker verification trials')
 
     # Parameters for master voice analysis
     parser.add_argument('--mv_base_path', dest='mv_base_path', default='./data/voxceleb2/', type=str, action='store', help='Trials base path for master voice analysis waveforms')
-    parser.add_argument('--mv_meta', dest='mv_meta', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis metadata')
-    parser.add_argument('--audio_meta', dest='audio_meta', default='./data/ad_voxceleb12/vox12_meta_data.csv', type=str, action='store', help='CSV file with id-gender metadata')
+    parser.add_argument('--mv_meta', dest='mv_meta', default='./data/vs_mv_pairs/data_mv_vox2_all.npz', type=str, action='store', help='Numpy data for master voice analysis metadata')
+    parser.add_argument('--audio_meta', dest='audio_meta', default='./data/vs_mv_pairs/meta_data_vox12_all.csv', type=str, action='store', help='CSV file with id-gender metadata')
 
     # Parameters for master voice population to be tested
     parser.add_argument('--mv_set', dest='mv_set', default='', type=str, action='store', help='Master voice population to be tested')

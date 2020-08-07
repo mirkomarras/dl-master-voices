@@ -57,8 +57,8 @@ def main():
 
     # Parameters for master voice optimization
     parser.add_argument('--audio_dir', dest='audio_dir', default='./data/voxceleb2/dev', type=str, action='store', help='Path to the folder where master voice training audios are stored')
-    parser.add_argument('--audio_meta', dest='audio_meta', default='./data/ad_voxceleb12/vox12_meta_data.csv', type=str, action='store', help='Path to the CSV file with id-gender metadata of master voice training audios')
-    parser.add_argument('--mv_splits', dest='mv_splits', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy file with master voice analysis paths and labels')
+    parser.add_argument('--audio_meta', dest='audio_meta', default='./data/vs_mv_pairs/meta_data_vox12_all.csv', type=str, action='store', help='Path to the CSV file with id-gender metadata of master voice training audios')
+    parser.add_argument('--mv_splits', dest='mv_splits', default='./data/vs_mv_pairs/data_mv_vox2_all.npz', type=str, action='store', help='Numpy file with master voice analysis paths and labels')
     parser.add_argument('--mv_gender', dest='mv_gender', default='female', type=str, choices=['neutral', 'male', 'female'], action='store', help='Geneder against which master voices will be optimized')
     parser.add_argument('--n_examples', dest='n_examples', default=100, type=int, action='store', help='Number of master voices sampled to be created (only if netg is set)')
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Number of optimization epochs for each master voice example')
@@ -147,7 +147,7 @@ def main():
 
     print('Retrieving verification thresholds to be used for impersonation rate computation')
     # In order to get EER and FAR1% verification thresholds, we load the similarity scores computed in Vox1-test verification trials pairs for the selected verifier
-    vox1_test_results = pd.read_csv(os.path.join('./data/pt_models', args.netv, 'test_vox1_sv_test.csv'))
+    vox1_test_results = pd.read_csv(os.path.join('./data/vs_mv_models', args.netv, 'test_vox1_sv_test.csv'))
     vox1_test_results = vox1_test_results.loc[:, ~vox1_test_results.columns.str.contains('^Unnamed')]
     vox1_test_results.columns = ['label', 'score']
     thresholds = [tuneThreshold(vox1_test_results['score'].values, vox1_test_results['label'].values, target_fa)[0] for target_fa in [None, 1.0]]

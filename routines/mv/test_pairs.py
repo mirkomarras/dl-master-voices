@@ -29,7 +29,7 @@ def main():
     # Parameters for master voice analysis
     parser.add_argument('--mv_base_path', dest='mv_base_path', default='./data', type=str, action='store', help='Trials base path for master voice analysis waveforms')
     parser.add_argument('--test_list', dest='test_list', default='./data/vs_mv_pairs/mv', type=str, action='store', help='Master voice population to be tested')
-    parser.add_argument('--save_path', dest='save_path', default='./data/pt_models/', type=str, help='Path for model and logs')
+    parser.add_argument('--save_path', dest='save_path', default='./data/vs_mv_models/', type=str, help='Path for model and logs')
 
     # Parameters for raw audio
     parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')

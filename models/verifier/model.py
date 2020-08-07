@@ -101,7 +101,7 @@ class Model(object):
 
         self.name = name
 
-        self.dir = os.path.join('.', 'data', 'pt_models', self.name)
+        self.dir = os.path.join('.', 'data', 'vs_mv_models', self.name)
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
 

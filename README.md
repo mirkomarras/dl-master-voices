@@ -29,7 +29,9 @@ pip install -r requirements.txt
 
 Copy the data folder:
 ``` 
-unzip /beegfs/mm11333/data/data_20200706.zip
+wget "<link>"
+unzip data_20200807.zip
+rm -r data_20200807.zip
 ``` 
 
 Create a folder for your sbatch jobs:
@@ -45,14 +47,40 @@ ln -s /beegfs/mm11333/data/voxceleb2 ./data/
 
 ## Usage (Command Line)
 
-### Speaker Verification
+### Speaker Modelling
+
+Speaker models aim to provide compact 1-D floating-point representations (i.e., embeddings) of vocal audio files, 
+so that the embeddings extracted from vocal audio files of the same speaker are similar to each other (high
+intra-class similarity) and those extracted from vocal audio files of different speakers are very dissimilar to
+each other (low inter-class similarity). Depending on the architecture, a speaker model can take directly the raw
+audio, the audio spectrogram, or the audio filterbank (see [here](https://haythamfayek.com/2016/04/21/speech-processing-for-machine-learning.html) 
+for a more detailed discussion).  
+
+With this repository, a range of pretrained models are available and can be downloaded from
+[here](https://drive.google.com/drive/folders/15_ElEam7brk6lPheVV0fVXDQ2i3W_Iw5?usp=sharing). Each model 
+should be copied into the appropriate sub-folder in ```./data/vs_mv_models```. The best model performance 
+on the trial verification pairs provided with the VoxCeleb1-Test dataset are reported below. 
+
+|                  | input  |     eer | thr@eer | thr@far1 | frr@far1 | 
+|-----------------:|-------:|--------:|--------:|---------:|---------:|
+|    resnet34/v002 |   spec |   6.763 |  0.8488 |   0.8834 |  24.0244 | 
+|    resnet34/v003 |   spec |   8.207 |  0.7161 |   0.7982 |  31.8823 | 
+|    resnet50/v002 |   spec |   6.182 |  0.7395 |   0.8110 |  25.6734 |
+|    resnet50/v003 |   spec |   5.015 |  0.7721 |   0.8277 |  17.6193 |
+| thin_resnet/v002 |   spec |   5.570 |  0.7700 |   0.8159 |  18.4783 |
+| thin_resnet/v003 |   spec |   9.310 |  0.7607 |   0.8411 |  36.4104 |
+|      vggvox/v002 |   spec |  10.710 |  0.7095 |   0.8093 |  43.2291 |
+|      vggvox/v003 |   spec |   6.932 |  0.7625 |   0.8292 |  27.6087 |
+|     xvector/v002 |   filt |  12.513 |  0.4682 |   0.6128 |  41.9512 |
+|     xvector/v003 |   filt |   8.245 |  0.8430 |   0.8817 |  28.2503 |
 
 #### Train
+
 ``` 
-> python3 ./routines/verifier/train.py  --net "xvector" --val_n_pair 10000 
+python3 ./routines/verifier/train.py  --net "xvector" --val_n_pair 10000 
 ```
 
-This script will save the model in ```./data/pt_models/xvector/v000/model.h5```.  
+This script will save the model in ```./data/vs_mv_models/xvector/v000/model.h5```.  
 
 #### Test
 ``` 
@@ -60,26 +88,10 @@ This script will save the model in ```./data/pt_models/xvector/v000/model.h5```.
 ```
 
 This script will test the model on Vox1-Test and finally save a CSV file with a trial pair and a 
-similarity score per row in ```./data/pt_models/xvector/v000/test_vox1_sv_test.csv```.  
+similarity score per row in ```./data/vs_mv_models/xvector/v000/test_vox1_sv_test.csv```.  
 
 #### Pretrained Models
 
-Pretrained models can be downloaded from [here](https://drive.google.com/drive/folders/15_ElEam7brk6lPheVV0fVXDQ2i3W_Iw5?usp=sharing).
-
-|                  | status |     eer | thr@eer | thr@far1 | frr@far1 | no-trials |   loss |    acc |
-|-----------------:|-------:|--------:|--------:|---------:|---------:|----------:|-------:|-------:|
-|    resnet34/v000 |    run |  8.4464 |  0.8104 |   0.8629 |  32.7041 |     37720 | 1.7815 | 0.7809 |
-|    resnet34/v001 |    run |  9.4989 |  0.7724 |   0.8385 |  35.5673 |     37720 | 3.9065 | 0.5765 |
-|    resnet50/v000 |    run |  6.2195 |  0.7387 |   0.8118 |  25.9862 |     37720 | 0.6100 | 0.9616 |
-|    resnet50/v001 |    run |  5.7688 |  0.7787 |   0.8436 |  21.5536 |     37720 | 2.3848 | 0.6683 |
-| thin_resnet/v000 |    run |  6.2328 |  0.7559 |   0.8094 |  21.6914 |     37720 | 1.0338 | 0.9414 |
-| thin_resnet/v001 |    run | 10.8059 |  0.7924 |   0.8719 |  41.5695 |     37720 | 4.2113 | 0.4495 |
-|      vggvox/v000 |   stop | 10.7105 |  0.7095 |   0.8093 |  43.2291 |     37720 | 1.2410 | 0.8295 |
-|      vggvox/v001 |    run |  8.1230 |  0.6839 |   0.7883 |  33.6957 |     37720 | 3.0182 | 0.5633 |
-|     xvector/v000 |   stop | 12.5133 |  0.4682 |   0.6128 |  41.9512 |     37720 | 0.1421 | 0.9923 |
-|     xvector/v001 |    run |  8.7778 |  0.8587 |   0.8953 |  30.6840 |     37720 | 0.9885 | 0.8660 |
-
-Detailed information on ASVs performance can be computed within the ```speaker_verifier.ipynb``` notebook.  
 
 ### Spectrogram Generation (GAN)
 
@@ -133,7 +145,7 @@ If ```--mv_set``` is not specified, this script creates a csv file for each set 
 > python3 routines/mv/test_pairs.py --net "xvector/v000" 
 ``` 
 
-This script creates a folder ```./data/pt_models/xvector/v000/mvcmp_any/```. For each csv file in
+This script creates a folder ```./data/vs_mv_models/xvector/v000/mvcmp_any/```. For each csv file in
 ```./data/vs_mv_pairs/mv/```, this script computes the similarity scores returned by ```xvector/v000``` 
 for each trial pair in the current csv. Finally, a copy of the csv file with an additional
 column that includes the computed similarity scores is saved into the folder ```mvcmp_any``` (columns: 

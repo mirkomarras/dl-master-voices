@@ -17,8 +17,8 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
     output = 'spectrum'
     sample_rate = 16000
     slice_len = int(length * sample_rate)
-    vox_meta = './data/ad_voxceleb12/vox12_meta_data.csv'
-    vox_data = './data/ad_voxceleb12/vox2_mv_data.npz'
+    vox_meta = './data/vs_mv_pairs/meta_data_vox12_all.csv'
+    vox_data = './data/vs_mv_pairs/data_mv_vox2_all.npz'
     
     if dataset == 'mnist':
         (x_train, _), (_, _) = tf.keras.datasets.mnist.load_data()

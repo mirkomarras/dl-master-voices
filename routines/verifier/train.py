@@ -24,7 +24,7 @@ def main():
 
     # Parameters for training
     parser.add_argument('--audio_dir', dest='audio_dir', default='./data/voxceleb1/dev,./data/voxceleb2/dev', type=str, action='store', help='Comma-separated audio data directories')
-    parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis')
+    parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/vs_mv_pairs/data_mv_vox2_all.npz', type=str, action='store', help='Numpy data for master voice analysis')
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Number of epochs')
     parser.add_argument('--batch', dest='batch', default=64, type=int, action='store', help='Batch size')
     parser.add_argument('--learning_rate', dest='learning_rate', default=0.001, type=float, action='store', help='Learning rate')

@@ -65,7 +65,7 @@ class GAN(object):
     
     def __init__(self, dataset, version=None, gradient_penalty=True, clip_discriminator=False):
         self.dataset = dataset
-        self.root_dir = './data/pt_models/'
+        self.root_dir = './data/vs_mv_models/'
         self.gradient_penalty = gradient_penalty
         self.clip_discriminator = clip_discriminator
         self.performance = {'gen': [], 'disc': [], 'accuracy': []}
