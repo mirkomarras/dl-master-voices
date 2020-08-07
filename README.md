@@ -11,6 +11,15 @@
 A Python toolbox for creating and testing impersonation capabilities of **Master Voices** (MVs), a family of adversarial 
 audio samples which match large populations of speakers by chance with high probability. 
 
+## Table of Contents
+- [Installation](#installation)
+- [Usage (Command Line)](#usage-command-line)
+- [Usage (APIs)](#usage-apis)
+- [Usage (NYU HPC)](#usage-nyu-hpc)
+- [Contributing](#contributing)
+- [Citations](#credits)
+- [License](#license)
+
 ## Installation
 
 Clone this repository:
@@ -282,7 +291,7 @@ files generated as described in the Test section.
 
 ...
 
-## NYU HPC
+## Usage (NYU HPC)
 
 
 ### Running scripts in interactive mode
@@ -353,7 +362,7 @@ Open your browser locally and paste the ```URL``` retrieved above, here:
 http://localhost:7500/?token=8d70f37561638d78b1ad0096de2ffa4abab4862d336084ae
 ``` 
 
-## Contributing to the Code
+## Contributing 
 
 This code is provided for educational purposes and aims to facilitate reproduction of our results, and further research 
 in this direction. We have done our best to document, refactor, and test the code before publication.
