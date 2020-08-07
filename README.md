@@ -232,7 +232,7 @@ in ```./data/vs_mv_data```, this scripts creates a csv file that includes the tr
 csv file (10 enrolled templates per user). For the avg policy, only one row per user is saved in each csv file. 
 
 #### Analysis
-This tollbox is accompanied by a notebook ```./notebooks/speaker_verifier.ipynb``` that includes the code needed to
+This toolbox is accompanied by a notebook ```./notebooks/speaker_verifier.ipynb``` that includes the code needed to
 test speaker model performance in terms of Equal Error Rate and Impersonation Rate. This notebook will use all the csv 
 files generated as described in the Test section. 
 
