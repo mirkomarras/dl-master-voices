@@ -50,7 +50,7 @@ source mvenv/bin/activate
 pip install -r requirements.txt
 ``` 
 
-Copy the data folder:
+Copy the data folder (around 5GB):
 ``` 
 wget --load-cookies /tmp/cookies.txt "https://docs.google.com/uc?export=download&confirm=$(wget --quiet --save-cookies /tmp/cookies.txt --keep-session-cookies --no-check-certificate 'https://docs.google.com/uc?export=download&id=1PAM7yaDMjQMCndLBUPBkXXqHG9k6HXa_' -O- | sed -rn 's/.*confirm=([0-9A-Za-z_]+).*/\1\n/p')&id=1PAM7yaDMjQMCndLBUPBkXXqHG9k6HXa_" -O data_20200807.zip && rm -rf /tmp/cookies.txt
 unzip data_20200807.zip
