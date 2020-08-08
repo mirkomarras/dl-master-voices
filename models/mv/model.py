@@ -22,20 +22,33 @@ class SiameseModel(object):
         :param dir_mv:          Path to the folder where master voice audio samples will be saved
         :param dir_sv:          Path to the folder where original gan audio samples will be saved
         """
+        assert sample_rate > 0, 'Please provide a non-negative sample rate'
+
         self.gan = None
         self.verifier = None
         self.sample_rate = sample_rate
         self.dir_mv = dir_mv
         self.dir_sv = dir_sv
-        
+
+        # Create sub-directories for saving seed and master voices
+        if not os.path.exists(os.path.join(self.dir_mv)) or not os.path.exists(os.path.join(self.dir_sv)):
+            os.makedirs(os.path.join(self.dir_mv))
+            os.makedirs(os.path.join(self.dir_sv))
+
+        assert os.path.exists(os.path.join(self.dir_mv)) and os.path.exists(os.path.join(self.dir_sv)), 'Please check folder permission for seed and master voice saving'
+
         # Retrieve the version of the seed and master voices sets for that particolar combination of verifier and gan
         self.id_mv = str('{:03d}'.format(len(os.listdir(self.dir_mv))))
         self.id_sv = str('{:03d}'.format(len(os.listdir(self.dir_sv))))
+
+        assert self.id_sv == self.id_mv, 'Seed and master voice set IDs does not correspond to each other'
 
         # Create sub-directories for saving seed and master voices
         if not os.path.exists(os.path.join(self.dir_mv, 'v' + self.id_mv)) or not os.path.exists(os.path.join(self.dir_sv, 'v' + self.id_sv)):
             os.makedirs(os.path.join(self.dir_mv, 'v' + self.id_mv))
             os.makedirs(os.path.join(self.dir_sv, 'v' + self.id_sv))
+
+        assert os.path.exists(os.path.join(self.dir_mv, 'v' + self.id_mv)) and os.path.exists(os.path.join(self.dir_sv, 'v' + self.id_sv)), 'Please check folder permission for seed and master voice version saving'
 
         print('> created seed voice dir', os.path.join(self.dir_sv, 'v' + self.id_sv))
         print('> created master voice dir', os.path.join(self.dir_mv, 'v' + self.id_mv))
@@ -44,37 +57,45 @@ class SiameseModel(object):
             for arg in vars(params):
                 file.write("%s,%s\n" % (arg, getattr(params, arg)))
         print('> params saved in', os.path.join(dir_mv, 'v' + self.id_mv, 'params.txt'))
+
         with open(os.path.join(os.path.join(self.dir_sv, 'v' + self.id_sv), 'params.txt'), "w") as file:
             for arg in vars(params):
                 file.write("%s,%s\n" % (arg, getattr(params, arg)))
         print('> params saved in', os.path.join(dir_sv, 'v' + self.id_sv, 'params.txt'))
-        
-        assert self.id_mv == self.id_sv # Seed and master voice versions must match
+
 
     def set_generator(self, gan):
         """
         Method that load and set the GAN model that will generate fake audio/spectrogram samples
         :param gan:     GAN model
         """
+        assert gan is not None, 'The GAN passed as input is None'
+
         gan.load()
+
         self.gan = gan
+
 
     def set_verifier(self, verifier):
         """
         Method to build, load, and set the verifier that will be used for master voice optimization 
         :param verifier:    Verifier model
         """
+        assert verifier is not None, 'The verifier passed as input is None'
+
         verifier.build(mode='test')
         verifier.load()
+
         self.verifier = verifier
 
-    def build(self):
+
+    def build(self, fft_size=256):
         """
         Method to create a siamese model, starting from the current verifier one branch generates fake gan samples, the other branch received real audio samples
         """
 
         # We set up the left branch of the siamese model (to be used for feeding training spectrograms)
-        signal_input = tf.keras.Input(shape=(256, None, 1,))
+        signal_input = tf.keras.Input(shape=(fft_size, None, 1,))
         embedding_1 = self.verifier.infer()(signal_input)
 
         if self.gan is not None:
@@ -85,7 +106,7 @@ class SiameseModel(object):
         else:
             print('> optimization through spectrum')
             # We set up the right branch of the siamese model (to be used for feeding the spectrogram of the current seed voice) 
-            another_signal_input = tf.keras.Input(shape=(256, None, 1))
+            another_signal_input = tf.keras.Input(shape=(fft_size, None, 1))
             embedding_2 = self.verifier.infer()(another_signal_input)
             
         # We set up a layer to compute the cosine similarity between the speaker embeddings 
@@ -93,6 +114,7 @@ class SiameseModel(object):
         
         # We create a model that, given two input examples, returns the cosine similarity between the corresponding embeddings
         self.siamese_model = tf.keras.Model([signal_input, another_signal_input], similarity)
+
 
     def train(self, seed_voice, train_data, test_data, n_examples, n_epochs, n_steps_per_epoch, thresholds=None, min_val=1e-5, min_sim=0.25, max_sim=1.00, learning_rate=1e-1):
         """
@@ -176,6 +198,7 @@ class SiameseModel(object):
 
                 self.save(iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results)
 
+
     def save(self, iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results):
         """
         Method to save original and optimized master voices
@@ -208,6 +231,7 @@ class SiameseModel(object):
 
         # We update and save the current impersonation rate history
         np.savez(os.path.join(self.dir_mv, 'v' + self.id_mv, 'sample_' + str(iter) + '.hist'), cur_mv_eer_results=cur_mv_eer_results, cur_mv_far1_results=cur_mv_far1_results)
+
 
     def test(self, input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10):
         """

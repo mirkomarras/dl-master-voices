@@ -145,7 +145,7 @@ def main():
 
     print('Retrieving verification thresholds to be used for impersonation rate computation')
     # In order to get EER and FAR1% verification thresholds, we load the similarity scores computed in Vox1-test verification trials pairs for the selected verifier
-    vox1_test_results = pd.read_csv(os.path.join('./data/vs_mv_models', args.netv, 'test_vox1_sv_test.csv'))
+    vox1_test_results = pd.read_csv(os.path.join('./data/vs_mv_models', args.netv, 'scores_vox1_test.csv'))
     vox1_test_results = vox1_test_results.loc[:, ~vox1_test_results.columns.str.contains('^Unnamed')]
     vox1_test_results.columns = ['label', 'score']
     thresholds = [tuneThreshold(vox1_test_results['score'].values, vox1_test_results['label'].values, target_fa)[0] for target_fa in [None, 1.0]]
