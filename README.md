@@ -296,7 +296,7 @@ voice and the audio files belonging to the enrolled templates of users in the ma
 VoxCeleb2-Dev. For the any policy, by default, ten rows per user are saved in each csv file. For the avg policy, one 
 row per user is saved in each csv file. 
 
-To test multiple speaker models at the same time, you can specify more than one model in the ```-net``` parameters 
+To test multiple speaker models at the same time, you can specify more than one model in the ```-net``` parameter 
 (e.g., ```--net "vggvox/v003,xvector/v003" ``` ). 
 
 #### Analysis
