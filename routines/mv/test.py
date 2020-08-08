@@ -147,22 +147,22 @@ def main():
 
                             # Reset the avg 10 embedding list (even if not in use)
                             avg_speaker_embs, avg_speaker_files = [], []
-
+                            
                     print()
 
                     # Save the csv file for the any policy
                     mv_csv_file_with_scores = pd.DataFrame(list(zip(any_scores, df_trial_pairs['path1'], df_trial_pairs['path2'], df_trial_pairs['gender'])), columns=['score', 'path1', 'path2', 'gender'])
-                    if not os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', version)):
-                        os.makedirs(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', version))
-                    mv_csv_file_with_scores.to_csv(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', version, mv_csv_file), index=False)
-                    print('> saved verification scores in', os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', version, mv_csv_file))
+                    if not os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', mv_set, version)):
+                        os.makedirs(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', mv_set, version))
+                    mv_csv_file_with_scores.to_csv(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', mv_set, version, mv_csv_file), index=False)
+                    print('> saved verification scores in', os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', mv_set, version, mv_csv_file))
 
                     # Save the csv file for the avg policy
                     mv_csv_file_with_scores = pd.DataFrame(list(zip(avg_scores, avg_speaker_sets, df_trial_pairs['path2'][:len(avg_gender)], avg_gender)), columns=['score', 'path1', 'path2', 'gender'])
-                    if not os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', version)):
-                        os.makedirs(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', version))
-                    mv_csv_file_with_scores.to_csv(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', version, mv_csv_file), index=False)
-                    print('> saved verification scores in', os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', version, mv_csv_file))
+                    if not os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', mv_set, version)):
+                        os.makedirs(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', mv_set, version))
+                    mv_csv_file_with_scores.to_csv(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', mv_set, version, mv_csv_file), index=False)
+                    print('> saved verification scores in', os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', mv_set, version, mv_csv_file))
 
 
 if __name__ == '__main__':
