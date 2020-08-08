@@ -206,7 +206,7 @@ This toolbox allows you to train a GAN model from scratch. For instance, a Multi
 can be trained by running the following script and indicating that specific type of speaker model to train. 
 
 ``` 
-python3 ./routines/verifier/train.py  --model "ms-gan" -gender "male"
+python3 ./routines/verifier/train.py  --model "ms-gan" --gender "male"
 ```
 
 The training script will save in ```./data/vs_mv_models/{net}/v{xxx}/{gender}```: 
@@ -223,7 +223,7 @@ most common parameters that can be customized are provided below.
 
 ``` 
 --model 'ms-gan'                   (Model in ['ms-gan','dc-gan'])
---gender 'female'                 (gender in ['female', 'male', 'neutral'])
+--gender 'female'                  (Gender in ['female', 'male', 'neutral'])
 --length 2.58                      (Time length of the generated spectrograms)
 --batch 64                         (Size of the training batches)
 ``` 
