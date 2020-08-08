@@ -13,9 +13,9 @@ audio samples which match large populations of speakers by chance with high prob
 
 This repository contains the source code of the following articles:
 
-- "**Adversarial Optimization for Dictionary Attacks on Speaker Verification**", **INTERSPEECH 2019** [BibTex](https://dblp.uni-trier.de/rec/bibtex/conf/interspeech/MarrasKMF19). 
-Full text available on [ISCA DL (open)](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/2430.pdf) and the poster is 
-also available on [GDrive](https://drive.google.com/file/d/1ORlboRh7i1Oi14vLdrGxGuY-iqg8Ct5Z/view?usp=sharing).
+- "**Adversarial Optimization for Dictionary Attacks on Speaker Verification**", **INTERSPEECH 2019**, [BibTex](https://dblp.uni-trier.de/rec/bibtex/conf/interspeech/MarrasKMF19). 
+Full text available on [ISCA DL (open)](https://www.isca-speech.org/archive/Interspeech_2019/pdfs/2430.pdf) and poster 
+available on [GDrive](https://drive.google.com/file/d/1ORlboRh7i1Oi14vLdrGxGuY-iqg8Ct5Z/view?usp=sharing).
 
 ## Table of Contents
 - [Installation](#installation)
