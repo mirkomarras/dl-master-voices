@@ -116,7 +116,7 @@ class SiameseModel(object):
         self.siamese_model = tf.keras.Model([signal_input, another_signal_input], similarity)
 
 
-    def train(self, seed_voice, train_data, test_data, n_examples, n_epochs, n_steps_per_epoch, thresholds=None, min_val=1e-5, min_sim=0.25, max_sim=1.00, learning_rate=1e-1):
+    def train(self, seed_voice, train_data, test_data, n_examples, n_epochs, n_steps_per_epoch, thresholds=None, min_val=1e-5, min_sim=0.00, max_sim=1.00, learning_rate=1e-1):
         """
         Method to train master voice samples
         :param seed_voice:          Seed voice to optimize 
