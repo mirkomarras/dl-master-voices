@@ -116,7 +116,7 @@ class SiameseModel(object):
         self.siamese_model = tf.keras.Model([signal_input, another_signal_input], similarity)
 
 
-    def train(self, seed_voice, train_data, test_data, n_examples, n_epochs, n_steps_per_epoch, thresholds=None, min_val=1e-5, min_sim=0.00, max_sim=1.00, learning_rate=1e-1):
+    def train(self, seed_voice, train_data, test_data, n_examples, n_epochs, n_steps_per_epoch, thresholds=None, min_val=1e-5, min_sim=0.00, max_sim=1.00, learning_rate=1e-1, patience=10):
         """
         Method to train master voice samples
         :param seed_voice:          Seed voice to optimize 
@@ -130,6 +130,7 @@ class SiameseModel(object):
         :param min_sim:             Minimum value for considering a gradient
         :param max_sim:             Maximum value for considering a gradient
         :param learning_rate:       Learning rate
+        :param patience:            Epoch of patience for impersonation rate improvement
         """
         
         # Extract the speaker embeddings for validating the impersonation rate of the current master voice:
@@ -163,7 +164,9 @@ class SiameseModel(object):
                 input_mv = input_mv[..., np.newaxis]
             input_sv = np.copy(input_mv)
             print('> created master voice seed', input_mv.shape)
-            
+
+            remaining_attempts = patience
+            best_value_attempt = 0.0
             for epoch in range(n_epochs): # For each optimization epoch
                 cur_mv_eer_results = []
                 cur_mv_far1_results = []
@@ -195,6 +198,15 @@ class SiameseModel(object):
                     cur_mv_eer_results.append(results[0])
                     cur_mv_far1_results.append(results[1])
                     print(' - Imp@EER', (results[0]['m'], results[0]['f']), '- Imp@FAR1', (results[1]['m'], results[1]['f']))
+
+                    if (results[0]['m'] + results[0]['f']) > best_value_attempt: # Check if the total impersonation rate after the current epoch is improved
+                        best_value_attempt = results[0]['m'] + results[0]['f'] # Update the best impersonation rate value
+                        remaining_attempts = patience # Resume remaining attempts to patience times
+                    else:
+                        remaining_attempts -= 1 # Reduce the remaining attempts to improve the impersonation rate
+
+                    if remaining_attempts == 0: # If there are no longer remaining attempts we start the optimization of the current voice
+                        break
 
                 self.save(iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results)
 
