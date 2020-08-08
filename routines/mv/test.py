@@ -1,180 +1,170 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from scipy.spatial.distance import cosine
+import tensorflow as tf
+import pandas as pd
 import numpy as np
 import argparse
-import json
 import os
 
-from helpers.audio import load_noise_paths, cache_noise_data, decode_audio, get_tf_spectrum, get_tf_filterbanks
-from helpers.dataset import load_test_data_from_file, load_mv_data, create_template_trials
-from helpers.utils import save_obj
+from helpers.audio import decode_audio, get_tf_spectrum, get_tf_filterbanks
 
-from models.verifier.resnet50vox import ResNet50Vox
-from models.verifier.resnet34vox import ResNet34Vox
+from models.verifier.thinresnet34 import ThinResNet34
+from models.verifier.resnet50 import ResNet50
+from models.verifier.resnet34 import ResNet34
 from models.verifier.xvector import XVector
 from models.verifier.vggvox import VggVox
 
-import warnings
-warnings.filterwarnings('ignore')
-
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+
 def main():
-    parser = argparse.ArgumentParser(description='Master voice testing')
+    parser = argparse.ArgumentParser(description='Tensorflow master voice trial pairs generation and testing')
 
-    # Parameters for verifier
-    parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Network model architecture')
-    parser.add_argument('--policy', dest='policy', default='any', type=str, action='store', help='Verification policy')
-    parser.add_argument('--n_templates', dest='n_templates', default=10, type=int, action='store', help='Number of enrolment templates')
-    parser.add_argument('--n_attacks', dest='n_attacks', default=1, type=int, action='store', help='Number of joint attacks')
-
-    # Parameters for testing verifier against eer
-    parser.add_argument('--sv_base_path', dest='sv_base_path', default='./data/voxceleb1/test', type=str, action='store', help='Trials base path for computing speaker verification thresholds')
-    parser.add_argument('--sv_pair_path', dest='sv_pair_path', default='./data/vs_mv_pairs/trial_pairs_vox1_test.csv', type=str, action='store', help='CSV file label, path_1, path_2 speaker verification trials')
-    parser.add_argument('--sv_n_pair', dest='sv_n_pair', default=2500, type=int, action='store', help='Number of speaker verification trials')
-
-    # Parameters for master voice analysis
-    parser.add_argument('--mv_base_path', dest='mv_base_path', default='./data/voxceleb2/', type=str, action='store', help='Trials base path for master voice analysis waveforms')
-    parser.add_argument('--mv_meta', dest='mv_meta', default='./data/vs_mv_pairs/data_mv_vox2_all.npz', type=str, action='store', help='Numpy data for master voice analysis metadata')
-    parser.add_argument('--audio_meta', dest='audio_meta', default='./data/vs_mv_pairs/meta_data_vox12_all.csv', type=str, action='store', help='CSV file with id-gender metadata')
-
-    # Parameters for master voice population to be tested
-    parser.add_argument('--mv_set', dest='mv_set', default='', type=str, action='store', help='Master voice population to be tested')
-
-    # Parameters for raw audio
-    parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate audio')
-    parser.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Segment lenght in seconds')
-    parser.add_argument('--noise_dir', dest='noise_dir', default='./data/vs_noise_data', type=str, action='store', help='Noise directory')
-    parser.add_argument('--augment', dest='augment', default=0, type=int, choices=[0,1], action='store', help='Data augmentation mode')
+    parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Speaker model, e.g., vggvox/v003')
+    parser.add_argument('--n_templates', dest='n_templates', default=10, type=int, action='store', help='Number of enrolled templates per user')
+    parser.add_argument('--mv_enrol', dest='mv_enrol', default='./data/vs_mv_pairs/trial_pairs_vox2_mv.csv', type=str, action='store', help='Path to the file with users enrolled templates')
 
     args = parser.parse_args()
 
+    assert args.net is not '', 'Please specify model network for --net'
+    assert args.n_templates > 0, 'Please specify a number of templates per user greater than zero for --n_templates'
+    assert args.mv_enrol is not '', 'Please specify a csv file with the enrolled templates for --mv_enrol'
+
+    output_type = ('filterbank' if args.net.split('/')[0] == 'xvector' else 'spectrum')
+
     print('Parameters summary')
+    print('>', 'Speaker model: {}'.format(args.net))
+    print('>', 'Output type: {}'.format(output_type))
+    print('>', 'Users enrolled templates: {}'.format(args.mv_enrol))
+    print('>', 'Number of enrolled templates per user: {}'.format(args.n_templates))
 
-    mode = ('filterbank' if args.net.split('/')[0] == 'xvector' else 'spectrum')
+    # Create main folder in ./data/vs_mv_models/ where the csv files with the similarity scores will be saved
+    if not os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any')):
+        os.makedirs(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any'))
 
-    print('>', 'Net: {}'.format(args.net))
-    print('>', 'Policy: {}'.format(args.policy))
-    print('>', 'Number of enrolment templates: {}'.format(args.n_templates))
-    print('>', 'Mode: {}'.format(mode))
-    print('>', 'Number of joint attacks: {}'.format(args.n_attacks))
+    if not os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg')):
+        os.makedirs(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg'))
 
-    print('>', 'Test pairs dataset path: {}'.format(args.sv_base_path))
-    print('>', 'Test pairs path: {}'.format(args.sv_pair_path))
-    print('>', 'Number of test pairs: {}'.format(args.sv_n_pair))
+    # Create the csv file with the trial verification pairs for each master voice, i.e., each master voice is compared with all the users enrolled templates
+    mv_sets = [os.path.join(mv_set, version) for mv_set in os.listdir('./data/vs_mv_data') for version in os.listdir(os.path.join('./data/vs_mv_data', mv_set))]
 
-    print('>', 'Test dataset path: {}'.format(args.sv_base_path))
-    print('>', 'Test pairs path: {}'.format(args.sv_pair_path))
-    print('>', 'Number of test pairs: {}'.format(args.sv_n_pair))
+    for mv_set in mv_sets: # Loop for each master voice set
 
-    print('>', 'Master voice base path: {}'.format(args.mv_base_path))
-    print('>', 'Master voice meta path: {}'.format(args.mv_meta))
-    print('>', 'Audio meta path: {}'.format(args.audio_meta))
-    print('>', 'Number of samples per template: {}'.format(args.n_templates))
+        for mv_file in os.listdir(os.path.join('./data/vs_mv_data', mv_set)): # Loop for each master voice file
 
-    print('>', 'Master voice population path: {}'.format(args.mv_set))
+            if os.path.exists(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set, mv_file.replace('.wav', '.csv'))): # We skip this master voice, if the csv file already exists
+                continue
 
-    print('>', 'Sample rate: {}'.format(args.sample_rate))
-    print('>', 'Maximum number of seconds: {}'.format(args.n_seconds))
-    print('>', 'Noise dir: {}'.format(args.noise_dir))
-    print('>', 'Augmentation flag: {}'.format(args.augment))
+            if not mv_file.endswith('.wav'): # We skip all non-audio files
+                continue
 
-    assert '/v' in args.net and '/v' in args.mv_set
+            print('> generating trial pairs for audio file', mv_file, 'stored in', os.path.join('./data/vs_mv_data', mv_set))
+            df = pd.read_csv(args.mv_enrol, names=['label', 'path1', 'gender']) # Open the csv with the users enrolled templates
+            df['path2'] = os.path.join('vs_mv_data', mv_set, mv_file) # As a second element in each trial pair, we put the current master voice
 
-    # Load noise data
-    print('Load impulse response paths')
-    noise_paths = load_noise_paths(args.noise_dir)
-    print('Cache impulse response data')
-    noise_cache = cache_noise_data(noise_paths, sample_rate=args.sample_rate)
+            if not os.path.exists(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set)): # We will save the csv file within the vs_mv_pairs directory
+                os.makedirs(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set))
 
-    # Create and restore model
-    print('Creating model')
-    available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50vox': ResNet50Vox, 'resnet34vox': ResNet34Vox}
-    model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')), noises=noise_paths, cache=noise_cache, n_seconds=args.n_seconds, sample_rate=args.sample_rate)
-    model.load()
+            df[['label', 'path1', 'path2', 'gender']].to_csv(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set, mv_file.replace('.wav', '.csv')), index=False, header=False)
+            print('> saved', mv_file, 'trial pairs in', os.path.join('data', 'vs_mv_pairs', 'mv', mv_set, mv_file.replace('.wav', '.csv')))
 
-    if not os.path.exists(args.sv_pair_path):
-        print('Creating trials file with templates', args.n_templates)
-        create_template_trials(args.sv_base_path, args.sv_pair_path, args.n_templates, args.sv_n_pair, args.sv_n_pair)
-        print('> trial pairs file saved')
+    # Create the csv file with the similarity scores for each master voice, i.e., each master voice is compared with all the users enrolled templates
+    print('Compute similarity scores')
+    nets = map(str, args.net.split(','))
 
-    # Retrieve thresholds
-    print('Retrieve verification thresholds')
-    test_data = load_test_data_from_file(args.sv_base_path, args.sv_pair_path, n_pairs=args.sv_n_pair, sample_rate=args.sample_rate, n_seconds=args.n_seconds)
-    (_, _, _, thr_eer), (_, _, thr_far1) = model.test(test_data, policy=args.policy, mode=mode)
+    for net in nets:
+        # Create and load speaker model
+        print('Loading speaker model:', net)
+        available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thin_resnet': ThinResNet34}
+        model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v', '')))
+        model.build(classes=0, mode='test')
+        model.load()
 
-    # Load data for impersonation test
-    x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test = load_mv_data(args.mv_meta, args.mv_base_path, args.audio_meta, args.sample_rate, args.n_seconds, args.n_templates)
+        extractor = model.infer() # This returns a model that, given an input spectrum/filterbanks, returns the speaker embedding
 
-    # Extract embeddings
-    print('Extract embeddings')
-    if os.path.exists('./data/vs_embs/' + args.net.replace('/','_') + '_' + str(args.n_templates) + '.npy'):
-        print('> loading embeddings')
-        x_mv_test_embs = np.load('./data/vs_embs/' + args.net.replace('/','_') + '_' + str(args.n_templates) + '.npy')
-        print('> loaded embeddings')
-    else:
-        print('> creating embeddings')
-        x_mv_test_embs = []
-        for index, signal in enumerate(x_mv_test):
-            print('\r> embedding', index+1, '/', len(x_mv_test), end='')
-            x_mv_test_embs.append(model.embed(get_tf_spectrum(signal) if mode == 'spectrum' else get_tf_filterbanks(signal)))
-        x_mv_test_embs = np.array(x_mv_test_embs)
-        np.save('./data/vs_embs/' + args.net.replace('/','_') + '_' + str(args.n_templates), x_mv_test_embs)
-        print('\n> saved embeddings')
+        speaker_embs = {} # To speed up computation, we use a dictionary to save the speaker embeddings when they are loaded for the first time
 
-    # Test model against impersonation, varying population, master voice sample, verification policy {any/avg}, verification threshold {eer/far1}, target gender {m/f}
-    print('Testing master voice impersonation')
-    print("{:<15} {:<23} {:<23}".format('', 'EER', 'FAR1%'))
-    print("{:<15} {:<11} {:<11} {:<11} {:<11}".format('', 'ANY', 'AVG', 'ANY', 'AVG'))
-    print("{:<15} {:<5} {:<5} {:<5} {:<5} {:<5} {:<5} {:<5} {:<5}".format('', 'M', 'F', 'M', 'F', 'M', 'F', 'M', 'F'))
+        for mv_set in os.listdir('./data/vs_mv_pairs/mv'): # Loop for all the master voice sets
 
-    results = {}
-    eer_any_m = []
-    eer_any_f = []
-    eer_avg_m = []
-    eer_avg_f = []
-    far1_any_m = []
-    far1_any_f = []
-    far1_avg_m = []
-    far1_avg_f = []
-    mv_files = os.listdir(os.path.join('./data/vs_mv_data', args.mv_set))
-    mv_files.sort()
-    for mv_file_index, mv_file in enumerate(mv_files[:5]):
+            if mv_set.startswith('.'):
+                continue
 
-        if mv_file.endswith('.wav'):
-            results[mv_file] = {}
-            mv_signal = decode_audio(os.path.join('./data/vs_mv_data', args.mv_set, mv_file), tgt_sample_rate=args.sample_rate).reshape((1, -1, 1))
-            for policy in ['any', 'avg']:
-                results[mv_file][policy] = {}
-                for thr_type, thr in {'eer': thr_eer, 'far1': thr_far1}.items():
-                    print('\r', thr_type, policy, mv_file, end='')
-                    results[mv_file][policy][thr_type] = model.impersonate(mv_signal, thr, policy, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, args.n_templates, mode)
+            for version in os.listdir(os.path.join('./data/vs_mv_pairs/mv', mv_set)): # Loop for all the versions of each master voice set
 
-            eer_any_m.append(len([1 for fac in results[mv_file]['any']['eer']['m'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
-            eer_any_f.append(len([1 for fac in results[mv_file]['any']['eer']['f'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
-            eer_avg_m.append(len([1 for fac in results[mv_file]['avg']['eer']['m'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
-            eer_avg_f.append(len([1 for fac in results[mv_file]['avg']['eer']['f'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
-            far1_any_m.append(len([1 for fac in results[mv_file]['any']['far1']['m'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
-            far1_any_f.append(len([1 for fac in results[mv_file]['any']['far1']['f'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
-            far1_avg_m.append(len([1 for fac in results[mv_file]['avg']['far1']['m'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
-            far1_avg_f.append(len([1 for fac in results[mv_file]['avg']['far1']['f'] if fac > 0]) / (len(male_x_mv_test) + len(female_x_mv_test)))
-            print("\r{:<15}".format(mv_file.split('.')[0]), end=' ')
-            print("%0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f" % (eer_any_m[-1], eer_any_f[-1], eer_avg_m[-1], eer_avg_f[-1], far1_any_m[-1], far1_any_f[-1], far1_avg_m[-1], far1_avg_f[-1]))
+                if version.startswith('.'):
+                    continue
 
-            save_obj(results, './data/vs_imps/' + args.net.replace('/', '_') + '_' + args.mv_set.replace('/', '_') + '_' + str(args.n_templates))
+                for mv_csv_file in os.listdir(os.path.join('./data/vs_mv_pairs/mv', mv_set, version)): # Loop for all the csv files with the enrolled templates - master voice trial pairs
 
-    # Print average impersonation rates
-    eer_any_m = float(np.mean(eer_any_m))
-    eer_any_f = float(np.mean(eer_any_f))
-    eer_avg_m = float(np.mean(eer_avg_m))
-    eer_avg_f = float(np.mean(eer_avg_f))
-    far1_any_m = float(np.mean(far1_any_m))
-    far1_any_f = float(np.mean(far1_any_f))
-    far1_avg_m = float(np.mean(far1_avg_m))
-    far1_avg_f = float(np.mean(far1_avg_f))
-    print("%0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f %0.3f" % (eer_any_m, eer_any_f, eer_avg_m, eer_avg_f, far1_any_m, far1_any_f, far1_avg_m, far1_avg_f))
+                    if mv_csv_file.startswith('.'):
+                        continue
+
+                    if os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', version, mv_csv_file)) and os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', version, mv_csv_file)):
+                        continue
+
+                    print('> opening trial pairs', os.path.join('./data/vs_mv_pairs/mv', mv_set, version, mv_csv_file))
+                    df_trial_pairs = pd.read_csv(os.path.join('./data/vs_mv_pairs/mv', mv_set, version, mv_csv_file), names=['label', 'path1', 'path2', 'gender'])
+
+                    any_scores = [] # List of similarity scores for the any policy
+
+                    avg_speaker_embs = [] # List of the embeddings for the current speaker
+                    avg_speaker_files = [] # List of paths to the user templates of the current user
+                    avg_speaker_sets = [] # List of paths to sets of user templates
+                    avg_scores = [] # List of similarity scores for the avg policy
+                    avg_gender = [] # List of genders for the speaker embeddings
+
+                    for index, row in df_trial_pairs.iterrows():
+
+                        if row['path1'] in speaker_embs: # If we already computed the embedding for the first element of the verification pair
+                            emb_1 = speaker_embs[row['path1']]
+                        else:
+                            audio_1 = decode_audio(os.path.join('./data', row['path1'])).reshape((1, -1, 1)) # Load the user enrolled audio
+                            input_1 = get_tf_spectrum(audio_1) if output_type == 'spectrum' else get_tf_filterbanks(audio_1) # Extract the acoustic representation
+                            emb_1 = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(extractor.predict(input_1)) # Get the speaker embedding
+                            speaker_embs[row['path1']] = emb_1 # Save the current speaker embedding for future usage
+
+                        if row['path2'] in speaker_embs: # If we already computed the embedding for the second element of the verification pair
+                            emb_2 = speaker_embs[row['path2']]
+                        else:
+                            audio_2 = decode_audio(os.path.join('./data', row['path2'])).reshape((1, -1, 1)) # Load the master voice audio
+                            input_2 = get_tf_spectrum(audio_2) if output_type == 'spectrum' else get_tf_filterbanks(audio_2) # Extract the acoustic representation
+                            emb_2 = tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(extractor.predict(input_2)) # Get the speaker embedding
+                            speaker_embs[row['path2']] = emb_2 # Save the current master voice speaker embedding for future usage
+
+                        any_scores.append(1 - cosine(emb_1, emb_2)) # Compute the cosine similarity between the two embeddings
+                        avg_speaker_embs.append(emb_1) # Add the current embedding to the list of embeddings of the current user
+                        avg_speaker_files.append(row['path1']) # Add the current enrolled audio to the list of audio files of the current user
+
+                        if (index + 1) % args.n_templates == 0: # When we analyze all the enrolled audio file for the current user
+                            print('\r> pair', index + 1, '/', len(df_trial_pairs.index), '-', mv_set, version, mv_csv_file, end='')
+
+                            # Compute cosine similarity between the averaged embedding and the master voice embedding
+                            avg_scores.append(1 - cosine(np.average(avg_speaker_embs, axis=0), emb_2))
+                            avg_speaker_sets.append((','.join(avg_speaker_files)))
+                            avg_gender.append(row['gender'])
+
+                            # Reset the avg 10 embedding list (even if not in use)
+                            avg_speaker_embs, avg_speaker_files = [], []
+
+                    print()
+
+                    # Save the csv file for the any policy
+                    mv_csv_file_with_scores = pd.DataFrame(list(zip(any_scores, df_trial_pairs['path1'], df_trial_pairs['path2'], df_trial_pairs['gender'])), columns=['score', 'path1', 'path2', 'gender'])
+                    if not os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', version)):
+                        os.makedirs(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', version))
+                    mv_csv_file_with_scores.to_csv(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', version, mv_csv_file), index=False)
+                    print('> saved verification scores in', os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', version, mv_csv_file))
+
+                    # Save the csv file for the avg policy
+                    mv_csv_file_with_scores = pd.DataFrame(list(zip(avg_scores, avg_speaker_sets, df_trial_pairs['path2'][:len(avg_gender)], avg_gender)), columns=['score', 'path1', 'path2', 'gender'])
+                    if not os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', version)):
+                        os.makedirs(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', version))
+                    mv_csv_file_with_scores.to_csv(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', version, mv_csv_file), index=False)
+                    print('> saved verification scores in', os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', version, mv_csv_file))
 
 
 if __name__ == '__main__':
     main()
+

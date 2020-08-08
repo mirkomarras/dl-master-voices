@@ -52,7 +52,7 @@ pip install -r requirements.txt
 
 Copy the data folder:
 ``` 
-wget "https://drive.google.com/drive/folders/1AWj7dInvvfl-wCVUnz8u8GpM1EBjclbU?usp=sharing"
+wget "https://drive.google.com/file/d/1PAM7yaDMjQMCndLBUPBkXXqHG9k6HXa_/view?usp=sharing"
 unzip data_20200807.zip
 rm -r data_20200807.zip
 ``` 
@@ -284,17 +284,20 @@ This toolbox includes two verification policy, which influence the way the simil
 For instance, to compute similarity scores from a pre-trained xvector model, the following command should be run: 
 
 ``` 
-python3 routines/mv/test.py --net "xvector/v000" 
+python3 routines/mv/test.py --net "vggvox/v003" 
 ``` 
 
-By default, this script will compute similarity scores for both the policies. First, two sub-folders that include
-all the csv files with the testing results are created in ```./data/vs_mv-models/{net}/{vxxx}```, namely ```mvcmp_any``` 
-for the any policy and ```mvcmp_avg``` for the avg policy. Then, for each audio in the master voice sets saved 
-in ```./data/vs_mv_data```, this scripts creates a csv file that includes the trial verification pair results 
-(columns: score, label, path1, path2, gender), obtained by computing the similarity scores between the current master 
+This script will compute similarity scores for both the policies, with 10 templates per user. First, two sub-folders 
+that include all the csv files with the testing results are created in ```./data/vs_mv-models/{net}/{vxxx}```, namely
+```mvcmp_any``` for the any policy and ```mvcmp_avg``` for the avg policy. Then, for each audio in the master voice 
+sets saved in ```./data/vs_mv_data```, this scripts creates a csv file that includes the trial verification pair results
+(columns: score, path1, path2, gender), obtained by computing the similarity scores between the current master 
 voice and the audio files belonging to the enrolled templates of users in the master-voice analysis part of 
-VoxCeleb2-Dev. For the any policy, by default, ten rows per user are saved in each 
-csv file (10 templates per user). For the avg policy, one row per user is saved in each csv file. 
+VoxCeleb2-Dev. For the any policy, by default, ten rows per user are saved in each csv file. For the avg policy, one 
+row per user is saved in each csv file. 
+
+To test multiple speaker models at the same time, you can specify more than one model in the ```-net``` parameters 
+(e.g., ```--net "vggvox/v003,xvector/v003" ``` ). 
 
 #### Analysis
 This toolbox is accompanied by a notebook ```./notebooks/speaker_verifier.ipynb``` that includes the code needed to
