@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-from tensorflow.keras.constraints import Constraint
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from tqdm import tqdm
@@ -11,9 +10,6 @@ import os
 
 from helpers import plotting
 
-tfl = tf.keras.layers
-
-
 def l2_normalize(x, eps=1e-12):
   '''
   Scale input by the inverse of it's euclidean norm
@@ -21,7 +17,14 @@ def l2_normalize(x, eps=1e-12):
   return x / tf.linalg.norm(x + eps)
 
 
-class Spectral_Norm(Constraint):
+def pyramid(x, n=4):
+    if n == 1:
+        return [x]
+    shape = np.array(x.shape[1:3])
+    return [tf.image.resize(x, shape/(2**(n-i-1))) for i in range(n)]
+
+
+class Spectral_Norm(tf.keras.constraints.Constraint):
     '''
     Spectral normalization of layer weights.
 
@@ -52,19 +55,12 @@ class Spectral_Norm(Constraint):
     def get_config(self):
         return {'n_iters': self.n_iters}
 
-def pyramid(x, n=4):
-    if n == 1:
-        return [x]
-    shape = np.array(x.shape[1:3])
-    return [tf.image.resize(x, shape/(2**(n-i-1))) for i in range(n)]
-
-
 
 class GAN(object):
     
     
-    def __init__(self, dataset, version=None, gradient_penalty=True, clip_discriminator=False):
-        self.dataset = dataset
+    def __init__(self, gender, version=None, gradient_penalty=True, clip_discriminator=False):
+        self.gender = gender
         self.root_dir = './data/vs_mv_models/'
         self.gradient_penalty = gradient_penalty
         self.clip_discriminator = clip_discriminator
@@ -85,10 +81,12 @@ class GAN(object):
          
     @property
     def _args(self):
-        return ('dataset', 'version', 'gradient_penalty', 'clip_discriminator')
+        return ('gender', 'version', 'gradient_penalty', 'clip_discriminator')
+
 
     def args(self):
         return {k: getattr(self, k) for k in self._args}
+
 
     def dirname(self, make=False):
         """
@@ -99,17 +97,19 @@ class GAN(object):
         data/models/gan/ms-gan/digits/*
         data/models/gan/ms-gan/voxceleb-male/*
         """
-        dirname = os.path.join(self.root_dir, self.model_code, self.dataset)
+        dirname = os.path.join(self.root_dir, self.model_code, self.gender)
         if hasattr(self, 'version') and self.version is not None:
             dirname = os.path.join(dirname, 'v' + str('{:03d}'.format(self.version)))
         if make and not os.path.isdir(dirname):
             os.makedirs(dirname)
         return dirname
-    
+
+
     @property
     def model_code(self):
         raise NotImplementedError()
-    
+
+
     def save(self, stats=True, save_full_models=False):
         """
         """
@@ -128,12 +128,14 @@ class GAN(object):
                     'class': self.__class__.__name__,
                     'args' : self.args()
                     }, f, indent=4)
-            
+
+
     def save_graphs(self):
         gf = os.path.join(self.dirname(True), 'generator.png')
         df = os.path.join(self.dirname(True), 'discriminator.png')
         tf.keras.utils.plot_model(self.generator, show_shapes=True, show_layer_names=False, to_file=gf)
         tf.keras.utils.plot_model(self.discriminator, show_shapes=True, show_layer_names=False, to_file=df)
+
 
     def load(self, replace_models=False):
         dirname =  self.dirname()
@@ -145,7 +147,7 @@ class GAN(object):
             else:
                 self.generator.load_weights(os.path.join(dirname, 'generator.h5'))
         except Exception as e:
-            print('ERROR Error loading generator: '+ str(e))
+            print('ERROR Error loading generator: ' + str(e))
         
         try:
             if replace_models:
@@ -154,15 +156,17 @@ class GAN(object):
             else:
                 self.discriminator.load_weights(os.path.join(dirname, 'discriminator.h5'))
         except Exception as e:
-            print('ERROR Error loading generator: '+ str(e))
-    
+            print('ERROR Error loading generator: ' + str(e))
+
+
     def sample(self, n=1, strip_scales=True):
         samples = self.generator(tf.random.normal([n, 128]), training=False)
         if strip_scales and isinstance(samples, list):
             return samples[-1]
         else:
             return samples        
-    
+
+
     def discriminator_loss(self, x, G_z, D_x, D_G_z):
         """
         Discriminator loss for the Wasserstein GAN (+ gradient penalty)
@@ -203,7 +207,8 @@ class GAN(object):
             disc_loss += (10 / len(gradients)) * tf.math.reduce_mean((g_norm - 1.) ** 2.)
         
         return disc_loss
-    
+
+
     def generator_loss(self, D_G_z):
         """
         Method to compute the generator loss
@@ -211,8 +216,8 @@ class GAN(object):
         :return:          Generator loss
         """
         return -tf.math.reduce_mean(D_G_z)
-    
-    # @tf.function
+
+
     def train_step(self, x, gsteps=1, dsteps=1):
         """
         Method to perform one training step for this gan
@@ -316,10 +321,8 @@ class GAN(object):
                     self.show_progress(True)
                     self.save(True, False)
             
-    
-    
+
     def preview(self, n=9, save=False, epoch=0):
-        # tf.keras.backend.set_learning_phase(0)
         samples = self.generator(tf.random.normal([n, 128]), training=False)
         
         if isinstance(samples, list):
@@ -338,14 +341,15 @@ class GAN(object):
                 fig = plotting.waveforms(samples, spectrums=True)
             
         if save:
-            filename = os.path.join(self.dirname(make=True), str('review_{:04d}.jpg'.format(epoch)))
+            filename = os.path.join(self.dirname(make=True), str('preview_{:04d}.jpg'.format(epoch)))
             plt.savefig(filename, bbox_inches='tight', quality=80)
             plt.close()
             return filename
         
         else:
             return fig
-    
+
+
     def show_progress(self, save=False):
         fig, axes = plt.subplots(1, 3, figsize=(20, 3))
         axes[0].plot(self.performance['gen'])
@@ -369,15 +373,33 @@ class GAN(object):
         else:
             return fig
 
+
+    def summarize_models(self):
+        if isinstance(self.generator.outputs, list):
+            print('> generator [' + str(self.generator.count_params()) + ']: Input ' + str(self.generator.input.shape[1:]) + ' -> ' + str(len(self.generator.outputs)) + ' Outputs ', end = '')
+            for o in self.generator.outputs:
+                print(' ' + str(o.shape[1:]), end = ' ')
+        else:
+            print('> generator: ' + str(self.generator.input.shape[1:]) + ' -> ' + str(self.generator.output.shape[1:]))
+
+        if isinstance(self.discriminator.input, list):
+            print('\n> discriminator [' + str(self.discriminator.count_params()) + ']: ' + str(len(self.discriminator.input)) + ' Inputs ', end = '')
+            for o in self.discriminator.input:
+                print(' ' + str(o.shape[1:]), end = '')
+                print(' -> ' + str(self.discriminator.outputs[0].shape[1:]) + ':', end=' ')
+        else:
+            print('\n> discriminator [' + str(self.discriminator.count_params()) + ']: ' + str(self.discriminator.input.shape[1:]) + ' -> ' + str(self.discriminator.output.shape[1:]))
+
+
     def get_generator(self):
         return self.generator
 
-# %%
 
 class DCGAN(GAN):
-    
-    def __init__(self, dataset, version=None, z_dim=128, patch=32, width_ratio=1, kernel_size=5, gan_dim=16, bn=True, sn=False, gradient_penalty=True, clip_discriminator=False):
-        super().__init__(dataset, version, gradient_penalty, clip_discriminator)
+
+
+    def __init__(self, gender, version=None, z_dim=128, patch=32, width_ratio=1, kernel_size=5, gan_dim=16, bn=True, sn=False, gradient_penalty=True, clip_discriminator=False):
+        super().__init__(gender, version, gradient_penalty, clip_discriminator)
         self.n_scales = 1
         
         self.z_dim = z_dim
@@ -397,13 +419,13 @@ class DCGAN(GAN):
         x = input
         m = 2
         for n in range(self.d_layers):
-            x = tfl.Conv2D(gan_dim * m, kernel_size, 2, padding='SAME', use_bias=not bn, kernel_constraint=constraint)(x)
-            x = tfl.LeakyReLU()(x)
+            x = tf.keras.layers.Conv2D(gan_dim * m, kernel_size, 2, padding='SAME', use_bias=not bn, kernel_constraint=constraint)(x)
+            x = tf.keras.layers.LeakyReLU()(x)
             m = m * 2
     
-        x = tfl.Flatten()(x)
+        x = tf.keras.layers.Flatten()(x)
     
-        output = tfl.Dense(1, kernel_constraint=constraint)(x) # activation='sigmoid'
+        output = tf.keras.layers.Dense(1, kernel_constraint=constraint)(x) # activation='sigmoid'
     
         self.discriminator = tf.keras.Model(inputs=[input], outputs=[output])
     
@@ -411,25 +433,27 @@ class DCGAN(GAN):
         m = 8
         input = tf.keras.Input((z_dim,))        
     
-        x = tfl.Dense(4 * 4 * gan_dim * 16)(input)
-        x = tfl.Reshape([4, 4, gan_dim * 16])(x)
-        x = tfl.BatchNormalization()(x) if bn else x
-        x = tfl.LeakyReLU()(x)
+        x = tf.keras.layers.Dense(4 * 4 * gan_dim * 16)(input)
+        x = tf.keras.layers.Reshape([4, 4, gan_dim * 16])(x)
+        x = tf.keras.layers.BatchNormalization()(x) if bn else x
+        x = tf.keras.layers.LeakyReLU()(x)
         
         for n in range(self.n_layers):
-            x = tfl.Conv2DTranspose(gan_dim * m, kernel_size, strides=(2, 2), use_bias=not bn, padding='SAME')(x)
-            x = tfl.BatchNormalization()(x) if bn else x
-            x = tfl.LeakyReLU()(x)
+            x = tf.keras.layers.Conv2DTranspose(gan_dim * m, kernel_size, strides=(2, 2), use_bias=not bn, padding='SAME')(x)
+            x = tf.keras.layers.BatchNormalization()(x) if bn else x
+            x = tf.keras.layers.LeakyReLU()(x)
             m = m // 2
             
-        x = tfl.Conv2D(1, kernel_size, strides=(1, 1), use_bias=False, padding='SAME')(x)
+        x = tf.keras.layers.Conv2D(1, kernel_size, strides=(1, 1), use_bias=False, padding='SAME')(x)
         # output = tf.nn.tanh(x)
     
         self.generator = tf.keras.Model(inputs=input, outputs=x)
 
+
     @property
     def _args(self):
         return super()._args + ('z_dim', 'patch', 'width_ratio', 'kernel_size', 'gan_dim', 'bn', 'sn')
+
 
     @property
     def model_code(self):
@@ -438,14 +462,14 @@ class DCGAN(GAN):
 
 class MultiscaleGAN(GAN):
 
-    def __init__(self, dataset, version=None, z_dim=128, patch=256, width_ratio=1, kernel_size=5, bn=True, drop=0, sn=False, min_output=8, up='conv', gp=True, cd=False):
+    def __init__(self, gender, version=None, z_dim=128, patch=256, width_ratio=1, kernel_size=5, bn=True, drop=0, sn=False, min_output=8, up='conv', gp=True, cd=False):
         """
         A Multiscale GAN with direct connection of (multi-scale) generator outputs to corresponding feature maps in the discriminator.
 
         # References:
         [1] MSG-GAN: Multi-Scale Gradients for Generative Adversarial Networks, https://arxiv.org/abs/1903.06048
         """
-        super().__init__(dataset, version, gp, cd)
+        super().__init__(gender, version, gp, cd)
         
         # Save hyperparameters for future reference
         self.g_layers = int(np.log2(min(patch, patch * width_ratio)) - 2)
@@ -467,10 +491,10 @@ class MultiscaleGAN(GAN):
         
         z = tf.keras.Input((z_dim,))
         
-        x = tfl.Dense(4 * int(4 * width_ratio) * int(z_dim * m))(z)
-        x = tfl.BatchNormalization()(x) if bn else x
-        x = tfl.LeakyReLU()(x)
-        x = tfl.Reshape([4, int(4 * width_ratio), int(z_dim * m)])(x)
+        x = tf.keras.layers.Dense(4 * int(4 * width_ratio) * int(z_dim * m))(z)
+        x = tf.keras.layers.BatchNormalization()(x) if bn else x
+        x = tf.keras.layers.LeakyReLU()(x)
+        x = tf.keras.layers.Reshape([4, int(4 * width_ratio), int(z_dim * m)])(x)
         
         outputs = []
         
@@ -480,15 +504,15 @@ class MultiscaleGAN(GAN):
             
             if interpolate:
                 x = tf.image.resize(x, [2 * x.shape[1], 2 * x.shape[2]])
-                x = tfl.Conv2D(int(z_dim * m), self.kernel_size, use_bias=not bn, padding='SAME')(x)
+                x = tf.keras.layers.Conv2D(int(z_dim * m), self.kernel_size, use_bias=not bn, padding='SAME')(x)
             else:
-                x = tfl.Conv2DTranspose(int(z_dim * m), self.kernel_size, strides=(2, 2), use_bias=not bn, padding='SAME')(x)
+                x = tf.keras.layers.Conv2DTranspose(int(z_dim * m), self.kernel_size, strides=(2, 2), use_bias=not bn, padding='SAME')(x)
     
-            x = tfl.BatchNormalization()(x) if bn else x
-            x = tfl.LeakyReLU()(x)
+            x = tf.keras.layers.BatchNormalization()(x) if bn else x
+            x = tf.keras.layers.LeakyReLU()(x)
             
             if min_output is None or x.shape[1] >= min_output:
-                o = tfl.Conv2D(1, 1, use_bias=True, padding='SAME')(x)
+                o = tf.keras.layers.Conv2D(1, 1, use_bias=True, padding='SAME')(x)
                 outputs.append(o)
 
         self.generator = tf.keras.Model(inputs=z, outputs=outputs)
@@ -504,27 +528,27 @@ class MultiscaleGAN(GAN):
         
         # Take the highest resolution input
         x = inputs[-1]
-        x = tfl.Conv2D(d_dim * m, self.kernel_size, use_bias=not bn, padding='SAME')(x)
-        x = tfl.Dropout(drop)(x) if drop > 0 else x
-        x = tfl.LeakyReLU()(x)
-        x = tfl.AveragePooling2D()(x)        
+        x = tf.keras.layers.Conv2D(d_dim * m, self.kernel_size, use_bias=not bn, padding='SAME')(x)
+        x = tf.keras.layers.Dropout(drop)(x) if drop > 0 else x
+        x = tf.keras.layers.LeakyReLU()(x)
+        x = tf.keras.layers.AveragePooling2D()(x)        
         
         for i in range(self.d_layers):
             
             if min_output is None or x.shape[1] >= min_output:
-                x = tfl.Concatenate()([inputs[self.g_layers - i - 2], x])
+                x = tf.keras.layers.Concatenate()([inputs[self.g_layers - i - 2], x])
             
             for _ in range(n_conv):
-                x = tfl.Conv2D(d_dim * m, self.kernel_size, use_bias=not bn, padding='SAME', kernel_constraint=constraint)(x)
-                x = tfl.Dropout(drop)(x) if drop > 0 else x
-                x = tfl.LeakyReLU()(x)
+                x = tf.keras.layers.Conv2D(d_dim * m, self.kernel_size, use_bias=not bn, padding='SAME', kernel_constraint=constraint)(x)
+                x = tf.keras.layers.Dropout(drop)(x) if drop > 0 else x
+                x = tf.keras.layers.LeakyReLU()(x)
                     
-            x = tfl.AveragePooling2D()(x)
+            x = tf.keras.layers.AveragePooling2D()(x)
     
             m = m * 2
         
-        x = tfl.Flatten()(x)
-        d = tfl.Dense(1, kernel_constraint=constraint)(x)
+        x = tf.keras.layers.Flatten()(x)
+        d = tf.keras.layers.Dense(1, kernel_constraint=constraint)(x)
         
         self.discriminator = tf.keras.Model(inputs=inputs, outputs=[d])
 
