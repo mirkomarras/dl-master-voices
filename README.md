@@ -294,7 +294,7 @@ This toolbox includes three main ways of generating master voices:
     
 2. Optimize a set of seed voices: 
     ``` 
-    python -u ./routines/mv/train.py --netv "vggvox/v003" --seed_voice "vggvox-v000_real_f-f_mv/v000"
+    python -u ./routines/mv/train.py --netv "vggvox/v003" --seed_voice "./data/vs_mv_data/vggvox-v000_real_f-f_mv/v000"
     ``` 
     This command will save seed/master voices in ```{netv-vxxx}_{real}_{opt_gender}_{sv|mv}```.
     
