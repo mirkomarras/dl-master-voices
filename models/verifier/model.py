@@ -158,6 +158,10 @@ class Model(object):
         print('> params saved in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'params.txt'))
 
 
+    def get_dirname(self):
+        return os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))
+
+
     def load(self):
         """
         Load this model
