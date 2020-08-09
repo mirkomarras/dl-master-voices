@@ -32,20 +32,11 @@ def main():
     assert args.n_templates > 0, 'Please specify a number of templates per user greater than zero for --n_templates'
     assert args.mv_enrol is not '', 'Please specify a csv file with the enrolled templates for --mv_enrol'
 
-    output_type = ('filterbank' if args.net.split('/')[0] == 'xvector' else 'spectrum')
 
     print('Parameters summary')
     print('>', 'Speaker model: {}'.format(args.net))
-    print('>', 'Output type: {}'.format(output_type))
     print('>', 'Users enrolled templates: {}'.format(args.mv_enrol))
     print('>', 'Number of enrolled templates per user: {}'.format(args.n_templates))
-
-    # Create main folder in ./data/vs_mv_models/ where the csv files with the similarity scores will be saved
-    if not os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any')):
-        os.makedirs(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any'))
-
-    if not os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg')):
-        os.makedirs(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg'))
 
     # Create the csv file with the trial verification pairs for each master voice, i.e., each master voice is compared with all the users enrolled templates
     mv_sets = [os.path.join(mv_set, version) for mv_set in os.listdir('./data/vs_mv_data') for version in os.listdir(os.path.join('./data/vs_mv_data', mv_set))]
@@ -75,10 +66,19 @@ def main():
     nets = map(str, args.net.split(','))
 
     for net in nets:
+        output_type = ('filterbank' if net.split('/')[0] == 'xvector' else 'spectrum')
+
+        # Create main folder in ./data/vs_mv_models/ where the csv files with the similarity scores will be saved
+        if not os.path.exists(os.path.join('./data/vs_mv_models/', net, 'mvcmp_any')):
+            os.makedirs(os.path.join('./data/vs_mv_models/', net, 'mvcmp_any'))
+
+        if not os.path.exists(os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg')):
+            os.makedirs(os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg'))
+
         # Create and load speaker model
         print('Loading speaker model:', net)
         available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thin_resnet': ThinResNet34}
-        model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v', '')))
+        model = available_nets[net.split('/')[0]](id=int(net.split('/')[1].replace('v', '')))
         model.build(classes=0, mode='test')
         model.load()
 
@@ -101,7 +101,7 @@ def main():
                     if mv_csv_file.startswith('.'):
                         continue
 
-                    if os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', version, mv_csv_file)) and os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', version, mv_csv_file)):
+                    if os.path.exists(os.path.join('./data/vs_mv_models/', net, 'mvcmp_any', version, mv_csv_file)) and os.path.exists(os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg', version, mv_csv_file)):
                         continue
 
                     print('> opening trial pairs', os.path.join('./data/vs_mv_pairs/mv', mv_set, version, mv_csv_file))
@@ -147,22 +147,22 @@ def main():
 
                             # Reset the avg 10 embedding list (even if not in use)
                             avg_speaker_embs, avg_speaker_files = [], []
-                            
+
                     print()
 
                     # Save the csv file for the any policy
                     mv_csv_file_with_scores = pd.DataFrame(list(zip(any_scores, df_trial_pairs['path1'], df_trial_pairs['path2'], df_trial_pairs['gender'])), columns=['score', 'path1', 'path2', 'gender'])
-                    if not os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', mv_set, version)):
-                        os.makedirs(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', mv_set, version))
-                    mv_csv_file_with_scores.to_csv(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', mv_set, version, mv_csv_file), index=False)
-                    print('> saved verification scores in', os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_any', mv_set, version, mv_csv_file))
+                    if not os.path.exists(os.path.join('./data/vs_mv_models/', net, 'mvcmp_any', mv_set, version)):
+                        os.makedirs(os.path.join('./data/vs_mv_models/', net, 'mvcmp_any', mv_set, version))
+                    mv_csv_file_with_scores.to_csv(os.path.join('./data/vs_mv_models/', net, 'mvcmp_any', mv_set, version, mv_csv_file), index=False)
+                    print('> saved verification scores in', os.path.join('./data/vs_mv_models/', net, 'mvcmp_any', mv_set, version, mv_csv_file))
 
                     # Save the csv file for the avg policy
                     mv_csv_file_with_scores = pd.DataFrame(list(zip(avg_scores, avg_speaker_sets, df_trial_pairs['path2'][:len(avg_gender)], avg_gender)), columns=['score', 'path1', 'path2', 'gender'])
-                    if not os.path.exists(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', mv_set, version)):
-                        os.makedirs(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', mv_set, version))
-                    mv_csv_file_with_scores.to_csv(os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', mv_set, version, mv_csv_file), index=False)
-                    print('> saved verification scores in', os.path.join('./data/vs_mv_models/', args.net, 'mvcmp_avg', mv_set, version, mv_csv_file))
+                    if not os.path.exists(os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg', mv_set, version)):
+                        os.makedirs(os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg', mv_set, version))
+                    mv_csv_file_with_scores.to_csv(os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg', mv_set, version, mv_csv_file), index=False)
+                    print('> saved verification scores in', os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg', mv_set, version, mv_csv_file))
 
 
 if __name__ == '__main__':
