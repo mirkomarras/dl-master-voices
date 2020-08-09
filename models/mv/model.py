@@ -116,7 +116,7 @@ class SiameseModel(object):
         self.siamese_model = tf.keras.Model([signal_input, another_signal_input], similarity)
 
 
-    def train(self, seed_voice, train_data, test_data, n_examples, n_epochs, n_steps_per_epoch, thresholds=None, min_val=1e-5, min_sim=0.00, max_sim=1.00, learning_rate=1e-1, patience=10):
+    def train(self, seed_voice, train_data, test_data, n_examples, n_epochs, n_steps_per_epoch, thresholds=None, min_val=1e-5, min_sim=0.00, max_sim=1.00, learning_rate=1e-1, patience=5):
         """
         Method to train master voice samples
         :param seed_voice:          Seed voice to optimize 
@@ -197,13 +197,15 @@ class SiameseModel(object):
                     results = self.test(input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test)
                     cur_mv_eer_results.append(results[0])
                     cur_mv_far1_results.append(results[1])
-                    print(' - Imp@EER', (results[0]['m'], results[0]['f']), '- Imp@FAR1', (results[1]['m'], results[1]['f']))
+                    print(' - Imp@EER', (results[0]['m'], results[0]['f']), '- Imp@FAR1', (results[1]['m'], results[1]['f']), end=' ')
 
                     if (results[0]['m'] + results[0]['f']) > best_value_attempt: # Check if the total impersonation rate after the current epoch is improved
                         best_value_attempt = results[0]['m'] + results[0]['f'] # Update the best impersonation rate value
                         remaining_attempts = patience # Resume remaining attempts to patience times
+                        print('- Best Score')
                     else:
                         remaining_attempts -= 1 # Reduce the remaining attempts to improve the impersonation rate
+                        print()
 
                     if remaining_attempts == 0: # If there are no longer remaining attempts we start the optimization of the current voice
                         break
