@@ -193,8 +193,6 @@ class SiameseModel(object):
 
                     print('\r> sample ', iter+1, '/', n_iterations, '- Epoch', epoch+1, '/', n_epochs, '- Step', step+1, '/', n_steps_per_epoch, '- Avg. Similarity', round(np.mean(loss), 5), end='')
 
-                    break
-
                 if thresholds is not None and test_data is not None:
                     # We test the current master voice version for impersonation rates on the validation set
                     results = self.test(input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test)
