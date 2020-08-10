@@ -210,7 +210,7 @@ class SiameseModel(object):
                     if remaining_attempts == 0: # If there are no longer remaining attempts we start the optimization of the current voice
                         break
 
-                self.save(iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, filename=('' if self.gan is not None else seed_voices[iter]))
+                self.save(iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, filename=('' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]))
 
 
     def save(self, iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, filename=''):
