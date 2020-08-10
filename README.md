@@ -288,26 +288,27 @@ This toolbox includes three main ways of generating master voices:
 
 1. Optimize an individual seed voice: 
     ``` 
-    python -u ./routines/mv/train.py --netv "vggvox/v003" --seed_voice "./tests/original_audio.wav" 
+    python -u ./routines/mv/optimize.py --netv "vggvox/v003" --seed_voice "./tests/original_audio.wav" 
     ``` 
     This command will save seed/master voices in ```{netv-vxxx}_{real}_{opt_gender}_{sv|mv}```. 
     
 2. Optimize a set of seed voices: 
     ``` 
-    python -u ./routines/mv/train.py --netv "vggvox/v003" --seed_voice "./data/vs_mv_data/vggvox-v000_real_f-f_mv/v000"
+    python -u ./routines/mv/optimize.py --netv "vggvox/v003" --seed_voice "./data/vs_mv_data/vggvox-v000_real_f-f_mv/v000"
     ``` 
     This command will save seed/master voices in ```{netv-vxxx}_{real}_{opt_gender}_{sv|mv}```.
     
 3. Optimize a set of gan-generated voices: 
     ``` 
-    python -u ./routines/mv/train.py --netv "vggvox/v003" --netg "ms-gan/v001"
+    python -u ./routines/mv/optimize.py --netv "vggvox/v003" --netg "ms-gan/v001"
     ``` 
     This command will save seed/master voices in ```{netv-vxxx}_{netg-vxxx}_{seed_gender}-{opt_gender}_{sv|mv}```.
 
 For each master voice, the following files will be saved (we provide an example for a sample_0 master voice):
-- the master voice file ```sample_0.wav```;
-- the master voice spectrogram/latent-vector ```sample_0.npy```;
-- the master voice optimization history ```sample_0.hist``` (list of training impersonation rates at EER and FAR1% thrs). 
+- the master voice file ```example_audio_0.wav```;
+- the master voice spectrogram ```example_spec_0.npy```;
+- the master voice latent vector ```example_latent_0.npy``` (only in case of GAN-based procedure);
+- the master voice optimization history ```example_0.hist``` (list of training impersonation rates at EER and FAR1% thrs). 
 
 The optimization script can be configured in order to optimize different types of master voices with proper parameters. 
 The most common parameters that can be customized are provided below.

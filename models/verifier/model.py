@@ -251,7 +251,7 @@ class Model(object):
         return [eer, far[id_eer], frr[id_eer], thr_eer, far[id_far1], frr[id_far1], thr_far1]
 
 
-    def impersonate(self, input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10, mode='spectrum'):
+    def test_impersonation(self, input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10, mode='spectrum'):
         """
         Method to test this model under impersonation attempts
         :param input_mv:            Input spectrogram against which this model is tested - shape (None, 1)

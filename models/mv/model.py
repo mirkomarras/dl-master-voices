@@ -223,28 +223,38 @@ class SiameseModel(object):
         :param cur_mv_far1_results: Current impersonation rates at FAR1%
         """
 
-        # We save the current master voice latent vector / spectrogram
-        np.save(os.path.join(self.dir_mv, 'v' + self.id_mv, 'sample_' + str(iter)), input_mv)
-
         # We save the current audio associated to the master voice latent vector / spectrogram
         sp = np.squeeze(self.gan.get_generator()(np.expand_dims(input_mv, axis=0))[-1].numpy()) if self.gan is not None else np.squeeze(denormalize_frames(np.squeeze(input_mv), input_avg, input_std))
         sp = np.vstack((sp, np.zeros((1, sp.shape[1])), sp[:0:-1]))
         sp = sp.clip(0)
-        inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1]+1) / 100.0 * self.sample_rate), verbose=False)
-        sf.write(os.path.join(self.dir_mv, 'v' + self.id_mv, 'sample_' + str(iter) + '.wav'), inv_signal, self.sample_rate)
 
-        # We save the current seed voice latent vector / spectrogram
-        np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'sample_' + str(iter)), input_sv)
+        # We save the current master voice latent vector, if we are using a GAN-based procedure
+        if self.gan is not None:
+            np.save(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_latent_' + str(iter)), input_mv)
+
+        # We save the unnormalized spectrogram of the master voice
+        np.save(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_spec_' + str(iter)), sp)
+
+        inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1]+1) / 100.0 * self.sample_rate), verbose=False)
+        sf.write(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_audio_' + str(iter) + '.wav'), inv_signal, self.sample_rate)
 
         # We save the current audio associated to the seed voice latent vector / spectrogram
         sp = np.squeeze(self.gan.get_generator()(np.expand_dims(input_sv, axis=0))[-1].numpy())if self.gan is not None else np.squeeze(denormalize_frames(np.squeeze(input_sv), input_avg, input_std))
         sp = np.vstack((sp, np.zeros((1, sp.shape[1])), sp[:0:-1]))
         sp = sp.clip(0)
+
+        # We save the current seed voice latent vector, if we are using a GAN-based procedure
+        if self.gan is not None:
+            np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_latent_' + str(iter)), input_sv)
+
+        # We save the unnormalized spectrogram of the seed voice
+        np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_spec_' + str(iter)), sp)
+
         inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1]+1) / 100.0 * self.sample_rate), verbose=False)
-        sf.write(os.path.join(self.dir_sv, 'v' + self.id_sv, 'sample_' + str(iter) + '.wav'), inv_signal, self.sample_rate)
+        sf.write(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_audio_' + str(iter) + '.wav'), inv_signal, self.sample_rate)
 
         # We update and save the current impersonation rate history
-        np.savez(os.path.join(self.dir_mv, 'v' + self.id_mv, 'sample_' + str(iter) + '.hist'), cur_mv_eer_results=cur_mv_eer_results, cur_mv_far1_results=cur_mv_far1_results)
+        np.savez(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_' + str(iter) + '.hist'), cur_mv_eer_results=cur_mv_eer_results, cur_mv_far1_results=cur_mv_far1_results)
 
 
     def test(self, input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10):
@@ -259,4 +269,4 @@ class SiameseModel(object):
         :return:
         """
         input_spectrum = np.squeeze(self.gan.get_generator()(np.expand_dims(input_mv, axis=0))[-1].numpy(), axis=0) if self.gan is not None else input_mv
-        return self.verifier.impersonate(input_spectrum, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates)
+        return self.verifier.test_impersonation(input_spectrum, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates)
