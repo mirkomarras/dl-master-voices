@@ -257,7 +257,7 @@ def tf_normalize_frames(magnitude_spectrum):
     normalized_spectrum = (magnitude_spectrum - tf.expand_dims(mean_tensor, agg_axis)) / tf.maximum(tf.expand_dims(std_dev_tensor, agg_axis), 1e-12)
 
     # Make sure the dimensions are as expected
-    normalized_spectrum.shape[3] == 1
+    assert normalized_spectrum.shape[3] == 1
 
     return normalized_spectrum
 
