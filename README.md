@@ -274,19 +274,19 @@ This toolbox includes three main ways of generating master voices:
     ``` 
     python -u ./routines/mv/optimize.py --netv "vggvox/v003" --seed_voice "./tests/original_audio.wav" 
     ``` 
-    This command will save seed/master voices in ```{netv-vxxx}_{real}_{opt_gender}_{sv|mv}```. 
+    This command will save seed/master voices in ```{netv-vxxx}_{real}_u-{mv_gender}_{sv|mv}```. 
     
 2. Optimize a set of seed voices: 
     ``` 
     python -u ./routines/mv/optimize.py --netv "vggvox/v003" --seed_voice "./data/vs_mv_data/vggvox-v000_real_f-f_mv/v000"
     ``` 
-    This command will save seed/master voices in ```{netv-vxxx}_{real}_{opt_gender}_{sv|mv}```.
+    This command will save seed/master voices in ```{netv-vxxx}_{real}_u-{mv_gender}_{sv|mv}```.
     
 3. Optimize a set of gan-generated voices: 
     ``` 
     python -u ./routines/mv/optimize.py --netv "vggvox/v003" --netg "ms-gan/v001"
     ``` 
-    This command will save seed/master voices in ```{netv-vxxx}_{netg-vxxx}_{seed_gender}-{opt_gender}_{sv|mv}```.
+    This command will save seed/master voices in ```{netv-vxxx}_{netg-vxxx}_{netg_gender}-{mv_gender}_{sv|mv}```.
 
 For each master voice, the following files will be saved (we provide an example for a sample_0 master voice):
 - the master voice file ```example_audio_0.wav```;
