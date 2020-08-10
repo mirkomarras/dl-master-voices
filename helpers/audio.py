@@ -242,6 +242,26 @@ def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
 
     return normalized_spectrum
 
+
+def tf_normalize_frames(magnitude_spectrum):
+    """
+    Function to normalize spectrograms in tensorflow spectrum
+    :param magnitude_spectrum:  Spectrograms to normalize
+    :return:                    Normalized spectrograms
+    """
+
+    # Normalize frames
+    agg_axis = 2
+    mean_tensor, variance_tensor = tf.nn.moments(magnitude_spectrum, axes=[agg_axis])
+    std_dev_tensor = tf.math.sqrt(variance_tensor)
+    normalized_spectrum = (magnitude_spectrum - tf.expand_dims(mean_tensor, agg_axis)) / tf.maximum(tf.expand_dims(std_dev_tensor, agg_axis), 1e-12)
+
+    # Make sure the dimensions are as expected
+    normalized_spectrum.shape[3] == 1
+
+    return normalized_spectrum
+
+
 def get_tf_filterbanks(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, n_filters=24, lower_edge_hertz=80.0, upper_edge_hertz=8000.0):
     """
     Function to compute tensorflow filterbanks from signal
