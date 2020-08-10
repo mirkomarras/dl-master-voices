@@ -151,7 +151,7 @@ class SiameseModel(object):
 
         filter_gradients = lambda c, g, t1, t2: [g[i] for i in range(len(c)) if c[i] >= t1 and c[i] <= t2]
 
-        seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join('./data/vs_mv_data', seed_voice, voice) for voice in os.listdir(seed_voice)]
+        seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in os.listdir(seed_voice)]
         n_iterations = len(seed_voices) if self.gan is None else n_examples
         for iter in range(n_iterations): # For each audio sample to optimize
             print('Starting optimization', iter+1, 'of', n_iterations, '- GAN:', self.gan)
