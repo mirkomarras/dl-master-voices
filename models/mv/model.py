@@ -248,7 +248,7 @@ class SiameseModel(object):
             np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_latent_' + str(iter)), input_sv)
 
         # We save the unnormalized spectrogram of the seed voice
-        np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_spec_' +  + (str(iter) if self.gan is not None else filename)), sp)
+        np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_spec_' +  (str(iter) if self.gan is not None else filename)), sp)
 
         inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1]+1) / 100.0 * self.sample_rate), verbose=False)
         sf.write(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_audio_' + (str(iter) if self.gan is not None else filename) + '.wav'), inv_signal, self.sample_rate)
