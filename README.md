@@ -84,14 +84,6 @@ data
 │   ├── vggvox-v000_real_f-f_sv
 │   ├── vggvox-v000_real_m-m_mv
 │   ├── vggvox-v000_real_m-m_sv
-│   ├── vggvox-v000_wavegan-v000_f-f_mv
-│   ├── vggvox-v000_wavegan-v000_f-f_sv
-│   ├── vggvox-v000_wavegan-v000_m-m_mv
-│   ├── vggvox-v000_wavegan-v000_m-m_sv
-│   ├── vggvox-v000_wavegan-v000_n-f_mv
-│   ├── vggvox-v000_wavegan-v000_n-f_sv
-│   ├── vggvox-v000_wavegan-v000_n-m_mv
-│   └── vggvox-v000_wavegan-v000_n-m_sv
 ├── vs_mv_models (sets of pre-trained speaker models)
 │   ├── ms-gan
 │   ├── resnet34
@@ -265,16 +257,8 @@ master voice sets are provided below.
 |--------------------------------:|------------------:|--------------------------------------------------:|
 |    vggvox-v000_real_f-f_mv      |                50 | Uniformly sampled based on the false accepts |
 |    vggvox-v000_real_m-m_mv      |                50 | Uniformly sampled based on the false accepts |
-| vggvox-v000_wavegan-v000_f-f_mv |                 5 |                                                   |
-| vggvox-v000_wavegan-v000_m-m_mv |                 5 |                                                   |
-| vggvox-v000_wavegan-v000_n-f_mv |                 5 |                                                   |
-| vggvox-v000_wavegan-v000_n-m_mv |                 5 |                                                   |
 |    vggvox-v000_real_f-f_sv      |                50 | Uniformly sampled based on the false accepts |
 |    vggvox-v000_real_m-m_sv      |                50 | Uniformly sampled based on the false accepts |
-| vggvox-v000_wavegan-v000_f-f_sv |                 5 |                                                   |
-| vggvox-v000_wavegan-v000_m-m_sv |                 5 |                                                   |
-| vggvox-v000_wavegan-v000_n-f_sv |                 5 |                                                   |
-| vggvox-v000_wavegan-v000_n-m_sv |                 5  |                                                   |
 
 Each set is named with the following convention: ```{netv-vxxx}_{netg-vxxx|real}_{seed_gender}-{opt_gender}_{sv|mv}```,
 where ```netv-vxxx``` are the speaker model and its version; ```netg-vxx``` are the gan model and its version; 
