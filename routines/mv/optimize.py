@@ -149,6 +149,7 @@ def main():
     vox1_test_results = vox1_test_results.loc[:, ~vox1_test_results.columns.str.contains('^Unnamed')]
     vox1_test_results.columns = ['label', 'score']
     thresholds = [tuneThreshold(vox1_test_results['score'].values, vox1_test_results['label'].values, target_fa)[0] for target_fa in [None, 1.0]]
+    print('> foud thresholds (eer - far1%)', thresholds)
 
     print('Optimizing master voice')
     train_data = data_pipeline_mv(x_train, y_train, args.sample_rate*args.n_seconds, args.sample_rate, args.batch, args.prefetch, output_type)
