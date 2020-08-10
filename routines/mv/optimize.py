@@ -153,7 +153,7 @@ def main():
     print('Optimizing master voice')
     train_data = data_pipeline_mv(x_train, y_train, args.sample_rate*args.n_seconds, args.sample_rate, args.batch, args.prefetch, output_type)
     test_data = load_mv_data(args.mv_splits, args.audio_dir.replace(args.audio_dir.split('/')[-1],''), args.audio_meta, args.sample_rate, args.n_templates)
-    siamese_model.train(seed_voice=args.seed_voice, train_data=train_data, test_data=test_data, n_examples=args.n_examples, n_epochs=args.n_epochs, n_steps_per_epoch=len(x_train) // args.batch, thresholds=thresholds)
+    siamese_model.optimize(seed_voice=args.seed_voice, train_data=train_data, test_data=test_data, n_examples=args.n_examples, n_epochs=args.n_epochs, n_steps_per_epoch=len(x_train) // args.batch, thresholds=thresholds)
 
 if __name__ == '__main__':
     main()

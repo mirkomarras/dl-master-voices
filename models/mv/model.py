@@ -116,7 +116,7 @@ class SiameseModel(object):
         self.siamese_model = tf.keras.Model([signal_input, another_signal_input], similarity)
 
 
-    def train(self, seed_voice, train_data, test_data, n_examples, n_epochs, n_steps_per_epoch, thresholds=None, min_val=1e-5, min_sim=0.00, max_sim=1.00, learning_rate=1e-1, patience=5):
+    def optimize(self, seed_voice, train_data, test_data, n_examples, n_epochs, n_steps_per_epoch, thresholds=None, min_val=1e-5, min_sim=0.00, max_sim=1.00, learning_rate=1e-1, patience=5):
         """
         Method to train master voice samples
         :param seed_voice:          Seed voice to optimize 
@@ -151,7 +151,7 @@ class SiameseModel(object):
 
         filter_gradients = lambda c, g, t1, t2: [g[i] for i in range(len(c)) if c[i] >= t1 and c[i] <= t2]
 
-        seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in os.listdir(seed_voice)]
+        seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
         n_iterations = len(seed_voices) if self.gan is None else n_examples
         for iter in range(n_iterations): # For each audio sample to optimize
             print('Starting optimization', iter+1, 'of', n_iterations, '- GAN:', self.gan)
