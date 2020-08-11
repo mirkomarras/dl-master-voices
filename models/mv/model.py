@@ -168,9 +168,11 @@ class SiameseModel(object):
 
             remaining_attempts = patience
             best_value_attempt = 0.0
+            cur_mv_eer_results = []
+            cur_mv_far1_results = []
+            cur_mv_avg_similarity = []
             for epoch in range(n_epochs): # For each optimization epoch
-                cur_mv_eer_results = []
-                cur_mv_far1_results = []
+                epoch_similarities = []
                 for step, batch_data in enumerate(train_data):
 
                     if step == n_steps_per_epoch:
@@ -191,11 +193,14 @@ class SiameseModel(object):
                         perturbation = np.clip(perturbation, min_val, None)
                         input_mv += perturbation
 
+                    epoch_similarities.append(np.mean(loss))
+
                     print('\r> sample ', iter+1, '/', n_iterations, '- Epoch', epoch+1, '/', n_epochs, '- Step', step+1, '/', n_steps_per_epoch, '- Avg. Similarity', round(np.mean(loss), 5), end='')
 
                 if thresholds is not None and test_data is not None:
                     # We test the current master voice version for impersonation rates on the validation set
                     results = self.test(input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test)
+                    cur_mv_avg_similarity.append(epoch_similarities)
                     cur_mv_eer_results.append(results[0])
                     cur_mv_far1_results.append(results[1])
                     print(' - Imp@EER', (results[0]['m'], results[0]['f']), '- Imp@FAR1', (results[1]['m'], results[1]['f']), end=' ')
@@ -211,10 +216,10 @@ class SiameseModel(object):
                     if remaining_attempts == 0: # If there are no longer remaining attempts we start the optimization of the current voice
                         break
 
-                self.save(iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, filename=('' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]))
+                self.save(iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, cur_mv_avg_similarity, filename=('' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]))
 
 
-    def save(self, iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, filename=''):
+    def save(self, iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, cur_mv_avg_similarity, filename=''):
         """
         Method to save original and optimized master voices
         :param iter:                Number of the current iteration
@@ -255,7 +260,7 @@ class SiameseModel(object):
         sf.write(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_audio_' + (str(iter) if self.gan is not None else filename) + '.wav'), inv_signal, self.sample_rate)
 
         # We update and save the current impersonation rate history
-        np.savez(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_' + (str(iter) if self.gan is not None else filename) + '.hist'), cur_mv_eer_results=cur_mv_eer_results, cur_mv_far1_results=cur_mv_far1_results)
+        np.savez(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_' + (str(iter) if self.gan is not None else filename) + '.hist'), cur_mv_eer_results=cur_mv_eer_results, cur_mv_far1_results=cur_mv_far1_results, cur_mv_avg_similarity=cur_mv_avg_similarity)
 
 
     def test(self, input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10):
