@@ -159,7 +159,7 @@ class SiameseModel(object):
             
             # We initialize the starting latent vector / spectrogram to optimize (mv stands for master voice, sv stands for seed voice)
             if self.gan is not None:
-                input_mv, input_avg, input_std = (np.random.normal(size=(128)).astype(np.float32), None, None)
+                input_mv, input_avg, input_std = (tf.random.normal(size=(128)).astype(np.float32), None, None)
             else:
                 input_mv, input_avg, input_std = get_np_spectrum(decode_audio(seed_voices[iter]).astype(np.float32), self.sample_rate, num_fft=512, full=False)
                 input_mv = input_mv[..., np.newaxis]
@@ -171,6 +171,9 @@ class SiameseModel(object):
             cur_mv_eer_results = []
             cur_mv_far1_results = []
             cur_mv_avg_similarity = []
+            
+            input_mv = tf.convert_to_tensor(input_mv)
+            
             for epoch in range(n_epochs): # For each optimization epoch
                 epoch_similarities = []
                 for step, batch_data in enumerate(train_data):
@@ -194,9 +197,12 @@ class SiameseModel(object):
                         input_mv += perturbation
 
                     epoch_similarities.append(np.mean(loss))
+                    
+                    #print('\r> sample ', iter+1, '/', n_iterations, '- Epoch', epoch+1, '/', n_epochs, '- Step', step+1, '/', n_steps_per_epoch, '- Avg. Similarity', round(np.mean(loss), 5), end='')
 
-                    print('\r> sample ', iter+1, '/', n_iterations, '- Epoch', epoch+1, '/', n_epochs, '- Step', step+1, '/', n_steps_per_epoch, '- Avg. Similarity', round(np.mean(loss), 5), end='')
+                print('\r> sample ', iter+1, '/', n_iterations, '- Epoch', epoch+1, '/', n_epochs, '@ ', n_steps_per_epoch, ' steps/epoch', end='')
 
+                
                 if thresholds is not None and test_data is not None:
                     # We test the current master voice version for impersonation rates on the validation set
                     results = self.test(input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test)
@@ -216,7 +222,9 @@ class SiameseModel(object):
                     if remaining_attempts == 0: # If there are no longer remaining attempts we start the optimization of the current voice
                         break
 
-                self.save(iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, cur_mv_avg_similarity, filename=('' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]))
+                #CUTDOWN RUNTIME - save after every 100 epochs and last one
+                if epoch % 100 == 0 or epoch == n_epochs-1:
+                    self.save(iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, cur_mv_avg_similarity, filename=('' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]))
 
 
     def save(self, iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, cur_mv_avg_similarity, filename=''):
