@@ -194,7 +194,6 @@ class SiameseModel(object):
                         input_mv += perturbation
 
                     epoch_similarities.append(np.mean(loss))
-
                     print('\r> sample ', iter+1, '/', n_iterations, '- Epoch', epoch+1, '/', n_epochs, '- Step', step+1, '/', n_steps_per_epoch, '- Avg. Similarity', round(np.mean(loss), 5), end='')
 
                 if thresholds is not None and test_data is not None:
