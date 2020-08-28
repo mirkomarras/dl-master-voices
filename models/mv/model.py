@@ -10,6 +10,7 @@ from helpers.audio import decode_audio, get_np_spectrum, get_tf_spectrum, denorm
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+
 class SiameseModel(object):
     """
        Class to represent Master Voice (MV) models with master voice training and testing functionalities
@@ -63,7 +64,6 @@ class SiameseModel(object):
                 file.write("%s,%s\n" % (arg, getattr(params, arg)))
         print('> params saved in', os.path.join(dir_sv, 'v' + self.id_sv, 'params.txt'))
 
-
     def set_generator(self, gan):
         """
         Method that load and set the GAN model that will generate fake audio/spectrogram samples
@@ -74,7 +74,6 @@ class SiameseModel(object):
         gan.load()
 
         self.gan = gan
-
 
     def set_verifier(self, verifier):
         """
@@ -87,7 +86,6 @@ class SiameseModel(object):
         verifier.load()
 
         self.verifier = verifier
-
 
     def build(self, fft_size=256):
         """
@@ -109,18 +107,17 @@ class SiameseModel(object):
             # We set up the right branch of the siamese model (to be used for feeding the spectrogram of the current seed voice) 
             another_signal_input = tf.keras.Input(shape=(fft_size, None, 1))
             embedding_2 = self.verifier.infer()(another_signal_input)
-            
-        # We set up a layer to compute the cosine similarity between the speaker embeddings 
+
+        # We set up a layer to compute the cosine similarity between the speaker embeddings
         similarity = tf.keras.layers.Dot(axes=1, normalize=True)([embedding_1, embedding_2])
-        
+
         # We create a model that, given two input examples, returns the cosine similarity between the corresponding embeddings
         self.siamese_model = tf.keras.Model([signal_input, another_signal_input], similarity)
-
 
     def optimize(self, seed_voice, train_data, test_data, n_examples, n_epochs, n_steps_per_epoch, thresholds=None, min_val=1e-5, min_sim=0.00, max_sim=1.00, learning_rate=1e-1, patience=5):
         """
         Method to train master voice samples
-        :param seed_voice:          Seed voice to optimize 
+        :param seed_voice:          Seed voice to optimize
         :param train_data:          Real audio data against which master voices are optimized - shape (None,1)
         :param test_data:           Real user against which the current master voice are validated
         :param n_examples:          Number of master voice samples to be created
@@ -133,7 +130,7 @@ class SiameseModel(object):
         :param learning_rate:       Learning rate
         :param patience:            Epoch of patience for impersonation rate improvement
         """
-        
+
         # Extract the speaker embeddings for validating the impersonation rate of the current master voice:
         # - x_mv_test is a list of audio files for validation (ten consecutive audio files per user)
         # - y_mv_test is a list of user labels corresponding to each audio file in x_mv_test
@@ -141,140 +138,154 @@ class SiameseModel(object):
         # - female_x_mv_test is a list of user labels in y_mv_test associated to female users
         # The list x_mv_test_embs will include the embeddings corresponding to the audio files in x_mv_test
         x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test = test_data
-        
+
         extractor = self.verifier.infer()
         x_mv_test_embs = []
         for step, audio in enumerate(x_mv_test):
             if (step % 10) == 0:
                 print('\r> extracting embeddings', step, 'of', len(x_mv_test), end='')
-            x_mv_test_embs.append(tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(extractor.predict(get_tf_spectrum(audio, num_fft=512))))
-        print()
+                x_mv_test_embs.append(tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(extractor.predict(get_tf_spectrum(audio, num_fft=512))))
+            print()
 
-        filter_gradients = lambda c, g, t1, t2: [g[i] for i in range(len(c)) if c[i] >= t1 and c[i] <= t2]
+            filter_gradients = lambda c, g, t1, t2: [g[i] for i in range(len(c)) if c[i] >= t1 and c[i] <= t2]
 
-        seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
-        n_iterations = len(seed_voices) if self.gan is None else n_examples
-        for iter in range(n_iterations): # For each audio sample to optimize
-            print('Starting optimization', iter+1, 'of', n_iterations, '- GAN:', self.gan)
-            
-            # We initialize the starting latent vector / spectrogram to optimize (mv stands for master voice, sv stands for seed voice)
-            if self.gan is not None:
-                input_mv, input_avg, input_std = (np.random.normal(size=(128)).astype(np.float32), None, None)
-            else:
-                input_mv, input_avg, input_std = get_np_spectrum(decode_audio(seed_voices[iter]).astype(np.float32), self.sample_rate, num_fft=512, full=False)
-                input_mv = input_mv[..., np.newaxis]
-            input_sv = np.copy(input_mv)
-            print('> created master voice seed', input_mv.shape)
+            seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
+            n_iterations = len(seed_voices) if self.gan is None else n_examples
+            for iter in range(n_iterations):  # For each audio sample to optimize
+                print('Starting optimization', iter + 1, 'of', n_iterations, '- GAN:', self.gan)
 
-            remaining_attempts = patience
-            best_value_attempt = 0.0
-            cur_mv_eer_results = []
-            cur_mv_far1_results = []
-            cur_mv_avg_similarity = []
-            for epoch in range(n_epochs): # For each optimization epoch
-                epoch_similarities = []
-                for step, batch_data in enumerate(train_data):
+                # We initialize the starting latent vector / spectrogram to optimize (mv stands for master voice, sv stands for seed voice)
+                if self.gan is not None:
+                    input_mv, input_avg, input_std = (tf.random.normal(size=(128)).astype(np.float32), None, None)
+                else:
+                    input_mv, input_avg, input_std = get_np_spectrum(decode_audio(seed_voices[iter]).astype(np.float32), self.sample_rate, num_fft=512, full=False)
+                    input_mv = input_mv[..., np.newaxis]
+                input_sv = np.copy(input_mv)
+                print('> created master voice seed', input_mv.shape)
 
-                    if step == n_steps_per_epoch:
-                        break
+                remaining_attempts = patience
+                best_value_attempt = 0.0
+                cur_mv_eer_results = []
+                cur_mv_far1_results = []
+                cur_mv_avg_similarity = []
 
-                    input_1 = tf.Variable(batch_data[0], dtype=tf.float32)
-                    input_2 = tf.Variable(np.repeat(input_mv[np.newaxis,...], len(batch_data[0]), axis=0), dtype=tf.float32)
+                input_mv = tf.convert_to_tensor(input_mv)
 
-                    with tf.GradientTape() as tape:
-                        loss = self.siamese_model([input_1, input_2])
+                for epoch in range(n_epochs):  # For each optimization epoch
+                    epoch_similarities = []
+                    for step, batch_data in enumerate(train_data):
 
-                    grads = tape.gradient(loss, input_2)
+                        if step == n_steps_per_epoch:
+                            break
 
-                    filtered_grads = filter_gradients(list(np.squeeze(loss.numpy())), grads.numpy(), min_sim, max_sim)
+                        input_1 = tf.Variable(batch_data[0], dtype=tf.float32)
+                        input_2 = tf.Variable(np.repeat(input_mv[np.newaxis, ...], len(batch_data[0]), axis=0), dtype=tf.float32)
 
-                    if len(filtered_grads) > 0:
-                        perturbation = np.mean(filtered_grads, axis=0) * learning_rate
-                        perturbation = np.clip(perturbation, min_val, None)
-                        input_mv += perturbation
+                        with tf.GradientTape() as tape:
+                            loss = self.siamese_model([input_1, input_2])
 
-                    epoch_similarities.append(np.mean(loss))
-                    print('\r> sample ', iter+1, '/', n_iterations, '- Epoch', epoch+1, '/', n_epochs, '- Step', step+1, '/', n_steps_per_epoch, '- Avg. Similarity', round(np.mean(loss), 5), end='')
+                        grads = tape.gradient(loss, input_2)
 
-                if thresholds is not None and test_data is not None:
-                    # We test the current master voice version for impersonation rates on the validation set
-                    results = self.test(input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test)
-                    cur_mv_avg_similarity.append(epoch_similarities)
-                    cur_mv_eer_results.append(results[0])
-                    cur_mv_far1_results.append(results[1])
-                    print(' - Imp@EER', (results[0]['m'], results[0]['f']), '- Imp@FAR1', (results[1]['m'], results[1]['f']), end=' ')
+                        filtered_grads = filter_gradients(list(np.squeeze(loss.numpy())), grads.numpy(), min_sim, max_sim)
 
-                    if (results[0]['m'] + results[0]['f']) > best_value_attempt: # Check if the total impersonation rate after the current epoch is improved
-                        best_value_attempt = results[0]['m'] + results[0]['f'] # Update the best impersonation rate value
-                        remaining_attempts = patience # Resume remaining attempts to patience times
-                        print('- Best Score')
-                    else:
-                        remaining_attempts -= 1 # Reduce the remaining attempts to improve the impersonation rate
-                        print()
+                        if len(filtered_grads) > 0:
+                            perturbation = np.mean(filtered_grads, axis=0) * learning_rate
+                            perturbation = np.clip(perturbation, min_val, None)
+                            input_mv += perturbation
 
-                    if remaining_attempts == 0: # If there are no longer remaining attempts we start the optimization of the current voice
-                        break
+                        epoch_similarities.append(np.mean(loss))
 
-                self.save(iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, cur_mv_avg_similarity, filename=('' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]))
+    << << << < HEAD
+    print('\r> sample ', iter + 1, '/', n_iterations, '- Epoch', epoch + 1, '/', n_epochs, '- Step', step + 1, '/', n_steps_per_epoch, '- Avg. Similarity', round(np.mean(loss), 5), end='')
+    == == == =
 
+    # print('\r> sample ', iter+1, '/', n_iterations, '- Epoch', epoch+1, '/', n_epochs, '- Step', step+1, '/', n_steps_per_epoch, '- Avg. Similarity', round(np.mean(loss), 5), end='')
 
-    def save(self, iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, cur_mv_avg_similarity, filename=''):
-        """
-        Method to save original and optimized master voices
-        :param iter:                Number of the current iteration
-        :param input_sv:            Original latent vector
-        :param input_mv:            Optimized latent vector
-        :param cur_mv_eer_results:  Current impersonation rates at EER
-        :param cur_mv_far1_results: Current impersonation rates at FAR1%
-        """
+    print('\r> sample ', iter + 1, '/', n_iterations, '- Epoch', epoch + 1, '/', n_epochs, '@ ', n_steps_per_epoch, ' steps/epoch', end='')
+    >> >> >> > 97
+    a8d680215e399660cf1a3f927c7b302d022327
 
-        # We save the current audio associated to the master voice latent vector / spectrogram
-        sp = np.squeeze(self.gan.get_generator()(np.expand_dims(input_mv, axis=0))[-1].numpy()) if self.gan is not None else np.squeeze(denormalize_frames(np.squeeze(input_mv), input_avg, input_std))
-        sp = np.vstack((sp, np.zeros((1, sp.shape[1])), sp[:0:-1]))
-        sp = sp.clip(0)
+    if thresholds is not None and test_data is not None:
+        # We test the current master voice version for impersonation rates on the validation set
+        results = self.test(input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test)
+        cur_mv_avg_similarity.append(epoch_similarities)
+        cur_mv_eer_results.append(results[0])
+        cur_mv_far1_results.append(results[1])
+        print(' - Imp@EER', (results[0]['m'], results[0]['f']), '- Imp@FAR1', (results[1]['m'], results[1]['f']), end=' ')
 
-        # We save the current master voice latent vector, if we are using a GAN-based procedure
-        if self.gan is not None:
-            np.save(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_latent_' + str(iter)), input_mv)
-
-        # We save the unnormalized spectrogram of the master voice
-        np.save(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_spec_' + (str(iter) if self.gan is not None else filename)), sp)
-
-        inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1]+1) / 100.0 * self.sample_rate), verbose=False)
-        sf.write(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_audio_' + (str(iter) if self.gan is not None else filename) + '.wav'), inv_signal, self.sample_rate)
-
-        # We save the current audio associated to the seed voice latent vector / spectrogram
-        sp = np.squeeze(self.gan.get_generator()(np.expand_dims(input_sv, axis=0))[-1].numpy())if self.gan is not None else np.squeeze(denormalize_frames(np.squeeze(input_sv), input_avg, input_std))
-        sp = np.vstack((sp, np.zeros((1, sp.shape[1])), sp[:0:-1]))
-        sp = sp.clip(0)
-
-        # We save the current seed voice latent vector, if we are using a GAN-based procedure
-        if self.gan is not None:
-            np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_latent_' + str(iter)), input_sv)
-
-        # We save the unnormalized spectrogram of the seed voice
-        np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_spec_' +  (str(iter) if self.gan is not None else filename)), sp)
-
-        inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1]+1) / 100.0 * self.sample_rate), verbose=False)
-        sf.write(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_audio_' + (str(iter) if self.gan is not None else filename) + '.wav'), inv_signal, self.sample_rate)
-
-        # We update and save the current impersonation rate history
-        np.savez(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_' + (str(iter) if self.gan is not None else filename) + '.hist'), cur_mv_eer_results=cur_mv_eer_results, cur_mv_far1_results=cur_mv_far1_results, cur_mv_avg_similarity=cur_mv_avg_similarity)
-
-
-    def test(self, input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10):
-        """
-        Method to test the current master voice
-        :param input_mv:            Latent vector to be tested
-        :param thresholds:          List of thresholds for eer and far1 for the embedded verifier
-        :param x_mv_test_embs:      List of speaker embeddings corresponding to the yser labels in y_mv_test
-        :param y_mv_test:           List of user labels corresponding to each speaker embedding in x_mv_test_embs
-        :param male_x_mv_test:      List of user labels in y_mv_test associated to male users
-        :param female_x_mv_test:    List of user labels in y_mv_test associated to female users
-        :return:
-        """
-        if self.gan is not None:
-            input_spectrum, _, _ = normalize_frames(np.squeeze(self.gan.get_generator()(np.expand_dims(input_mv, axis=0))[-1].numpy(), axis=0))
+        if (results[0]['m'] + results[0]['f']) > best_value_attempt:  # Check if the total impersonation rate after the current epoch is improved
+            best_value_attempt = results[0]['m'] + results[0]['f']  # Update the best impersonation rate value
+            remaining_attempts = patience  # Resume remaining attempts to patience times
+            print('- Best Score')
         else:
-            input_spectrum = input_mv
-        return self.verifier.test_impersonation(input_spectrum, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates)
+            remaining_attempts -= 1  # Reduce the remaining attempts to improve the impersonation rate
+            print()
+
+        if remaining_attempts == 0:  # If there are no longer remaining attempts we start the optimization of the current voice
+            break
+
+    # CUTDOWN RUNTIME - save after every 100 epochs and last one
+    if epoch % 100 == 0 or epoch == n_epochs - 1:
+        self.save(iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, cur_mv_avg_similarity, filename=('' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]))
+
+
+def save(self, iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, cur_mv_avg_similarity, filename=''):
+    """
+    Method to save original and optimized master voices
+    :param iter:                Number of the current iteration
+    :param input_sv:            Original latent vector
+    :param input_mv:            Optimized latent vector
+    :param cur_mv_eer_results:  Current impersonation rates at EER
+    :param cur_mv_far1_results: Current impersonation rates at FAR1%
+    """
+
+    # We save the current audio associated to the master voice latent vector / spectrogram
+    sp = np.squeeze(self.gan.get_generator()(np.expand_dims(input_mv, axis=0))[-1].numpy()) if self.gan is not None else np.squeeze(denormalize_frames(np.squeeze(input_mv), input_avg, input_std))
+    sp = np.vstack((sp, np.zeros((1, sp.shape[1])), sp[:0:-1]))
+    sp = sp.clip(0)
+
+    # We save the current master voice latent vector, if we are using a GAN-based procedure
+    if self.gan is not None:
+        np.save(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_latent_' + str(iter)), input_mv)
+
+    # We save the unnormalized spectrogram of the master voice
+    np.save(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_spec_' + (str(iter) if self.gan is not None else filename)), sp)
+
+    inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1] + 1) / 100.0 * self.sample_rate), verbose=False)
+    sf.write(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_audio_' + (str(iter) if self.gan is not None else filename) + '.wav'), inv_signal, self.sample_rate)
+
+    # We save the current audio associated to the seed voice latent vector / spectrogram
+    sp = np.squeeze(self.gan.get_generator()(np.expand_dims(input_sv, axis=0))[-1].numpy()) if self.gan is not None else np.squeeze(denormalize_frames(np.squeeze(input_sv), input_avg, input_std))
+    sp = np.vstack((sp, np.zeros((1, sp.shape[1])), sp[:0:-1]))
+    sp = sp.clip(0)
+
+    # We save the current seed voice latent vector, if we are using a GAN-based procedure
+    if self.gan is not None:
+        np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_latent_' + str(iter)), input_sv)
+
+    # We save the unnormalized spectrogram of the seed voice
+    np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_spec_' + (str(iter) if self.gan is not None else filename)), sp)
+
+    inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1] + 1) / 100.0 * self.sample_rate), verbose=False)
+    sf.write(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_audio_' + (str(iter) if self.gan is not None else filename) + '.wav'), inv_signal, self.sample_rate)
+
+    # We update and save the current impersonation rate history
+    np.savez(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_' + (str(iter) if self.gan is not None else filename) + '.hist'), cur_mv_eer_results=cur_mv_eer_results, cur_mv_far1_results=cur_mv_far1_results, cur_mv_avg_similarity=cur_mv_avg_similarity)
+
+
+def test(self, input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10):
+    """
+    Method to test the current master voice
+    :param input_mv:            Latent vector to be tested
+    :param thresholds:          List of thresholds for eer and far1 for the embedded verifier
+    :param x_mv_test_embs:      List of speaker embeddings corresponding to the yser labels in y_mv_test
+    :param y_mv_test:           List of user labels corresponding to each speaker embedding in x_mv_test_embs
+    :param male_x_mv_test:      List of user labels in y_mv_test associated to male users
+    :param female_x_mv_test:    List of user labels in y_mv_test associated to female users
+    :return:
+    """
+    if self.gan is not None:
+        input_spectrum, _, _ = normalize_frames(np.squeeze(self.gan.get_generator()(np.expand_dims(input_mv, axis=0))[-1].numpy(), axis=0))
+    else:
+        input_spectrum = input_mv
+    return self.verifier.test_impersonation(input_spectrum, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates)
