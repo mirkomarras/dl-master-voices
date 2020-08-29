@@ -331,8 +331,8 @@ VoxCeleb2-Dev. For the any policy, by default, ten rows per user are saved in ea
 row per user is saved in each csv file. 
 
 To simulate **playback and recording** throughout the master voice testing, you can set the ```--playback 1``` as command
-line parameter. In this way, a randomly chosen background speaker, room, and microphone are added to the master voice. 
-This background sounds are respectively stored into three subfolders within ```./data/vs_noise_data```.  
+line parameter. In this way, randomly chosen background speaker, room, and microphone are added to the master voice. 
+These background sounds are respectively stored into three subfolders within ```./data/vs_noise_data```.  
 
 To test **multiple speaker models** at the same time, you can specify more than one model in the ```-net``` parameter 
 (e.g., ```--net "vggvox/v003,xvector/v003" ``` ). 
