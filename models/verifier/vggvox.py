@@ -48,10 +48,10 @@ class VggVox(Model):
 
         if aggregation == 'avg':
             if mode == 'train':
-                x = tf.keras.layers.AveragePooling2D((1, 5), strides=(1, 1), name='avg_pool')(x)
+                x = tf.keras.layers.AveragePooling2D((1, 5), strides=(1, 1), name='avg_pool')(x_fc)
                 x = tf.keras.layers.Reshape((-1, embs_size))(x)
             else:
-                x = tf.keras.layers.GlobalAveragePooling2D(name='avg_pool')(x)
+                x = tf.keras.layers.GlobalAveragePooling2D(name='avg_pool')(x_fc)
                 x = tf.keras.layers.Reshape((1, embs_size))(x)
 
         elif aggregation == 'vlad':

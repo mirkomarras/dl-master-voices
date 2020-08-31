@@ -172,7 +172,7 @@ class SiameseModel(object):
             cur_mv_far1_results = []
             cur_mv_avg_similarity = []
             
-            input_mv = tf.convert_to_tensor(input_mv)
+            input_mv = tf.convert_to_tensor(input_mv,dtype='float32')
             
             for epoch in range(n_epochs): # For each optimization epoch
                 epoch_similarities = []
@@ -181,19 +181,30 @@ class SiameseModel(object):
                     if step == n_steps_per_epoch:
                         break
 
-                    input_1 = tf.Variable(batch_data[0], dtype=tf.float32)
+                    #input_1 = tf.Variable(batch_data[0], dtype=tf.float32)
                     input_2 = tf.Variable(np.repeat(input_mv[np.newaxis,...], len(batch_data[0]), axis=0), dtype=tf.float32)
 
+                    #input_rb = tf.repeat(input_mv[tf.newaxis,...], len(batch_data[0]), axis=0)
+
+
                     with tf.GradientTape() as tape:
-                        loss = self.siamese_model([input_1, input_2])
+                        loss = self.siamese_model([batch_data[0], input_2])
 
                     grads = tape.gradient(loss, input_2)
 
-                    filtered_grads = filter_gradients(list(np.squeeze(loss.numpy())), grads.numpy(), min_sim, max_sim)
+                    
+                    loss_np = np.squeeze(loss.numpy())
+                    idxs = np.where((loss_np >= min_sim) & (loss_np <= max_sim))
+                    if len(idxs) > 0:
+                        filtered_grads2 = tf.squeeze(tf.gather(grads, idxs),axis=0)
+                    
+                    
+                    #filtered_grads = filter_gradients(list(np.squeeze(loss.numpy())), grads.numpy(), min_sim, max_sim)
 
-                    if len(filtered_grads) > 0:
-                        perturbation = np.mean(filtered_grads, axis=0) * learning_rate
-                        perturbation = np.clip(perturbation, min_val, None)
+
+                    if len(filtered_grads2) > 0:
+                        perturbation = tf.reduce_mean(filtered_grads2, axis=0) * learning_rate
+                        perturbation = tf.clip_by_value(perturbation, min_val, 10000.0)
                         input_mv += perturbation
 
                     epoch_similarities.append(np.mean(loss))
