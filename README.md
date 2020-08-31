@@ -123,15 +123,10 @@ on the verification pairs provided with the VoxCeleb1-Test dataset are reported 
 
 |   Model ID       | Input  | Shape          |   Size (MB)  |     EER | THR@EER | THR@FAR1% | FRR@FAR1% | 
 |-----------------:|-------:|---------------:|-------------:|--------:|--------:|----------:|----------:|
-|    resnet34/v002 |   spec |   (256,None,1) |    360       |   6.763 |  0.8488 |   0.8834 |  24.0244 | 
-|    resnet34/v003 |   spec |   (256,None,1) |    360       |   8.207 |  0.7161 |   0.7982 |  31.8823 | 
-|    resnet50/v002 |   spec |   (256,None,1) |    427       |   6.182 |  0.7395 |   0.8110 |  25.6734 |
-|    resnet50/v003 |   spec |   (256,None,1) |    427       |   5.015 |  0.7721 |   0.8277 |  17.6193 |
+|    resnet50/v004 |   spec |   (256,None,1) |    427       |   5.212 |  0.7746 |   0.8347 |  19.9364 |
 | thin_resnet/v002 |   spec |   (256,None,1) |    128       |   5.570 |  0.7700 |   0.8159 |  18.4783 |
-| thin_resnet/v003 |   spec |   (256,None,1) |    128       |   9.310 |  0.7607 |   0.8411 |  36.4104 |
-|      vggvox/v002 |   spec |   (256,None,1) |    100       |  10.710 |  0.7095 |   0.8093 |  43.2291 |
-|      vggvox/v003 |   spec |   (256,None,1) |    100       |   6.932 |  0.7625 |   0.8292 |  27.6087 |
-|     xvector/v002 |   filt |   (None, 24)   |    104       |  12.513 |  0.4682 |   0.6128 |  41.9512 |
+|    resnet34/v002 |   spec |   (256,None,1) |    360       |   6.763 |  0.8488 |   0.8834 |  24.0244 | 
+|      vggvox/v004 |   spec |   (256,None,1) |    100       |   6.877 |  0.7683 |   0.8343 |  26.9936 |
 |     xvector/v003 |   filt |   (None, 24)   |    104       |   8.245 |  0.8430 |   0.8817 |  28.2503 |
 
 #### Train
@@ -323,10 +318,10 @@ This toolbox includes two verification policy, which influence the way the simil
 For instance, to compute similarity scores from a pre-trained xvector model, the following command should be run: 
 
 ``` 
-python3 routines/mv/test.py --net "vggvox/v003" 
+python3 routines/mv/test.py --net "vggvox/v003"
 ``` 
 
-This script will compute similarity scores for both the policies, with 10 templates per user. First, two sub-folders 
+This script will compute similarity scores for both the **policies**, with 10 templates per user. First, two sub-folders 
 that include all the csv files with the testing results are created in ```./data/vs_mv-models/{net}/{vxxx}```, namely
 ```mvcmp_any``` for the any policy and ```mvcmp_avg``` for the avg policy. Then, for each audio in the master voice 
 sets saved in ```./data/vs_mv_data```, this scripts creates a csv file that includes the trial verification pair results
@@ -335,7 +330,11 @@ voice and the audio files belonging to the enrolled templates of users in the ma
 VoxCeleb2-Dev. For the any policy, by default, ten rows per user are saved in each csv file. For the avg policy, one 
 row per user is saved in each csv file. 
 
-To test multiple speaker models at the same time, you can specify more than one model in the ```-net``` parameter 
+To simulate **playback and recording** throughout the master voice testing, you can set the ```--playback 1``` as command
+line parameter. In this way, randomly chosen background speaker, room, and microphone are added to the master voice. 
+These background sounds are respectively stored into three subfolders within ```./data/vs_noise_data```.  
+
+To test **multiple speaker models** at the same time, you can specify more than one model in the ```--net``` parameter 
 (e.g., ```--net "vggvox/v003,xvector/v003" ``` ). 
 
 #### Analysis

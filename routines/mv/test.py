@@ -8,7 +8,7 @@ import numpy as np
 import argparse
 import os
 
-from helpers.audio import decode_audio, get_tf_spectrum, get_tf_filterbanks
+from helpers.audio import decode_audio, get_tf_spectrum, get_tf_filterbanks, get_play_n_rec_audio, load_noise_paths, cache_noise_data
 
 from models.verifier.thinresnet34 import ThinResNet34
 from models.verifier.resnet50 import ResNet50
@@ -24,7 +24,9 @@ def main():
 
     parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Speaker model, e.g., vggvox/v003')
     parser.add_argument('--n_templates', dest='n_templates', default=10, type=int, action='store', help='Number of enrolled templates per user')
+    parser.add_argument('--playback', dest='playback', default=0, type=int, action='store', help='Playback and recording in master voice test condition: 0 no, 1 yes')
     parser.add_argument('--mv_enrol', dest='mv_enrol', default='./data/vs_mv_pairs/trial_pairs_vox2_mv.csv', type=str, action='store', help='Path to the file with users enrolled templates')
+    parser.add_argument('--noise_dir', dest='noise_dir', default='./data/vs_noise_data', type=str, action='store', help='Noise directory')
 
     args = parser.parse_args()
 
@@ -36,7 +38,14 @@ def main():
     print('Parameters summary')
     print('>', 'Speaker model: {}'.format(args.net))
     print('>', 'Users enrolled templates: {}'.format(args.mv_enrol))
+    print('>', 'Playback enabled? {}'.format('YES' if args.playback == 1 else 'NO'))
     print('>', 'Number of enrolled templates per user: {}'.format(args.n_templates))
+
+    # Load noise data
+    print('Load impulse response paths')
+    noise_paths = load_noise_paths(args.noise_dir)
+    print('Cache impulse response data')
+    noise_cache = cache_noise_data(noise_paths)
 
     # Create the csv file with the trial verification pairs for each master voice, i.e., each master voice is compared with all the users enrolled templates
     mv_sets = [os.path.join(mv_set, version) for mv_set in os.listdir('./data/vs_mv_data') for version in os.listdir(os.path.join('./data/vs_mv_data', mv_set))]
@@ -129,6 +138,9 @@ def main():
                             emb_2 = speaker_embs[row['path2']]
                         else:
                             audio_2 = decode_audio(os.path.join('./data', row['path2'])).reshape((1, -1, 1)) # Load the master voice audio
+                            if args.playback == 1:
+                                print('> playback and recording simulated successfully')
+                                audio_2 = get_play_n_rec_audio(audio_2, noise_paths, noise_cache, noise_strength='random') # Simulate playback and recording
                             input_2 = get_tf_spectrum(audio_2) if output_type == 'spectrum' else get_tf_filterbanks(audio_2) # Extract the acoustic representation
                             emb_2 = tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(extractor.predict(input_2)) # Get the speaker embedding
                             speaker_embs[row['path2']] = emb_2 # Save the current master voice speaker embedding for future usage
@@ -151,18 +163,20 @@ def main():
                     print()
 
                     # Save the csv file for the any policy
+                    mvcmp_any_dirname = os.path.join('./data/vs_mv_models/', net, 'mvcmp_any' + ('_playback' if args.playback == 1 else ''), mv_set, version)
                     mv_csv_file_with_scores = pd.DataFrame(list(zip(any_scores, df_trial_pairs['path1'], df_trial_pairs['path2'], df_trial_pairs['gender'])), columns=['score', 'path1', 'path2', 'gender'])
-                    if not os.path.exists(os.path.join('./data/vs_mv_models/', net, 'mvcmp_any', mv_set, version)):
-                        os.makedirs(os.path.join('./data/vs_mv_models/', net, 'mvcmp_any', mv_set, version))
-                    mv_csv_file_with_scores.to_csv(os.path.join('./data/vs_mv_models/', net, 'mvcmp_any', mv_set, version, mv_csv_file), index=False)
-                    print('> saved verification scores in', os.path.join('./data/vs_mv_models/', net, 'mvcmp_any', mv_set, version, mv_csv_file))
+                    if not os.path.exists(mvcmp_any_dirname):
+                        os.makedirs(mvcmp_any_dirname)
+                    mv_csv_file_with_scores.to_csv(os.path.join(mvcmp_any_dirname, mv_csv_file), index=False)
+                    print('> saved verification scores in', os.path.join(mvcmp_any_dirname, mv_csv_file))
 
                     # Save the csv file for the avg policy
+                    mvcmp_avg_dirname = os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg' + ('_playback' if args.playback == 1 else ''), mv_set, version)
                     mv_csv_file_with_scores = pd.DataFrame(list(zip(avg_scores, avg_speaker_sets, df_trial_pairs['path2'][:len(avg_gender)], avg_gender)), columns=['score', 'path1', 'path2', 'gender'])
-                    if not os.path.exists(os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg', mv_set, version)):
-                        os.makedirs(os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg', mv_set, version))
-                    mv_csv_file_with_scores.to_csv(os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg', mv_set, version, mv_csv_file), index=False)
-                    print('> saved verification scores in', os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg', mv_set, version, mv_csv_file))
+                    if not os.path.exists(mvcmp_avg_dirname):
+                        os.makedirs(mvcmp_avg_dirname)
+                    mv_csv_file_with_scores.to_csv(os.path.join(mvcmp_avg_dirname, mv_csv_file), index=False)
+                    print('> saved verification scores in', os.path.join(mvcmp_avg_dirname, mv_csv_file))
 
 
 if __name__ == '__main__':
