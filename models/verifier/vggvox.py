@@ -31,7 +31,7 @@ class VggVox(Model):
             x = tf.keras.layers.AveragePooling2D(pool_size=pool_size, strides=pool_strides, name='apool{}'.format(layer_idx))(x)
         return x
 
-    def build(self, classes=None, embs_size=512, embs_name='embs', loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
+    def build(self, classes=0, embs_size=512, embs_name='embs', loss='softmax', aggregation='gvlad', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
         super().build(classes, embs_size, embs_name, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay, mode)
         print('>', 'building', self.name, 'model on', classes, 'classes')
 
@@ -48,10 +48,10 @@ class VggVox(Model):
 
         if aggregation == 'avg':
             if mode == 'train':
-                x = tf.keras.layers.AveragePooling2D((1, 5), strides=(1, 1), name='avg_pool')(x)
+                x = tf.keras.layers.AveragePooling2D((1, 5), strides=(1, 1), name='avg_pool')(x_fc)
                 x = tf.keras.layers.Reshape((-1, embs_size))(x)
             else:
-                x = tf.keras.layers.GlobalAveragePooling2D(name='avg_pool')(x)
+                x = tf.keras.layers.GlobalAveragePooling2D(name='avg_pool')(x_fc)
                 x = tf.keras.layers.Reshape((1, embs_size))(x)
 
         elif aggregation == 'vlad':

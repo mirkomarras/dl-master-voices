@@ -1,0 +1,2 @@
+#!/bin/bash
+python -m cProfile -o optimize_profile.stats ./routines/mv/optimize.py --netv "vggvox/v003" --seed_voice "./tests/original_audio.wav" --mv_gender "male" --mv_splits "./data/vs_mv_pairs/new_data.npz" --batch 2 --n_epochs 3

@@ -250,6 +250,26 @@ def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
 
     return normalized_spectrum
 
+
+def tf_normalize_frames(magnitude_spectrum):
+    """
+    Function to normalize spectrograms in tensorflow spectrum
+    :param magnitude_spectrum:  Spectrograms to normalize
+    :return:                    Normalized spectrograms
+    """
+
+    # Normalize frames
+    agg_axis = 2
+    mean_tensor, variance_tensor = tf.nn.moments(magnitude_spectrum, axes=[agg_axis])
+    std_dev_tensor = tf.math.sqrt(variance_tensor)
+    normalized_spectrum = (magnitude_spectrum - tf.expand_dims(mean_tensor, agg_axis)) / tf.maximum(tf.expand_dims(std_dev_tensor, agg_axis), 1e-12)
+
+    # Make sure the dimensions are as expected
+    assert normalized_spectrum.shape[3] == 1
+
+    return normalized_spectrum
+
+
 def get_tf_filterbanks(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, n_filters=24, lower_edge_hertz=80.0, upper_edge_hertz=8000.0):
     """
     Function to compute tensorflow filterbanks from signal
@@ -291,7 +311,7 @@ def get_tf_filterbanks(signal, sample_rate=16000, frame_size=0.025, frame_stride
 
     return normalized_log_mel_spectrum
 
-def get_play_n_rec_audio(inputs, noises, cache, noise_strength='random'):
+def get_play_n_rec_audio(signal, noises, cache, noise_strength='random'):
     """
     Function to add playback & recording simulation to a signal
     :param inputs:          Pair with the signals as first element and the impulse flags as second element
@@ -301,38 +321,20 @@ def get_play_n_rec_audio(inputs, noises, cache, noise_strength='random'):
     :return:                Audio signals with playback & recording simulation according to the impulse flags
     """
 
-    signal, impulse = inputs
+    speaker = np.array(cache[random.choice(noises['speaker'])], dtype=np.float32)
+    room = np.array(cache[random.choice(noises['room'])], dtype=np.float32)
+    microphone = np.array(cache[random.choice(noises['microphone'])], dtype=np.float32)
 
-    output = signal
+    output = tf.nn.conv1d(tf.pad(signal, [[0, 0], [0, tf.shape(speaker)[0]], [0, 0]], 'constant'), speaker, 1, padding="VALID")
 
-    if noises is not None and cache is not None:
+    if noise_strength == 'random':
+        noise_strength = tf.clip_by_value(tf.random.normal((1,), 0, 0.00001), 0, 10)
 
-        speaker = np.array(cache[random.choice(noises['speaker'])], dtype=np.float32)
-        speaker_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(speaker)[0]-1], [0, 0]], 'constant'), speaker, 1, padding='VALID')
+    noise_tensor = tf.random.normal(tf.shape(output), mean=0, stddev=noise_strength, dtype=tf.float32)
+    output = tf.add(output, noise_tensor)
 
-        if noise_strength == 'random':
-            noise_strength = tf.clip_by_value(tf.random.normal((1,), 0, 0.00001), 0, 10)
-
-        noise_tensor = tf.random.normal(tf.shape(speaker_output), mean=0, stddev=noise_strength, dtype=tf.float32)
-        speaker_output = tf.add(speaker_output, noise_tensor)
-
-        speaker_flag = tf.math.multiply(speaker_output, tf.expand_dims(tf.expand_dims(impulse[:, 0], 1), 1))
-        output_flag = tf.math.multiply(output, tf.expand_dims(tf.expand_dims(tf.math.abs(tf.math.subtract(impulse[:, 0],1)), 1), 1))
-        output = tf.math.add(speaker_flag, output_flag)
-
-        room = np.array(cache[random.choice(noises['room'])], dtype=np.float32)
-        room_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(room)[0]-1], [0, 0]], 'constant'), room, 1, padding='VALID')
-
-        room_flag = tf.math.multiply(room_output, tf.expand_dims(tf.expand_dims(impulse[:, 1], 1), 1))
-        output_flag = tf.math.multiply(output, tf.expand_dims(tf.expand_dims(tf.math.abs(tf.math.subtract(impulse[:, 1],1)), 1), 1))
-        output = tf.math.add(room_flag, output_flag)
-
-        microphone = np.array(cache[random.choice(noises['microphone'])], dtype=np.float32)
-        microphone_output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(microphone)[0]-1], [0, 0]], 'constant'), microphone, 1, padding='VALID')
-
-        microphone_flag = tf.math.multiply(microphone_output, tf.expand_dims(tf.expand_dims(impulse[:, 2], 1), 1))
-        output_flag = tf.math.multiply(output, tf.expand_dims(tf.expand_dims(tf.math.abs(tf.math.subtract(impulse[:, 2],1)), 1), 1))
-        output = tf.math.add(microphone_flag, output_flag)
+    output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(room)[0]], [0, 0]], 'constant'), room, 1, padding="VALID")
+    output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(microphone)[0]], [0, 0]], 'constant'), microphone, 1, padding='VALID', name='input_a')
 
     return output
 
@@ -342,7 +344,7 @@ def inv_stft(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num
 def inv_istft(spectrum, slice_length, sample_rate=16000, frame_stride=0.01, num_fft=512):
     return deframesig(np.fft.ifft(spectrum, n=num_fft), slice_length, frame_len=num_fft, frame_step=frame_stride*sample_rate, winfunc=np.hamming)
 
-def spectrum_to_signal(spectrum, slice_length, iter=300, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512):
+def spectrum_to_signal(spectrum, slice_length, iter=300, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, verbose=True):
     inv_signal = np.random.randn(slice_length)
 
     for i in range(iter):
@@ -350,7 +352,9 @@ def spectrum_to_signal(spectrum, slice_length, iter=300, sample_rate=16000, fram
         inv_spectrum = spectrum * np.exp(1.0j * inv_spectrum_angle)
         inv_signal = inv_istft(inv_spectrum, slice_length, sample_rate, frame_stride, num_fft)
         error = np.sqrt(np.sum((spectrum - abs(inv_spectrum))**2) / spectrum.size)
-        print('\rIteration: {}/{} - Error: {} '.format(i+1, iter, error), end='')
-    print()
+        if verbose:
+            print('\rIteration: {}/{} - Error: {} '.format(i+1, iter, error), end='')
+    if verbose:
+        print()
 
     return inv_signal

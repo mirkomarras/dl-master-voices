@@ -24,7 +24,7 @@ def main():
 
     # Parameters for training
     parser.add_argument('--audio_dir', dest='audio_dir', default='./data/voxceleb1/dev,./data/voxceleb2/dev', type=str, action='store', help='Comma-separated audio data directories')
-    parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/ad_voxceleb12/vox2_mv_data.npz', type=str, action='store', help='Numpy data for master voice analysis')
+    parser.add_argument('--mv_data_path', dest='mv_data_path', default='./data/vs_mv_pairs/data_mv_vox2_all.npz', type=str, action='store', help='Numpy data for master voice analysis')
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Number of epochs')
     parser.add_argument('--batch', dest='batch', default=64, type=int, action='store', help='Batch size')
     parser.add_argument('--learning_rate', dest='learning_rate', default=0.001, type=float, action='store', help='Learning rate')
@@ -43,7 +43,7 @@ def main():
 
     # Parameters for validation
     parser.add_argument('--val_base_path', dest='val_base_path', default='./data/voxceleb1/test', type=str, action='store', help='Base path for validation trials')
-    parser.add_argument('--val_pair_path', dest='val_pair_path', default='./data/ad_voxceleb12/vox1_trial_pairs.csv', type=str, action='store', help='CSV file with validation trials')
+    parser.add_argument('--val_pair_path', dest='val_pair_path', default='./data/vs_mv_pairs/trial_pairs_vox1_test.csv', type=str, action='store', help='CSV file with validation trials')
     parser.add_argument('--val_n_pair', dest='val_n_pair', default=1000, type=int, action='store', help='Number of validation trials')
     parser.add_argument('--n_templates', dest='n_templates', default=1, type=int, action='store', help='Number of enrolment templates')
 
@@ -112,9 +112,9 @@ def main():
     train_data = data_pipeline_verifier(x_train, y_train, int(args.sample_rate*args.n_seconds), args.sample_rate, args.batch, args.prefetch, output_type)
 
     print('Creating model')
-    available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thinresnet34': ThinResNet34}
-
+    available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thin_resnet': ThinResNet34}
     model = available_nets[args.net.split('/')[0]](id=(int(args.net.split('/')[1].replace('v','')) if '/v' in args.net else -1))
+    model.save_params(args)
     model.build(classes, args.embs_size, args.embs_name, args.loss, args.aggregation, args.vlad_clusters, args.ghost_clusters, args.weight_decay, 'train')
     model.load()
     model.train(train_data, val_data, output_type, len(x_train)//args.batch, args.n_epochs, args.learning_rate, args.decay_factor, args.decay_step, args.optimizer)

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plot
 import matplotlib.pylab as plt
 import numpy as np
 
-from tests import spectrum
+from helpers import audio
 
 # Helper functions for plotting images in Python (wrapper over matplotlib)
 
@@ -156,7 +156,7 @@ def quickshow(x, label=None, *, axes=None, cmap='gray'):
     
     x = x.squeeze()
     
-    if any(ptn in label for ptn in ['{}', '()', '{}']):
+    if any(ptn in label for ptn in ['{}', '()', '[]']):
         label = label.replace('{}', '() / []')
         label = label.replace('()', '({}x{})'.format(*x.shape[0:2]))
         label = label.replace('[]', '[{:.2f} - {:.2f}]'.format(np.min(x), np.max(x)))
@@ -175,7 +175,7 @@ def quickshow(x, label=None, *, axes=None, cmap='gray'):
         axes.set_yticks([])        
 
 def waveforms(wav, spectrums=True, sampling=16000):
-    cols = 2 if spectrum else 1
+    cols = 2 if spectrums else 1
     
     fig, axes = sub(len(wav) * cols, ncols=cols, figwidth=16, figheight=len(wav) * 3.5)
     
@@ -185,7 +185,7 @@ def waveforms(wav, spectrums=True, sampling=16000):
 #             ax.set_xlim([0, 16384 // 8])
             ax.set_yticks([])
         else:
-            spec = spectrum.get_np_spectrum(wav[i // cols].squeeze(), sampling)[0]
+            spec = audio.get_np_spectrum(wav[i // cols].squeeze(), sampling)[0]
             quickshow(spec, axes=ax)
             ax.set_ylabel('Frequency')
     return fig
@@ -214,3 +214,82 @@ def sub(n_plots, figwidth=16, figheight=None, ncols=None):
                 ax.remove()                
     
     return fig, axes_flat
+
+
+def corrcoeff(a, b):
+    """ Returns the normalized correlation coefficient between two arrays """
+    a = (a - np.mean(a)) / (1e-9 + np.std(a))
+    b = (b - np.mean(b)) / (1e-9 + np.std(b))
+    return np.mean(a * b)
+
+def rsquared(a, b):
+    """ Returns the coefficient of determination (R^2) between two arrays (normalized) """
+    from sklearn.metrics import r2_score
+    a = (a - np.mean(a)) / (1e-9 + np.std(a))
+    b = (b - np.mean(b)) / (1e-9 + np.std(b))
+    return r2_score(a, b)
+
+def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1, guide=False, color=None, kde=False, marginals=False):
+
+    title = '{} : '.format(title) if title is not None else ''
+
+    cc = corrcoeff(x.ravel(), y.ravel())
+    r2 = rsquared(x.ravel(), y.ravel())
+
+    if axes is None:
+        fig = plt.figure()
+        axes = fig.gca()
+        
+    x = x.ravel()
+    y = y.ravel()
+
+    axes.plot(x, y, '.', alpha=alpha, color=color, zorder=1)
+    axes.set_title('{}corr {:.2f} / R2 {:.2f}'.format(title, cc, r2))
+
+    if guide:
+        p1 = min(np.min(x), np.min(y))
+        p2 = max(np.max(x), np.max(y))
+        axes.plot([p1, p2], [p1, p2], 'k--', alpha=0.3)
+        span_x = np.max(x) - np.min(x)
+        span_y = np.max(y) - np.min(y)
+        axes.set_xlim([np.min(x) - span_x * 0.05, np.max(x) + span_x * 0.05])
+        axes.set_ylim([np.min(y) - span_y * 0.05, np.max(y) + span_y * 0.05])
+        
+    if kde:
+        span_x = np.max(x) - np.min(x)
+        span_y = np.max(y) - np.min(y)
+        xmin = np.min(x) - span_x * 0.05
+        xmax = np.max(x) + span_x * 0.05
+        ymin = np.min(y) - span_y * 0.05
+        ymax = np.max(y) + span_y * 0.05
+        xx, yy = np.mgrid[xmin:xmax:100j, ymin:ymax:100j]
+        positions = np.vstack([xx.ravel(), yy.ravel()])
+        values = np.vstack([x, y])
+        kernel = sps.gaussian_kde(values)
+        f = np.reshape(kernel(positions).T, xx.shape)
+        cfset = axes.contourf(xx, yy, f, cmap='Blues', alpha=0.35, zorder=2)
+        cset = axes.contour(xx, yy, f, colors='k', alpha=0.35, zorder=2)
+
+    if marginals:
+        yy = axes.get_ylim()
+        xx = axes.get_xlim()
+
+        # X marginal
+        x_hist, x_bins = np.histogram(x.reshape((-1, )), bins=30)
+        x_bins = np.convolve(x_bins, [0.5, 0.5], mode='valid')
+        x_hist = x_hist / x_hist.max()
+        axes.bar(x_bins, bottom=yy[1], height=0.1 * np.abs(yy[1] - yy[0]) * x_hist, zorder=-1, clip_on=False, alpha=0.5, width=x_bins[1] - x_bins[0])
+        axes.set_ylim(yy)
+
+        # Y marginal
+        y_hist, y_bins = np.histogram(y.reshape((-1, )), bins=30)
+        y_bins = np.convolve(y_bins, [0.5, 0.5], mode='valid')
+        y_hist = y_hist / y_hist.max()
+        axes.barh(y_bins, left=xx[1], width=0.1 * np.abs(xx[1] - xx[0]) * y_hist, zorder=-1, clip_on=False, alpha=0.5, height=y_bins[1] - y_bins[0])
+        axes.set_xlim(xx)
+
+    if xlabel is not None: axes.set_xlabel(xlabel)
+    if ylabel is not None: axes.set_ylabel(ylabel)
+
+    if 'fig' in locals():
+        return fig    

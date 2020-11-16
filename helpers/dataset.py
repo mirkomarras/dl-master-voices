@@ -6,6 +6,7 @@ import numpy as np
 import random
 import csv
 import os
+from pathlib import Path
 
 from helpers.audio import decode_audio
 
@@ -21,22 +22,33 @@ def get_mv_analysis_users(mv_analysis_path, type='all'):
 
     mv_analysis_data = np.load(mv_analysis_path)
 
+    # Find the right segment
+    pid = None
+    items = mv_analysis_data['x_train'][0].split('/')
+    for i, item in enumerate(items):
+        if items[i].startswith('id'):
+            pid = i
+
+    assert pid is not None, f"None of the elements in file path is recognized as user iD: {items}"
+
     if type in ['all', 'train']:
         print('Load train user ids for mv analysis')
-        train_users = list(np.unique([path.split('/')[1] for path in mv_analysis_data['x_train']]))
+        train_users = list(np.unique([path.split('/')[pid] for path in mv_analysis_data['x_train']]))
+        assert train_users[0].startswith('id'), f"The user IDs should start with 'id' - currently seeing {train_users[0]}"
         output_users = output_users + train_users
         print('>', 'found mv analysis train users', len(train_users))
 
     if type in ['all', 'test']:
         print('Load test user ids for mv analysis')
-        test_users = list(np.unique([path.split('/')[1] for path in mv_analysis_data['x_test']]))
+        test_users = list(np.unique([path.split('/')[pid] for path in mv_analysis_data['x_test']]))
+        assert test_users[0].startswith('id'), f"The user IDs should start with 'id' - currently seeing {train_users[0]}"
         output_users = output_users + test_users
         print('>', 'found mv analysis test users', len(test_users))
 
     return output_users
 
 
-def load_data_set(audio_dir, mv_user_ids, include=False):
+def load_data_set(audio_dir, mv_user_ids, include=False, n_samples=None):
     """
     Function to load an audio data with format {user_id}/{video_id}/xyz.wav
     :param audio_dir:       List of base paths to datasets
@@ -50,14 +62,22 @@ def load_data_set(audio_dir, mv_user_ids, include=False):
 
     print('Load data sets')
     user_count = 0
+
     for source_dir in audio_dir:
-        print('> load data from', source_dir)
+
+        print('> loading data from', source_dir)
+
         for user_id, user_dir in enumerate(os.listdir(os.path.join(source_dir))):
+
             if (include and user_dir in mv_user_ids) or (not include and user_dir not in mv_user_ids):
-                for video_id, video_dir in enumerate(os.listdir(os.path.join(source_dir, user_dir))):
-                    for audio_id, audio_file in enumerate(os.listdir(os.path.join(source_dir, user_dir, video_dir))):
-                        x.append(os.path.join(source_dir, user_dir, video_dir, audio_file))
-                        y.append(user_count)
+
+                audio_files = [str(x) for x in Path(os.path.join(source_dir, user_dir)).glob('**/*.wav')]
+                if n_samples is not None:
+                    audio_files = audio_files[:n_samples]
+
+                x.extend(audio_files)
+                y.extend([user_count for x in audio_files])
+
                 user_count += 1
 
     print('>', 'loaded', len(x), 'audio files from', len(np.unique(y)), 'users totally')
@@ -169,7 +189,7 @@ def create_template_trials(base_path, trials_path, n_templates=1, n_pos_pairs=10
     print('> computed', counter_pairs-1, 'pairs')
 
 
-def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, n_seconds=3, n_templates=10):
+def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, n_templates=10, type='test'):
     """
     Function to load data for master voice impersonation
     :param mv_analysis_path:    File path to master voice analysis metadata
@@ -180,10 +200,10 @@ def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, 
     :param n_templates:         Number of audio samples per user to be loaded
     :return:                    (list of audio samples, list of labels, list of male user ids, list of female user ids)
     """
-    print('Loading master voice data')
+    print('Loading audio files for master voice validation')
 
     mv_analysis_data = np.load(mv_analysis_path)
-    mv_paths = [os.path.join(mv_base_path, path) for path in mv_analysis_data['x_test']]
+    mv_paths = [os.path.join(mv_base_path, path) for path in mv_analysis_data['x_' + type]]
     mv_labels = mv_analysis_data['y_test']
     print('> found', len(mv_paths), 'paths from', len(np.unique(mv_labels)), 'users')
 

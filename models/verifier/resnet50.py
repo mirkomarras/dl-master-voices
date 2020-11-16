@@ -21,7 +21,7 @@ class ResNet50(Model):
     def __init__(self, name='resnet50', id=''):
         super().__init__(name, id)
 
-    def build(self, classes=None, embs_size=512, embs_name='embs', loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
+    def build(self, classes=0, embs_size=512, embs_name='embs', loss='softmax', aggregation='gvlad', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
         super().build(classes, embs_size, embs_name, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay, mode)
         print('>', 'building', self.name, 'model on', classes, 'classes')
 
@@ -40,7 +40,7 @@ class ResNet50(Model):
                 x = tf.keras.layers.Reshape((-1, embs_size))(x)
             else:
                 x = tf.keras.layers.GlobalAveragePooling2D(name='avg_pool')(x)
-                x = tf.keras.layers.Reshape((1, embs_size))(x)
+                x = tf.keras.layers.Reshape((-1, embs_size))(x)
 
         elif aggregation == 'vlad':
             x_k_center = tf.keras.layers.Conv2D(vlad_clusters, (7, 1), strides=(1, 1), kernel_initializer='orthogonal', use_bias=True, trainable=True, kernel_regularizer=tf.keras.regularizers.l2(weight_decay), bias_regularizer=tf.keras.regularizers.l2(weight_decay), name='vlad_center_assignment')(x)

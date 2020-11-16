@@ -3,4 +3,5 @@ mvenv/*
 jobs/*
 *.pyc
 data/*
-
+vs_mv_models/*
+sftp-config.json

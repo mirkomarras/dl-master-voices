@@ -32,6 +32,7 @@ class StepDecay():
 
 
 class VladPooling(tf.keras.layers.Layer):
+
     def __init__(self, mode, k_centers, g_centers=0, **kwargs):
         '''
         Implementation of the VLAD pooling layers
@@ -99,8 +100,9 @@ class Model(object):
         '''
 
         self.name = name
+        self._inference_model = None
 
-        self.dir = os.path.join('.', 'data', 'pt_models', self.name)
+        self.dir = os.path.join('.', 'data', 'vs_mv_models', self.name)
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
 
@@ -116,10 +118,12 @@ class Model(object):
         Create a model instance ready to generate speaker embeddings
         :return: Inference model
         '''
-        return tf.keras.Model(inputs=self.model.input, outputs=self.model.get_layer(self.embs_name).output)
+        if self._inference_model is None:
+            self._inference_model = tf.keras.Model(inputs=self.model.input, outputs=self.model.get_layer(self.embs_name).output)
+        return self._inference_model
 
 
-    def build(self, classes=None, embs_size=512, embs_name='embs', loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
+    def build(self, classes=0, embs_size=512, embs_name='embs', loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
         '''
 
         Method to build a speaker verification model that takes audio samples of shape (None, 1) and impulse flags (None, 3)
@@ -150,6 +154,17 @@ class Model(object):
         print('>', 'saved', self.name, 'model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
 
 
+    def save_params(self, params):
+        with open(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'params.txt'), "w") as file:
+            for arg in vars(params):
+                file.write("%s,%s\n" % (arg, getattr(params, arg)))
+        print('> params saved in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'params.txt'))
+
+
+    def get_dirname(self):
+        return os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))
+
+
     def load(self):
         """
         Load this model
@@ -157,7 +172,8 @@ class Model(object):
         print('>', 'loading', self.name, 'model')
         if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
             if len(os.listdir(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))) > 0:
-                self.model = tf.keras.models.load_model(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model.h5'), custom_objects={'VladPooling': VladPooling})
+                model_path = os.path.join(self.dir, 'v' + f'{self.id:03d}', 'model.h5')
+                self.model = tf.keras.models.load_model(model_path, custom_objects={'VladPooling': VladPooling})
                 self.history = []
                 if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'history.csv')):
                     self.history = pd.read_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'history.csv')).values.tolist()
@@ -195,7 +211,8 @@ class Model(object):
 
         print('>', 'trained', self.name, 'model')
 
-    def test(self, test_data, output_type='spectrum', policy='any', save=False):
+
+    def test(self, test_data, output_type='spectrum', policy='any', save=False, filename='vox1'):
         """
         Method to test this model against verification attempts
         :param test_data:       Pre-computed testing data pairs - shape ((pairs, None, 1), (pairs, None, 1)), (pairs, binary_label)
@@ -232,7 +249,47 @@ class Model(object):
 
         if save:
             df = pd.DataFrame({'target': scores, 'similarity': labels})
-            df.to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_vox1_sv_test.csv'))
-            print('>', 'saved results in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'test_vox1_sv_test.csv'))
+            df.to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'scores_' + filename + '_test.csv'))
+            print('>', 'saved results in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'scores_' + filename + '_test.csv'))
 
         return [eer, far[id_eer], frr[id_eer], thr_eer, far[id_far1], frr[id_far1], thr_far1]
+
+
+    def test_impersonation(self, input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10, mode='spectrum'):
+        """
+        Method to test this model under impersonation attempts
+        :param input_mv:            Input spectrogram against which this model is tested - shape (None, 1)
+        :param thresholds:          List of verification threshold
+        :param policy:              Verification policy - choices ['avg', 'any']
+        :param x_mv_test_embs:      Testing users' embeddings - shape (users, n_templates, 512)
+        :param y_mv_test:           Testing users' labels - shape (users, n_templates)
+        :param male_x_mv_test:      Male users' ids
+        :param female_x_mv_test:    Female users' ids
+        :param n_templates:         Number of audio samples to create a user template
+        :return:                    {'m': impersonation rate against male users, 'f': impersonation rate against female users}
+        """
+
+        # We extract the speaker embedding associated to the master voice input
+        extractor = self.infer()
+        mv_emb = extractor.predict(input_mv[tf.newaxis, ...])
+        # mv_emb = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(extractor.predict(np.expand_dims(input_mv, axis=0)))
+        mv_emb = tf.keras.backend.l2_normalize(mv_emb, 1)
+        scores = [1 - cosine(mv_emb, emb) for emb in x_mv_test_embs]
+
+        # We set up an array of shape no_thresholds x no_test_user where we count the false accepts for the input master vice against the current user with the current thresholds
+        mv_fac = np.zeros((len(thresholds), len(np.unique(y_mv_test))))
+
+        for class_index, class_label in enumerate(np.unique(y_mv_test)): # For each user in the test set
+            # We extract the enrolled embeddings for the current user
+            user_scores = scores[class_index*n_templates:(class_index+1)*n_templates]
+            for thr_index, threshold in enumerate(thresholds): # For each verification threshold
+                mv_fac[thr_index, class_index] = min(1, len([1 for score in user_scores if score > threshold]))
+
+        results = []
+        for thr_index, _ in enumerate(thresholds): # For each threshold, we separately compute the percentage of females (males) users who have been impersonated
+            results.append({
+                'm': np.sum(mv_fac[thr_index, np.array(male_x_mv_test)]) / len(male_x_mv_test), 
+                'f': np.sum(mv_fac[thr_index,np.array(female_x_mv_test)]) / len(female_x_mv_test)
+            })
+
+        return results
