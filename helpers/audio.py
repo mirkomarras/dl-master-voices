@@ -185,12 +185,20 @@ def denormalize_frames(spectrum, means, stds, epsilon=1e-12):
     return np.array([z * max(stds[i],epsilon) + means[i] for i, z in enumerate(spectrum)])
 
 def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, normalized=True, full=False):
+    """
+    Function to compute a numpy spectrum from signal
+    :param signal:          Audio signal from which the spectrum will be extracted  - shape (None, 1)
+    :param sample_rate:     Sample rate of an audio sample to be processed
+    :param frame_size:      Size of a frame in seconds
+    :param frame_stride:    Stride of a frame in seconds
+    :param num_fft:         Number of FFT bins
+    :return:                Spectrum - shape (None, num_fft / 2, None, 1)
+    """
     assert signal.ndim == 1, 'Only 1-dim signals supported'
 
     frames = framesig(signal, frame_len=int(frame_size * sample_rate), frame_step=int(frame_stride * sample_rate), winfunc=np.hamming)
     fft = abs(np.fft.fft(frames, n=num_fft))
 
-    fft = fft[:-1, :(num_fft // 2)]
     if not normalized:
         return fft
 
