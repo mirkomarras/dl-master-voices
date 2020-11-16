@@ -114,7 +114,7 @@ class SiameseModel(object):
         # We create a model that, given two input examples, returns the cosine similarity between the corresponding embeddings
         self.siamese_model = tf.keras.Model([signal_input, another_signal_input], similarity)
 
-    def optimize(self, seed_voice, train_data, test_data, n_examples, n_epochs, n_steps_per_epoch, thresholds=None, min_val=1e-5, min_sim=0.00, max_sim=1.00, learning_rate=1e-1, patience=5):
+    def optimize(self, seed_voice, train_data, test_data, n_examples, n_epochs, n_steps_per_epoch, thresholds=None, min_val=1e-5, min_sim=0.00, max_sim=1.00, learning_rate=1e-1, patience=10, gradient=None, max_perturbation=None, l2_regularization=0):
         """
         Method to train master voice samples
         :param seed_voice:          Seed voice to optimize
@@ -147,94 +147,119 @@ class SiameseModel(object):
             x_mv_test_embs.append(tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(extractor.predict(get_tf_spectrum(audio, num_fft=512))))
         print()
 
-        filter_gradients = lambda c, g, t1, t2: [g[i] for i in range(len(c)) if c[i] >= t1 and c[i] <= t2]
+        # filter_gradients = lambda c, g, t1, t2: [g[i] for i in range(len(c)) if c[i] >= t1 and c[i] <= t2]
 
         seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
-        n_iterations = len(seed_voices) if self.gan is None else n_examples
-        for iter in range(n_iterations): # For each audio sample to optimize
-            print('Starting optimization', iter+1, 'of', n_iterations, '- GAN:', self.gan)
+        n_seed_voices = len(seed_voices) if self.gan is None else n_examples
+        
+        for iter in range(n_seed_voices): # For each audio sample to optimize
+            print('Starting optimization', iter+1, 'of', n_seed_voices, '- GAN:', self.gan)
             
             # We initialize the starting latent vector / spectrogram to optimize (mv stands for master voice, sv stands for seed voice)
             if self.gan is not None:
                 input_mv, input_avg, input_std = (tf.random.normal(size=(128)).astype(np.float32), None, None)
             else:
-                input_mv, input_avg, input_std = get_np_spectrum(decode_audio(seed_voices[iter]).astype(np.float32), self.sample_rate, num_fft=512, full=False)
-                input_mv = input_mv[..., np.newaxis]
-            input_sv = np.copy(input_mv)
-            print('> created master voice seed', input_mv.shape)
+                input_sv, input_avg, input_std = get_np_spectrum(decode_audio(seed_voices[iter]).astype(np.float32), self.sample_rate, num_fft=512, full=False)
+                input_sv = input_sv[..., np.newaxis]
+
+            # input_sv = np.copy(input_sv)
+            print('> created master voice seed', input_sv.shape)
+
+            metrics = ('mv_eer_results', 'mv_far1_results', 'mv_avg_similarity', 'l2_norm', 'max_dist')
+            performance = {m: [] for m in metrics}
 
             remaining_attempts = patience
             best_value_attempt = 0.0
-            cur_mv_eer_results = []
-            cur_mv_far1_results = []
-            cur_mv_avg_similarity = []
-            
-            input_mv = tf.convert_to_tensor(input_mv,dtype='float32')
+
+            perturbation = np.zeros_like(input_sv, dtype=np.float32)
+            perturbation = tf.convert_to_tensor(perturbation, dtype='float32')
+            input_mv = tf.convert_to_tensor(input_sv, dtype='float32')
+            input_sv = tf.convert_to_tensor(input_sv, dtype='float32')
             
             for epoch in range(n_epochs): # For each optimization epoch
                 epoch_similarities = []
+
                 for step, batch_data in enumerate(train_data):
 
                     if step == n_steps_per_epoch:
                         break
-
-                    #input_1 = tf.Variable(batch_data[0], dtype=tf.float32)
-                    input_2 = tf.Variable(np.repeat(input_mv[np.newaxis,...], len(batch_data[0]), axis=0), dtype=tf.float32)
-
-                    #input_rb = tf.repeat(input_mv[tf.newaxis,...], len(batch_data[0]), axis=0)
-
-
-                    with tf.GradientTape() as tape:
-                        loss = self.siamese_model([batch_data[0], input_2])
-
-                    grads = tape.gradient(loss, input_2)
-
                     
-                    loss_np = np.squeeze(loss.numpy())
-                    idxs = np.where((loss_np >= min_sim) & (loss_np <= max_sim))
-                    if len(idxs) > 0:
-                        filtered_grads2 = tf.squeeze(tf.gather(grads, idxs),axis=0)
+                    with tf.GradientTape() as tape:                        
+
+                        perturbation_repeated = tf.repeat(perturbation[tf.newaxis, ...], len(batch_data[0]), axis=0)
+                        tape.watch(perturbation_repeated)
+                        input_mv = input_sv[tf.newaxis, ...] + perturbation_repeated
+                        # input_mv = tf.clip_by_value(input_mv, 0, 10000)
+                        loss = self.siamese_model([batch_data[0], input_mv])
+
+                        if l2_regularization > 0:
+                            loss = loss - tf.reduce_mean(tf.square(perturbation))
+
+                    grads = tape.gradient(loss, perturbation_repeated)
+
+                    # Find speakers where current similarity meets certain criteria (e.g. minimum viable similarity) to be worth persuing                    
+                    idxs = tf.where(tf.reshape(loss, (-1,)) > min_sim)
+                    viable_grads = tf.gather(grads, tf.reshape(idxs, (-1,)))
+
+                    if len(viable_grads) > 0:
+                        grad = tf.reduce_mean(viable_grads, axis=0)
+
+                        if gradient == 'pgd':
+                            grad = tf.sign(grad)
+                        elif gradient == 'normed':
+                            grad = grad / (1e-9 + tf.linalg.norm(grad))
+                        elif gradient is None:
+                            pass
+                        else:
+                            raise ValueError('Unsupported gradient mode!')
+
+                        perturbation += learning_rate * grad
+                        if max_perturbation is not None and max_perturbation > 0:
+                            perturbation = tf.clip_by_value(perturbation, -max_perturbation, max_perturbation)
+
+                    epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
                     
-                    
-                    #filtered_grads = filter_gradients(list(np.squeeze(loss.numpy())), grads.numpy(), min_sim, max_sim)
+                    print(len(viable_grads), end=' ')
+                    # print('.', end='')
 
-
-                    if len(filtered_grads2) > 0:
-                        perturbation = tf.reduce_mean(filtered_grads2, axis=0) * learning_rate
-                        perturbation = tf.clip_by_value(perturbation, min_val, 10000.0)
-                        input_mv += perturbation
-
-                    epoch_similarities.append(np.mean(loss))
-                    
-                    #print('\r> sample ', iter+1, '/', n_iterations, '- Epoch', epoch+1, '/', n_epochs, '- Step', step+1, '/', n_steps_per_epoch, '- Avg. Similarity', round(np.mean(loss), 5), end='')
-
-                print('\r> sample ', iter+1, '/', n_iterations, '- Epoch', epoch+1, '/', n_epochs, '@ ', n_steps_per_epoch, ' steps/epoch', end='')
-
+                epoch_loss = tf.reduce_mean(epoch_similarities).numpy().item()
+                print(f'\r> sample {iter+1}/{n_seed_voices} : epoch {epoch+1}/{n_epochs} -> {n_steps_per_epoch} steps/epoch | {epoch_loss:.2f} ', end='')
                 
                 if thresholds is not None and test_data is not None:
+                    
+                    input_mv = input_sv + perturbation
+                    # input_mv = tf.clip_by_value(input_mv, 0, 10000)
+
                     # We test the current master voice version for impersonation rates on the validation set
                     results = self.test(input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test)
-                    cur_mv_avg_similarity.append(epoch_similarities)
-                    cur_mv_eer_results.append(results[0])
-                    cur_mv_far1_results.append(results[1])
-                    print(' - Imp@EER', (results[0]['m'], results[0]['f']), '- Imp@FAR1', (results[1]['m'], results[1]['f']), end=' ')
+                    performance['mv_avg_similarity'].append(epoch_loss)
+                    performance['mv_eer_results'].append(results[0])
+                    performance['mv_far1_results'].append(results[1])
+                    performance['l2_norm'].append(tf.reduce_mean(tf.square(perturbation)).numpy().item())
+                    performance['max_dist'].append(np.max(np.abs(perturbation)).item())
+
+                    print(f'| Imp@EER m={results[0]["m"]:.3f} f={results[0]["f"]:.3f} | Imp@FAR1 m={results[1]["m"]:.3f} f={results[1]["f"]:.3f}', end='')
 
                     if (results[0]['m'] + results[0]['f']) > best_value_attempt: # Check if the total impersonation rate after the current epoch is improved
                         best_value_attempt = results[0]['m'] + results[0]['f'] # Update the best impersonation rate value
                         remaining_attempts = patience # Resume remaining attempts to patience times
-                        print('- Best Score')
+                        print(' - Best Score')
                     else:
                         remaining_attempts -= 1 # Reduce the remaining attempts to improve the impersonation rate
-                        print()
+                        print(f' - Attempts ({remaining_attempts})')
 
                     if remaining_attempts == 0: # If there are no longer remaining attempts we start the optimization of the current voice
                         break
 
                 #CUTDOWN RUNTIME - save after every 100 epochs and last one
-                if epoch % 10 == 0 or epoch == n_epochs-1:
-                    self.save(iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, cur_mv_avg_similarity, filename=('' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]))
+                # if epoch % 10 == 0 or epoch == n_epochs-1:
+                #     self.save(iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, cur_mv_avg_similarity, filename=('' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]))
+            
+            # Save results and print summary for the current seed voice
+            self.save(iter, input_sv, input_mv, input_avg, input_std, performance, filename=('' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]))
+            print(f'Finished optimization! Impersonation {performance["mv_far1_results"][0]} -> {performance["mv_far1_results"][-1]}')
 
-    def save(self, iter, input_sv, input_mv, input_avg, input_std, cur_mv_eer_results, cur_mv_far1_results, cur_mv_avg_similarity, filename=''):
+    def save(self, iter, input_sv, input_mv, input_avg, input_std, performance_stats, filename=''):
         """
         Method to save original and optimized master voices
         :param iter:                Number of the current iteration
@@ -248,16 +273,17 @@ class SiameseModel(object):
         sp = np.squeeze(self.gan.get_generator()(np.expand_dims(input_mv, axis=0))[-1].numpy()) if self.gan is not None else np.squeeze(denormalize_frames(np.squeeze(input_mv), input_avg, input_std))
         sp = np.vstack((sp, np.zeros((1, sp.shape[1])), sp[:0:-1]))
         sp = sp.clip(0)
+        sp_mv = sp
 
         # We save the current master voice latent vector, if we are using a GAN-based procedure
         if self.gan is not None:
-            np.save(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_latent_' + str(iter)), input_mv)
+            np.save(os.path.join(self.dir_mv, 'v' + self.id_mv, 'mv_' + str(iter)), input_mv)
 
         # We save the unnormalized spectrogram of the master voice
-        np.save(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_spec_' + (str(iter) if self.gan is not None else filename)), sp)
+        np.save(os.path.join(self.dir_mv, 'v' + self.id_mv, 'mv_' + (str(iter) if self.gan is not None else filename)), sp)
 
         inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1] + 1) / 100.0 * self.sample_rate), verbose=False)
-        sf.write(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_audio_' + (str(iter) if self.gan is not None else filename) + '.wav'), inv_signal, self.sample_rate)
+        sf.write(os.path.join(self.dir_mv, 'v' + self.id_mv, 'mv_' + (str(iter) if self.gan is not None else filename) + '.wav'), inv_signal, self.sample_rate)
 
         # We save the current audio associated to the seed voice latent vector / spectrogram
         sp = np.squeeze(self.gan.get_generator()(np.expand_dims(input_sv, axis=0))[-1].numpy()) if self.gan is not None else np.squeeze(denormalize_frames(np.squeeze(input_sv), input_avg, input_std))
@@ -266,16 +292,25 @@ class SiameseModel(object):
 
         # We save the current seed voice latent vector, if we are using a GAN-based procedure
         if self.gan is not None:
-            np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_latent_' + str(iter)), input_sv)
+            np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'sv_' + str(iter)), input_sv)
 
-        # We save the unnormalized spectrogram of the seed voice
-        np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_spec_' + (str(iter) if self.gan is not None else filename)), sp)
+        # We save the unnormalized spectrogram of the seed voice        
+        np.save(os.path.join(self.dir_sv, 'v' + self.id_sv, 'sv_' + (str(iter) if self.gan is not None else filename)), sp)
 
         inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1] + 1) / 100.0 * self.sample_rate), verbose=False)
-        sf.write(os.path.join(self.dir_sv, 'v' + self.id_sv, 'example_audio_' + (str(iter) if self.gan is not None else filename) + '.wav'), inv_signal, self.sample_rate)
+        sf.write(os.path.join(self.dir_sv, 'v' + self.id_sv, 'sv_' + (str(iter) if self.gan is not None else filename) + '.wav'), inv_signal, self.sample_rate)
+
+        # Show comparions
+        from helpers import plotting
+        n_bins = sp.shape[0]
+        filename_fig = os.path.join(self.dir_mv, 'v' + self.id_mv, 'spectrums_' + (str(iter) if self.gan is not None else filename) + '.png')        
+        fig = plotting.imsc((sp_mv[:n_bins//2], sp[:n_bins//2], np.abs(sp_mv - sp)[:n_bins//2]), ['master voice []', 'seed voice []', 'diff []'], cmap='jet', ncols=3)
+        fig.savefig(filename_fig, bbox_inches='tight')
 
         # We update and save the current impersonation rate history
-        np.savez(os.path.join(self.dir_mv, 'v' + self.id_mv, 'example_' + (str(iter) if self.gan is not None else filename) + '.hist'), cur_mv_eer_results=cur_mv_eer_results, cur_mv_far1_results=cur_mv_far1_results, cur_mv_avg_similarity=cur_mv_avg_similarity)
+        filename_stats = os.path.join(self.dir_mv, 'v' + self.id_mv, 'stats_' + (str(iter) if self.gan is not None else filename))
+        print(f'> saving {filename_stats}')
+        np.savez(filename_stats, **performance_stats)
 
     def test(self, input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10):
         """

@@ -100,6 +100,7 @@ class Model(object):
         '''
 
         self.name = name
+        self._inference_model = None
 
         self.dir = os.path.join('.', 'data', 'vs_mv_models', self.name)
         if not os.path.exists(self.dir):
@@ -117,7 +118,9 @@ class Model(object):
         Create a model instance ready to generate speaker embeddings
         :return: Inference model
         '''
-        return tf.keras.Model(inputs=self.model.input, outputs=self.model.get_layer(self.embs_name).output)
+        if self._inference_model is None:
+            self._inference_model = tf.keras.Model(inputs=self.model.input, outputs=self.model.get_layer(self.embs_name).output)
+        return self._inference_model
 
 
     def build(self, classes=0, embs_size=512, embs_name='embs', loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
@@ -169,7 +172,8 @@ class Model(object):
         print('>', 'loading', self.name, 'model')
         if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
             if len(os.listdir(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))) > 0:
-                self.model = tf.keras.models.load_model(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model.h5'), custom_objects={'VladPooling': VladPooling})
+                model_path = os.path.join(self.dir, 'v' + f'{self.id:03d}', 'model.h5')
+                self.model = tf.keras.models.load_model(model_path, custom_objects={'VladPooling': VladPooling})
                 self.history = []
                 if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'history.csv')):
                     self.history = pd.read_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'history.csv')).values.tolist()
@@ -267,7 +271,9 @@ class Model(object):
 
         # We extract the speaker embedding associated to the master voice input
         extractor = self.infer()
-        mv_emb = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(extractor.predict(np.expand_dims(input_mv, axis=0)))
+        mv_emb = extractor.predict(input_mv[tf.newaxis, ...])
+        # mv_emb = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(extractor.predict(np.expand_dims(input_mv, axis=0)))
+        mv_emb = tf.keras.backend.l2_normalize(mv_emb, 1)
         scores = [1 - cosine(mv_emb, emb) for emb in x_mv_test_embs]
 
         # We set up an array of shape no_thresholds x no_test_user where we count the false accepts for the input master vice against the current user with the current thresholds
@@ -281,6 +287,9 @@ class Model(object):
 
         results = []
         for thr_index, _ in enumerate(thresholds): # For each threshold, we separately compute the percentage of females (males) users who have been impersonated
-            results.append({'m': np.sum(mv_fac[thr_index, np.array(male_x_mv_test)]) / len(male_x_mv_test), 'f': np.sum(mv_fac[thr_index,np.array(female_x_mv_test)]) / len(female_x_mv_test)})
+            results.append({
+                'm': np.sum(mv_fac[thr_index, np.array(male_x_mv_test)]) / len(male_x_mv_test), 
+                'f': np.sum(mv_fac[thr_index,np.array(female_x_mv_test)]) / len(female_x_mv_test)
+            })
 
         return results

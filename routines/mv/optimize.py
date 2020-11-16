@@ -7,6 +7,11 @@ import numpy as np
 import argparse
 import os
 
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+import sys
+print('PATH>', sys.path)
+
 from helpers.datapipeline import data_pipeline_mv
 from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender, load_mv_data
 
@@ -21,7 +26,8 @@ from models import gan
 import warnings
 warnings.filterwarnings('ignore')
 
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+# os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
 
 def tuneThreshold(scores, labels, target_fa=None):
     '''
@@ -61,12 +67,16 @@ def main():
     parser.add_argument('--mv_gender', dest='mv_gender', default='female', type=str, choices=['neutral', 'male', 'female'], action='store', help='Geneder against which master voices will be optimized')
     parser.add_argument('--n_examples', dest='n_examples', default=100, type=int, action='store', help='Number of master voices sampled to be created (only if netg is set)')
     parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Number of optimization epochs for each master voice example')
-    parser.add_argument('--batch', dest='batch', default=128, type=int, action='store', help='Size of a training batch against which master voices will be optimized')
-    parser.add_argument('--prefetch', dest='prefetch', default=1024, type=int, action='store', help='Number of training batches pre-fetched by the data pipeline')
+    parser.add_argument('--batch', dest='batch', default=32, type=int, action='store', help='Size of a training batch against which master voices will be optimized')
+    parser.add_argument('--prefetch', dest='prefetch', default=200, type=int, action='store', help='Number of training batches pre-fetched by the data pipeline')
     parser.add_argument('--learning_rate', dest='learning_rate', default=1e-2, type=float, action='store', help='Learning rate for master voice perturbation')
     parser.add_argument('--n_templates', dest='n_templates', default=10, type=int, action='store', help='Number of enrolment samples per user used for impersonation testing')
     parser.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Sample rate of the audio files')
     parser.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Length in seconds of an audio for master voice optimization')
+    parser.add_argument('--gradient', dest='gradient', default=None, action='store', help='Gradient mode: none / pgd / normalized')
+    parser.add_argument('--max_dist', dest='max_dist', default=0, type=float, action='store', help='Max distortion (L∞)')
+    parser.add_argument('--l2_reg', dest='l2_reg', default=0, type=float, action='store', help='Distortion penalty (L2 regularization)')
+
 
     args = parser.parse_args()
 
@@ -75,33 +85,40 @@ def main():
     # Parameter summary to print at the beginning of the script
     print('Parameters summary')
 
-    print('>', 'Net Verifier: {}'.format(args.netv))
-    print('>', 'Output type: {}'.format(output_type))
-    print('>', 'Sampling source: {}'.format('seed voice' if not args.netg else 'gan'))
+    print('  ', 'Net Verifier: {}'.format(args.netv))
+    print('  ', 'Output type: {}'.format(output_type))
+    print('  ', 'Sampling source: {}'.format('seed voice' if not args.netg else 'gan'))
 
-    print('>', 'Net GAN: {}'.format(args.netg))
-    print('>', 'Net GAN gender: {}'.format(args.netg_gender))
-    print('>', 'Seed voice: {}'.format(args.seed_voice))
+    print('  ', 'Net GAN: {}'.format(args.netg))
+    print('  ', 'Net GAN gender: {}'.format(args.netg_gender))
+    print('  ', 'Seed voice: {}'.format(args.seed_voice))
 
-    print('>', 'Path to train-test audio: {}'.format(args.audio_dir))
-    print('>', 'Path to train-test metadata: {}'.format(args.audio_meta))
-    print('>', 'Path to train-test splits: {}'.format(args.mv_splits))
-    print('>', 'Optimization gender: {}'.format(args.mv_gender))
-    print('>', 'Number of master voice examples (only if netg is set): {}'.format(args.n_examples))
-    print('>', 'Number of optimization epochs: {}'.format(args.n_epochs))
-    print('>', 'Size of optimization batches: {}'.format(args.batch))
-    print('>', 'Number of pre-fetched batches: {}'.format(args.prefetch))
-    print('>', 'Optimization learning rate: {}'.format(args.learning_rate))
-    print('>', 'Number of enrolment samples per user: {}'.format(args.n_templates))
-    print('>', 'Sample rate of audio files: {}'.format(args.sample_rate))
+    print('  ', 'Path to train-test audio: {}'.format(args.audio_dir))
+    print('  ', 'Path to train-test metadata: {}'.format(args.audio_meta))
+    print('  ', 'Path to train-test splits: {}'.format(args.mv_splits))
+    print('  ', 'Optimization gender: {}'.format(args.mv_gender))
+    print('  ', 'Number of master voice examples (only if netg is set): {}'.format(args.n_examples))
+    print('  ', 'Number of optimization epochs: {}'.format(args.n_epochs))
+    print('  ', 'Size of optimization batches: {}'.format(args.batch))
+    print('  ', 'Number of pre-fetched batches: {}'.format(args.prefetch))
+    print('  ', 'Optimization learning rate: {}'.format(args.learning_rate))
+    print('  ', 'Number of enrolment samples per user: {}'.format(args.n_templates))
+    print('  ', 'Sample rate of audio files: {}'.format(args.sample_rate))
 
     assert '/v' in args.netv
 
     # Load paths and labels for audio files that will be used during the optimization procedure
-    audio_dir = map(str, args.audio_dir.split(','))
-    mv_user_ids = get_mv_analysis_users(args.mv_splits, type='train') # We retrieve the list of user IDs included in the training split of the mv optimization procedure
-    x_train, y_train = load_data_set(audio_dir, mv_user_ids, include=True) # We load all the audio files and corresponding labels for the above-mentioned user IDs
+    audio_dir = args.audio_dir.split(',')
+
+    if args.mv_splits.endswith('.npz'):
+        mv_user_ids = get_mv_analysis_users(args.mv_splits, type='train') # We retrieve the list of user IDs included in the training split of the mv optimization procedure
+    else:
+        mv_user_ids = args.mv_splits.split(',') 
+
+    x_train, y_train = load_data_set(audio_dir, mv_user_ids, include=True, n_samples=32) # We load all the audio files and corresponding labels for the above-mentioned user IDs
     x_train, y_train = filter_by_gender(x_train, y_train, args.audio_meta, args.mv_gender) # We keep only the audio files of users having the gender against which mv will be optimized
+
+    assert len(x_train) > 0, "Looks like no user data was loaded! Check your data directories and gender filters"
 
     print('Initializing siamese network for master voice optimization')
     # We build the paths to the subfolders within the ./data/vs_mv_data folder where seed and master voices will be saved
@@ -140,8 +157,8 @@ def main():
 
     for index, x in enumerate(train_data):
         print('>', index, x[0].shape, x[1].shape)
-        if index == 10:
-            break
+        # if index == 2:
+        #     break
 
     print('Retrieving verification thresholds to be used for impersonation rate computation')
     # In order to get EER and FAR1% verification thresholds, we load the similarity scores computed in Vox1-test verification trials pairs for the selected verifier
@@ -149,12 +166,13 @@ def main():
     vox1_test_results = vox1_test_results.loc[:, ~vox1_test_results.columns.str.contains('^Unnamed')]
     vox1_test_results.columns = ['label', 'score']
     thresholds = [tuneThreshold(vox1_test_results['score'].values, vox1_test_results['label'].values, target_fa)[0] for target_fa in [None, 1.0]]
-    print('> foud thresholds (eer - far1%)', thresholds)
+    print('> found thresholds (eer/far1%):', thresholds)
 
     print('Optimizing master voice')
     train_data = data_pipeline_mv(x_train, y_train, args.sample_rate*args.n_seconds, args.sample_rate, args.batch, args.prefetch, output_type)
-    test_data = load_mv_data(args.mv_splits, args.audio_dir.replace(args.audio_dir.split('/')[-1],''), args.audio_meta, args.sample_rate, args.n_templates)
-    siamese_model.optimize(seed_voice=args.seed_voice, train_data=train_data, test_data=test_data, n_examples=args.n_examples, n_epochs=args.n_epochs, n_steps_per_epoch=len(x_train) // args.batch, thresholds=thresholds)
+    # TODO args.audio_dir.replace(args.audio_dir.split('/')[-1],'')
+    test_data = load_mv_data(args.mv_splits, args.audio_dir, args.audio_meta, args.sample_rate, args.n_templates, 'test')
+    siamese_model.optimize(seed_voice=args.seed_voice, train_data=train_data, test_data=test_data, n_examples=args.n_examples, n_epochs=args.n_epochs, n_steps_per_epoch=len(x_train) // args.batch, thresholds=thresholds, gradient=args.gradient, max_perturbation=args.max_dist, l2_regularization=args.l2_reg)
 
 if __name__ == '__main__':
     main()
