@@ -168,7 +168,7 @@ class SiameseModel(object):
         n_seed_voices = len(seed_voices) if self.gan is None else n_examples
         
         for iter in range(n_seed_voices): # For each audio sample to optimize            
-            print('Starting optimization', iter+1, 'of', n_seed_voices, '- GAN:', self.gan)
+            print('Starting optimization', seed_voices[iter], ':', iter+1, 'of', n_seed_voices, '- GAN:', self.gan)
             
             # We initialize the starting latent vector / spectrogram to optimize (mv stands for master voice, sv stands for seed voice)
             if self.gan is not None:
