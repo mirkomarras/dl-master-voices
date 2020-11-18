@@ -44,7 +44,7 @@ def load_noise_paths(noise_dir):
             assert file.endswith('.wav')
             noise_paths[noise_type].append(os.path.join(noise_dir, noise_type, file))
 
-        print('>', noise_type, len(noise_paths[noise_type]))
+        print('  ', noise_type, len(noise_paths[noise_type]))
 
     return noise_paths
 

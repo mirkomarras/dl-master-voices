@@ -66,8 +66,8 @@ def main():
     parser.add_argument('--mv_splits', dest='mv_splits', default='./data/vs_mv_pairs/data_mv_vox2_all.npz', type=str, action='store', help='Numpy file with master voice analysis paths and labels')
     parser.add_argument('--mv_gender', dest='mv_gender', default='female', type=str, choices=['neutral', 'male', 'female'], action='store', help='Geneder against which master voices will be optimized')
     parser.add_argument('--n_examples', dest='n_examples', default=100, type=int, action='store', help='Number of master voices sampled to be created (only if netg is set)')
-    parser.add_argument('--n_epochs', dest='n_epochs', default=1024, type=int, action='store', help='Number of optimization epochs for each master voice example')
-    parser.add_argument('--batch', dest='batch', default=32, type=int, action='store', help='Size of a training batch against which master voices will be optimized')
+    parser.add_argument('--n_epochs', dest='n_epochs', default=5, type=int, action='store', help='Number of optimization epochs for each master voice example')
+    parser.add_argument('--batch', dest='batch', default=16, type=int, action='store', help='Size of a training batch against which master voices will be optimized')
     parser.add_argument('--prefetch', dest='prefetch', default=200, type=int, action='store', help='Number of training batches pre-fetched by the data pipeline')
     parser.add_argument('--learning_rate', dest='learning_rate', default=1e-2, type=float, action='store', help='Learning rate for master voice perturbation')
     parser.add_argument('--n_templates', dest='n_templates', default=10, type=int, action='store', help='Number of enrolment samples per user used for impersonation testing')
@@ -76,9 +76,12 @@ def main():
     parser.add_argument('--gradient', dest='gradient', default=None, action='store', help='Gradient mode: none / pgd / normalized')
     parser.add_argument('--max_dist', dest='max_dist', default=0, type=float, action='store', help='Max distortion (L∞)')
     parser.add_argument('--l2_reg', dest='l2_reg', default=0, type=float, action='store', help='Distortion penalty (L2 regularization)')
-
+    parser.add_argument('--play', dest='playback', default=False, action='store_true', help='Simulate playback at optimization time')
+    parser.add_argument('--ir_dir', dest='ir_dir', default='./data/vs_noise_data/', type=str, action='store', help='Path to the folder with impuse responses (room, micropone, speaker)')
 
     args = parser.parse_args()
+
+    assert '/v' in args.netv, f'The speaker verification model should be given as <model>/v<version>, e.g., vggvox/v003'
 
     output_type = ('filterbank' if args.netv.split('/')[0] == 'xvector' else 'spectrum')
 
@@ -105,8 +108,6 @@ def main():
     print('  ', 'Number of enrolment samples per user: {}'.format(args.n_templates))
     print('  ', 'Sample rate of audio files: {}'.format(args.sample_rate))
 
-    assert '/v' in args.netv
-
     # Load paths and labels for audio files that will be used during the optimization procedure
     audio_dir = args.audio_dir.split(',')
 
@@ -121,13 +122,11 @@ def main():
     assert len(x_train) > 0, "Looks like no user data was loaded! Check your data directories and gender filters"
 
     print('Initializing siamese network for master voice optimization')
-    # We build the paths to the subfolders within the ./data/vs_mv_data folder where seed and master voices will be saved
-    # Ex. #1: if netv = 'vggvox/v003' and mv_gender = 'female', then  dir_sv = 'vggvox-v003_real_f_sv' and dir_mv = 'vggvox-v003_real_f_mv'
-    # Ex. #2: if netv = 'vggvox/v003', netg = 'ms-gan/v001', netg_gender = 'female', and mv_gender = 'female', then  dir_sv = 'vggvox-v003_ms-gan-v001_f-f_sv' and dir_mv = 'vggvox-v003_ms-gan-v001_f-f_mv'
-    dir_mv = os.path.join('.', 'data', 'vs_mv_data', args.netv.replace('/', '-') + ('_' + args.netg.replace('/', '-') + '_' + args.netg_gender[0] + '-' + args.mv_gender[0] if args.netg else '_real_u-' + args.mv_gender[0]) + '_mv')
-    dir_sv = os.path.join('.', 'data', 'vs_mv_data', args.netv.replace('/', '-') + ('_' + args.netg.replace('/', '-') + '_' + args.netg_gender[0] + '-' + args.mv_gender[0] if args.netg else '_real_u-' + args.mv_gender[0]) + '_sv')
+    # Output will be saved in sub-dirs in ./data/vs_mv_data - e.g., 'vggvox-v003_real_f_sv'
+    dir_name = args.netv.replace('/', '-') + ('_' + args.netg.replace('/', '-') + '_' + args.netg_gender[0] + '-' + args.mv_gender[0] if args.netg else '_real_u-' + args.mv_gender[0])
+
     # We initialize the siamese model that will be used to optimize master voices
-    siamese_model = SiameseModel(sample_rate=args.sample_rate, dir_mv=dir_mv, dir_sv=dir_sv, params=args)
+    siamese_model = SiameseModel(sample_rate=args.sample_rate, dir=os.path.join('data', 'vs_mv_data', dir_name), params=args, playback=args.playback, ir_dir=args.ir_dir)
     print('> siamese network initialized')
 
     print('Setting verifier')
@@ -156,9 +155,9 @@ def main():
     train_data = data_pipeline_mv(x_train, y_train, args.sample_rate*args.n_seconds, args.sample_rate, args.batch, args.prefetch, output_type)
 
     for index, x in enumerate(train_data):
-        print('>', index, x[0].shape, x[1].shape)
-        # if index == 2:
-        #     break
+        print('  ', index, x[0].shape, x[1].shape)
+        if index == 2:
+            break
 
     print('Retrieving verification thresholds to be used for impersonation rate computation')
     # In order to get EER and FAR1% verification thresholds, we load the similarity scores computed in Vox1-test verification trials pairs for the selected verifier
