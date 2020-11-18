@@ -57,22 +57,12 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
         train_data = tf.data.Dataset.from_tensor_slices(x_train)
         train_data = train_data.padded_batch(batch, (128, 128, 1))
 
-    elif dataset.startswith('vctk'):
+    elif dataset == 'vctk':
         import random
-        
-        if '-' in dataset:
-            n_speakers = int(dataset.split('-')[-1])
-        else:
-            n_speakers = None
         
         audio_dir = './data/vctk/wave'
         
         dirs = os.listdir(audio_dir)
-        if n_speakers is not None:
-            dirs = dirs[:n_speakers]
-            
-        print(f'Using {len(dirs)} speakers from VCTK')
-            
         x_train = []
         for d in dirs:
             dd = os.path.join(audio_dir, d)

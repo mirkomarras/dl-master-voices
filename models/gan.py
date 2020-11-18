@@ -59,9 +59,11 @@ class Spectral_Norm(tf.keras.constraints.Constraint):
 class GAN(object):
     
     
-    def __init__(self, gender, version=None, gradient_penalty=True, clip_discriminator=False):
-        self.gender = gender
-        self.root_dir = './data/vs_mv_models/'
+    def __init__(self, dataset, version=None, gradient_penalty=True, clip_discriminator=False, latent_dist='normal'):
+        self.dataset = dataset
+        self.z_dim = 128
+        self.latent_dist = latent_dist
+        self.root_dir = './data/models/gan/'        
         self.gradient_penalty = gradient_penalty
         self.clip_discriminator = clip_discriminator
         self.performance = {'gen': [], 'disc': [], 'accuracy': []}
@@ -156,11 +158,18 @@ class GAN(object):
             else:
                 self.discriminator.load_weights(os.path.join(dirname, 'discriminator.h5'))
         except Exception as e:
-            print('ERROR Error loading generator: ' + str(e))
-
+            print(f'ERROR Error loading discriminator: {e}')
+    
+    def sample_z(self, n=1):
+        if self.latent_dist == 'normal':
+            return tf.random.normal([n, self.z_dim])
+        elif self.latent_dist == 'uniform':
+            return tf.random.uniform([n, self.z_dim], maxval=1)
+        else:
+            raise ValueError(f'Unsupported latent distribution: {self.latent_dist}')
 
     def sample(self, n=1, strip_scales=True):
-        samples = self.generator(tf.random.normal([n, 128]), training=False)
+        samples = self.generator(self.sample_z(n), training=False)
         if strip_scales and isinstance(samples, list):
             return samples[-1]
         else:
@@ -225,7 +234,7 @@ class GAN(object):
         :return:            (generator loss, discriminator loss)
         """
     
-        z = tf.random.normal([len(x), 128])
+        z = self.sample_z(len(x))
         
         for ds in range(dsteps):
             with tf.GradientTape() as tape:
@@ -290,7 +299,8 @@ class GAN(object):
                     gen_losses.append(gen_loss.numpy())
                     disc_losses.append(disc_loss.numpy())
                     
-                    z = tf.random.normal([len(batch_data), self.z_dim])
+#                    z = tf.random.normal([len(batch_data), self.z_dim])
+                    z = self.sample_z(len(batch_data))
                     G_z = self.generator(z) 
         
                     # Log discriminator output for real and fake samples
@@ -323,7 +333,8 @@ class GAN(object):
             
 
     def preview(self, n=9, save=False, epoch=0):
-        samples = self.generator(tf.random.normal([n, 128]), training=False)
+        # tf.keras.backend.set_learning_phase(0)
+        samples = self.generator(self.sample_z(n), training=False)
         
         if isinstance(samples, list):
             images = []
@@ -396,10 +407,9 @@ class GAN(object):
 
 
 class DCGAN(GAN):
-
-
-    def __init__(self, gender, version=None, z_dim=128, patch=32, width_ratio=1, kernel_size=5, gan_dim=16, bn=True, sn=False, gradient_penalty=True, clip_discriminator=False):
-        super().__init__(gender, version, gradient_penalty, clip_discriminator)
+    
+    def __init__(self, dataset, version=None, z_dim=128, patch=32, width_ratio=1, kernel_size=5, gan_dim=16, bn=True, sn=False, gradient_penalty=True, clip_discriminator=False, latent_dist='normal'):
+        super().__init__(dataset, version, gradient_penalty, clip_discriminator, latent_dist)
         self.n_scales = 1
         
         self.z_dim = z_dim
@@ -462,14 +472,20 @@ class DCGAN(GAN):
 
 class MultiscaleGAN(GAN):
 
-    def __init__(self, gender, version=None, z_dim=128, patch=256, width_ratio=1, kernel_size=5, bn=True, drop=0, sn=False, min_output=8, up='conv', gp=True, cd=False):
+    def __init__(self, dataset, version=None, z_dim=128, patch=256, width_ratio=1, kernel_size=5, bn=True, drop=0, sn=False, min_output=8, up='conv', gp=True, cd=False, latent_dist='normal'):
         """
         A Multiscale GAN with direct connection of (multi-scale) generator outputs to corresponding feature maps in the discriminator.
 
         # References:
         [1] MSG-GAN: Multi-Scale Gradients for Generative Adversarial Networks, https://arxiv.org/abs/1903.06048
         """
-        super().__init__(gender, version, gp, cd)
+        super().__init__(dataset, version, gp, cd, latent_dist)
+        
+        if up not in {'conv', 'interp'}:
+            raise ValueError(f'Invalid upsampling: {up}!')
+            
+        if width_ratio not in {0.5, 1, 2, 3, 4, 5, 6, 7, 8}:
+            raise ValueError(f'Invalid width ratio: {width_ratio}!')
         
         # Save hyperparameters for future reference
         self.g_layers = int(np.log2(min(patch, patch * width_ratio)) - 2)
@@ -559,4 +575,17 @@ class MultiscaleGAN(GAN):
     @property
     def model_code(self):
         return 'ms-gan'
+
+    def __str__(self):
+        args = [
+            f'{self.dataset}', 
+            f'z={self.z_dim}', 
+            f'o={self._scales}', 
+            f'up={self.up}', 
+            f'bn={self.bn!s:.1}', 
+            f'sn={self.sn!s:.1}', 
+            f'gp={self.gradient_penalty!s:.1}',
+            f'clip={self.clip_discriminator!s:.1}'
+        ]
+        return f'MS-GAN[{",".join(args)}]'
         
