@@ -65,9 +65,9 @@ def load_data_set(audio_dir, mv_user_ids, include=False, n_samples=None):
 
     for source_dir in audio_dir:
 
-        print('> loading data from', source_dir)
+        print(f'> loading data from {source_dir} (sample user id: {mv_user_ids[0]})', )
 
-        for user_id, user_dir in enumerate(os.listdir(os.path.join(source_dir))):
+        for user_id, user_dir in enumerate(os.listdir(source_dir)):
 
             if (include and user_dir in mv_user_ids) or (not include and user_dir not in mv_user_ids):
 
@@ -218,6 +218,8 @@ def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, 
         class_paths = random.sample(mv_paths[class_index*samples_per_user:(class_index+1)*samples_per_user], n_templates)
 
         for path in class_paths:
+            # TODO ugly workaround
+            path = path.replace('dev/dev/', 'dev/')
             x_mv_test.append(decode_audio(path.replace('.m4a', '.wav'), sample_rate=sample_rate).reshape((1, -1, 1)))
             y_mv_test.append(class_index)
 
