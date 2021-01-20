@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import os
+
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 from scipy.spatial.distance import cosine
 import tensorflow as tf
 import pandas as pd
 import numpy as np
 import argparse
-import os
 
 from helpers.audio import decode_audio, get_tf_spectrum, get_tf_filterbanks, get_play_n_rec_audio, load_noise_paths, cache_noise_data
 
@@ -25,8 +27,9 @@ def main():
     parser.add_argument('--net', dest='net', default='', type=str, action='store', help='Speaker model, e.g., vggvox/v003')
     parser.add_argument('--n_templates', dest='n_templates', default=10, type=int, action='store', help='Number of enrolled templates per user')
     parser.add_argument('--playback', dest='playback', default=0, type=int, action='store', help='Playback and recording in master voice test condition: 0 no, 1 yes')
-    parser.add_argument('--mv_enrol', dest='mv_enrol', default='./data/vs_mv_pairs/trial_pairs_vox2_mv.csv', type=str, action='store', help='Path to the file with users enrolled templates')
-    parser.add_argument('--noise_dir', dest='noise_dir', default='./data/vs_noise_data', type=str, action='store', help='Noise directory')
+    parser.add_argument('--mv_enrol', dest='mv_enrol', default='data/vs_mv_pairs/trial_pairs_vox2_mv.csv', type=str, action='store', help='Path to the file with users enrolled templates')
+    parser.add_argument('--noise_dir', dest='noise_dir', default='data/vs_noise_data', type=str, action='store', help='Noise directory')
+    parser.add_argument('--mv_set', dest='mv_set', default=None, type=str, action='append', help='Directory with MV data')
 
     args = parser.parse_args()
 
@@ -48,13 +51,18 @@ def main():
     noise_cache = cache_noise_data(noise_paths)
 
     # Create the csv file with the trial verification pairs for each master voice, i.e., each master voice is compared with all the users enrolled templates
-    mv_sets = [os.path.join(mv_set, version) for mv_set in os.listdir('./data/vs_mv_data') for version in os.listdir(os.path.join('./data/vs_mv_data', mv_set))]
+    if args.mv_set is None or len(args.mv_set) == 0:
+        mv_sets = [os.path.join(mv_set, version) for mv_set in os.listdir('./data/vs_mv_data') for version in os.listdir(os.path.join('./data/vs_mv_data', mv_set))]
+    else:
+        mv_sets = args.mv_set
+
+    print(mv_sets)
 
     for mv_set in mv_sets: # Loop for each master voice set
 
         for mv_file in os.listdir(os.path.join('./data/vs_mv_data', mv_set)): # Loop for each master voice file
 
-            if os.path.exists(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set, mv_file.replace('.wav', '.csv'))): # We skip this master voice, if the csv file already exists
+            if os.path.exists(os.path.join('data', 'vs_mv_pairs', mv_set, mv_file.replace('.wav', '.csv'))): # We skip this master voice, if the csv file already exists
                 continue
 
             if not mv_file.endswith('.wav'): # We skip all non-audio files
@@ -64,11 +72,11 @@ def main():
             df = pd.read_csv(args.mv_enrol, names=['label', 'path1', 'gender']) # Open the csv with the users enrolled templates
             df['path2'] = os.path.join('vs_mv_data', mv_set, mv_file) # As a second element in each trial pair, we put the current master voice
 
-            if not os.path.exists(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set)): # We will save the csv file within the vs_mv_pairs directory
-                os.makedirs(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set))
+            if not os.path.exists(os.path.join('data', 'vs_mv_pairs', mv_set)): # We will save the csv file within the vs_mv_pairs directory
+                os.makedirs(os.path.join('data', 'vs_mv_pairs', mv_set))
 
-            df[['label', 'path1', 'path2', 'gender']].to_csv(os.path.join('data', 'vs_mv_pairs', 'mv', mv_set, mv_file.replace('.wav', '.csv')), index=False, header=False)
-            print('> saved', mv_file, 'trial pairs in', os.path.join('data', 'vs_mv_pairs', 'mv', mv_set, mv_file.replace('.wav', '.csv')))
+            df[['label', 'path1', 'path2', 'gender']].to_csv(os.path.join('data', 'vs_mv_pairs', mv_set, mv_file.replace('.wav', '.csv')), index=False, header=False)
+            print('> saved', mv_file, 'trial pairs in', os.path.join('data', 'vs_mv_pairs', mv_set, mv_file.replace('.wav', '.csv')))
 
     # Create the csv file with the similarity scores for each master voice, i.e., each master voice is compared with all the users enrolled templates
     print('Compute similarity scores')
@@ -95,17 +103,22 @@ def main():
 
         speaker_embs = {} # To speed up computation, we use a dictionary to save the speaker embeddings when they are loaded for the first time
 
-        for mv_set in os.listdir('./data/vs_mv_pairs/mv'): # Loop for all the master voice sets
+        for mv_set in mv_sets:  #  os.listdir('./data/vs_mv_pairs/mv'): # Loop for all the master voice sets
 
             if mv_set.startswith('.'):
                 continue
 
-            for version in os.listdir(os.path.join('./data/vs_mv_pairs/mv', mv_set)): # Loop for all the versions of each master voice set
+            mv_set, version = mv_set.split('/')
+
+            if version.startswith('v'):
+                print(f'Error: invalid version: {version}')
+
+            for version in [version]: #  os.listdir(os.path.join('./data/vs_mv_pairs/', mv_set)): # Loop for all the versions of each master voice set
 
                 if version.startswith('.'):
                     continue
 
-                for mv_csv_file in os.listdir(os.path.join('./data/vs_mv_pairs/mv', mv_set, version)): # Loop for all the csv files with the enrolled templates - master voice trial pairs
+                for mv_csv_file in os.listdir(os.path.join('./data/vs_mv_pairs/', mv_set, version)): # Loop for all the csv files with the enrolled templates - master voice trial pairs
 
                     if mv_csv_file.startswith('.'):
                         continue
@@ -113,8 +126,8 @@ def main():
                     if os.path.exists(os.path.join('./data/vs_mv_models/', net, 'mvcmp_any', version, mv_csv_file)) and os.path.exists(os.path.join('./data/vs_mv_models/', net, 'mvcmp_avg', version, mv_csv_file)):
                         continue
 
-                    print('> opening trial pairs', os.path.join('./data/vs_mv_pairs/mv', mv_set, version, mv_csv_file))
-                    df_trial_pairs = pd.read_csv(os.path.join('./data/vs_mv_pairs/mv', mv_set, version, mv_csv_file), names=['label', 'path1', 'path2', 'gender'])
+                    # print('> opening trial pairs', os.path.join('./data/vs_mv_pairs/', mv_set, version, mv_csv_file))
+                    df_trial_pairs = pd.read_csv(os.path.join('./data/vs_mv_pairs/', mv_set, version, mv_csv_file), names=['label', 'path1', 'path2', 'gender'])
 
                     any_scores = [] # List of similarity scores for the any policy
 
