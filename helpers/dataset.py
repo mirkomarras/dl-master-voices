@@ -8,8 +8,43 @@ import csv
 import os
 from pathlib import Path
 
+from loguru import logger
+
 from helpers import audio
 from collections import namedtuple
+
+
+class Dataset(object):
+
+    def __init__(self, filenames, user_ids, user_ids_male, user_ids_female, n_enrolled_examples):
+        self.embeddings = None
+        self.filenames = filenames
+        self.user_ids = user_ids
+        self.user_ids_male = user_ids_male
+        self.user_ids_female = user_ids_female
+        self.n_enrolled_examples = n_enrolled_examples
+        self._embedding_type = None
+
+    def precomputed_embeddings(self, sv, recompute=False):
+        if self.embeddings is not None and not recompute:
+            logger.warning(f'Embeddings ({self._embedding_type}) already computed. Use recompute=True to override.')
+            return
+        self.embeddings = []
+        self._embedding_type = type(sv).__name__
+        # TODO We could use this to validate that the same files were used after loading cached embeddings
+        # self._embedding_crc = None
+        for f in self.filenames:
+            # sample = audio.decode_audio(f)
+            spectrum = audio.get_tf_spectrum(f, num_fft=512)
+            # TODO We should normalize (tf.keras.backend.l2_normalize(x, 1)) but don't want TF dependencies in this module
+            self.embeddings.append(sv.predict(spectrum))
+
+    def save_embeddings(self):
+        pass
+
+    def load_embeddings(self):
+        pass
+
 
 def get_mv_analysis_users(mv_analysis_path, type='all'):
     """
@@ -33,18 +68,18 @@ def get_mv_analysis_users(mv_analysis_path, type='all'):
     assert pid is not None, f"None of the elements in file path is recognized as user iD: {items}"
 
     if type in ['all', 'train']:
-        print('Load train user ids for mv analysis')
+        logger.info('Load train user ids for mv analysis')
         train_users = list(np.unique([path.split('/')[pid] for path in mv_analysis_data['x_train']]))
         assert train_users[0].startswith('id'), f"The user IDs should start with 'id' - currently seeing {train_users[0]}"
         output_users = output_users + train_users
-        print('>', 'found mv analysis train users', len(train_users))
+        logger.info(('>', 'found mv analysis train users', len(train_users)))
 
     if type in ['all', 'test']:
-        print('Load test user ids for mv analysis')
+        logger.info('Load test user ids for mv analysis')
         test_users = list(np.unique([path.split('/')[pid] for path in mv_analysis_data['x_test']]))
         assert test_users[0].startswith('id'), f"The user IDs should start with 'id' - currently seeing {train_users[0]}"
         output_users = output_users + test_users
-        print('>', 'found mv analysis test users', len(test_users))
+        logger.info(('>', 'found mv analysis test users', len(test_users)))
 
     return output_users
 
@@ -64,13 +99,13 @@ def load_data_set(audio_dir, mv_user_ids, include=False, n_samples=None):
     if isinstance(audio_dir, str):
         audio_dir = [audio_dir]
 
-    print('Load data sets')
+    logger.info('Load data sets')
     user_count = 0
 
     for source_dir in audio_dir:
 
         assert os.path.isdir(source_dir)
-        print(f'> loading data from {source_dir} (sample user id: {mv_user_ids[0]})', )
+        logger.info((f'> loading data from {source_dir} (sample user id: {mv_user_ids[0]})', ))
 
         for user_id, user_dir in enumerate(os.listdir(source_dir)):
 
@@ -85,7 +120,7 @@ def load_data_set(audio_dir, mv_user_ids, include=False, n_samples=None):
 
                 user_count += 1
 
-    print('>', 'loaded', len(x), 'audio files from', len(np.unique(y)), 'users totally')
+    logger.info(('>', 'loaded', len(x), 'audio files from', len(np.unique(y)), 'users totally'))
 
     return x, y
 
@@ -100,7 +135,7 @@ def filter_by_gender(paths, labels, meta_file, gender='neutral'):
     :return:            List of paths from users with the targeted gender
     """
 
-    print('Filter data sets by gender', gender)
+    logger.info('Filter data sets by gender', gender)
     data_set_df = pd.read_csv(meta_file, delimiter=' ')
     gender_map = {k:v for k, v in zip(data_set_df['id'].values, data_set_df['gender'].values)}
 
@@ -114,11 +149,11 @@ def filter_by_gender(paths, labels, meta_file, gender='neutral'):
                 filtered_paths.append(path)
                 filtered_labels.append(label)
 
-        print('>', 'filtered', len(filtered_paths), 'audio files from', len(np.unique(filtered_labels)), 'users')
+        logger.info(('>', 'filtered', len(filtered_paths), 'audio files from', len(np.unique(filtered_labels)), 'users'))
 
         return filtered_paths, filtered_labels
 
-    print('>', 'remaining', len(paths), 'audio files from', len(np.unique(labels)), 'users')
+    logger.info(('>', 'remaining', len(paths), 'audio files from', len(np.unique(labels)), 'users'))
 
     return paths, labels
 
@@ -134,7 +169,7 @@ def load_test_data_from_file(base_path, trials_path, n_templates=1, n_pairs=10, 
     :return:                (list of audio samples, list of audio samples), labels
     """
 
-    print('Loading testing data from file', trials_path, 'with template', n_templates)
+    logger.info(('Loading testing data from file', trials_path, 'with template', n_templates))
 
     pairs = pd.read_csv(trials_path, names=['target','path_1','path_2'], delimiter=' ')
     n_real_pairs = n_pairs if n_pairs > 0 else len(pairs['target'])
@@ -144,32 +179,32 @@ def load_test_data_from_file(base_path, trials_path, n_templates=1, n_pairs=10, 
     x2 = []
 
     for i, (path_1, path_2) in enumerate(zip(pairs['path_1'].values[:n_real_pairs], pairs['path_2'].values[:n_real_pairs])):
-        if (i+1) % print_interval == 0:
-            print('\r> pair %5.0f / %5.0f' % (i+1, len(y)), end='')
+        # if (i+1) % print_interval == 0:
+            # logger.info('\r> pair %5.0f / %5.0f' % (i+1, len(y)), end='')
 
         x1.append(audio.decode_audio(os.path.join(base_path, path_1), sample_rate=sample_rate).reshape((1, -1, 1)))
         x2.append([audio.decode_audio(os.path.join(base_path, path), sample_rate=sample_rate).reshape((1, -1, 1)) for path in (path_2 if isinstance(path_2, list) else [path_2])])
 
-    print('\n>', 'found', len(x1), 'pairs')
+    logger.info(('found', len(x1), 'pairs'))
 
     return (x1, x2), y
 
 
 def create_template_trials(base_path, trials_path, n_templates=1, n_pos_pairs=10, n_neg_pairs=10):
     users = os.listdir(base_path)
-    print('> creating pairs on', len(users), 'users')
+    logger.info('> creating pairs on', len(users), 'users')
 
     groups_audios = {}
     counter = 0
     for i, user in enumerate(users):
-        print('\r> grouping videos for user', i+1, '/', len(users), end='')
+        logger.info('\r> grouping videos for user', i+1, '/', len(users), end='')
         if not user in groups_audios:
             groups_audios[user] = []
         for video in os.listdir(os.path.join(base_path, user)):
             for utterance in os.listdir(os.path.join(base_path,user,video)):
                 groups_audios[user].append(os.path.join(user,video,utterance))
                 counter += 1
-    print('\n> loaded', counter, 'samples')
+    logger.info('\n> loaded', counter, 'samples')
 
     with open(trials_path, mode='w') as result_file:
         result_writer = csv.writer(result_file, delimiter=',')
@@ -191,7 +226,7 @@ def create_template_trials(base_path, trials_path, n_templates=1, n_pos_pairs=10
                 result_writer.writerow([0, other_audio, template_audio])
                 result_file.flush()
                 counter_pairs += 1
-    print('> computed', counter_pairs-1, 'pairs')
+    logger.info('> computed', counter_pairs-1, 'pairs')
 
 
 def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, n_templates=10, type='test'):
@@ -205,12 +240,12 @@ def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, 
     :param n_templates:         Number of audio samples per user to be loaded
     :return:                    (list of audio samples, list of labels, list of male user ids, list of female user ids)
     """
-    print('Loading audio files for master voice validation')
+    logger.info('Loading audio files for master voice validation')
 
     mv_analysis_data = np.load(mv_analysis_path)
     mv_paths = [os.path.join(mv_base_path, path) for path in mv_analysis_data['x_' + type]]
     mv_labels = mv_analysis_data['y_test']
-    print('> found', len(mv_paths), 'paths from', len(np.unique(mv_labels)), 'users')
+    logger.info(('> found', len(mv_paths), 'paths from', len(np.unique(mv_labels)), 'users'))
 
     data_set_df = pd.read_csv(audio_meta, delimiter=' ')
     gender_map = {k:v for k, v in zip(data_set_df['id'].values, data_set_df['gender'].values)}
@@ -233,36 +268,7 @@ def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, 
         else:
             female_x_mv_test.append(class_index)
 
-        print('\r> loaded', (class_index+1)*n_templates, '/', len(np.unique(mv_labels))*n_templates, 'audio files', end='')
-
-    print()
-
-    class Dataset(object):
-
-        def __init__(self, filenames, user_ids, user_ids_male, user_ids_female, n_enrolled_examples):
-            self.embeddings = None
-            self.filenames = filenames
-            self.user_ids = user_ids
-            self.user_ids_male = user_ids_male
-            self.user_ids_female = user_ids_female
-            self.n_enrolled_examples = n_enrolled_examples
-
-        def precomputed_embeddings(self, sv):
-            self.embeddings = []
-            self._embedding_type = type(sv).__name__
-            # TODO We could use this to validate that the same files were used after loading cached embeddings
-            self._embedding_crc = None
-            for f in self.filenames:
-                sample = audio.decode_audio(f)
-                spectrum = audio.get_tf_spectrum(sample, num_fft=512)
-                # TODO We should normalize (tf.keras.backend.l2_normalize(x, 1)) but don't want TF dependencies in this module
-                self.embeddings.append(sv.predict(spectrum))
-
-        def save_embeddings(self):
-            pass
-
-        def load_embeddings(self):
-            pass
+        # logger.info('loaded', (class_index+1)*n_templates, '/', len(np.unique(mv_labels))*n_templates, 'audio files')
 
     data = Dataset(x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates)
 
@@ -280,12 +286,12 @@ def load_mv_list(mv_analysis_path, mv_base_path, audio_meta, n_templates=10):
     :param n_templates:         Number of audio samples per user to be loaded
     :return:                    (list of audio samples, list of labels, list of male user ids, list of female user ids)
     """
-    print('Loading master voice data')
+    logger.info('Loading master voice data')
 
     mv_analysis_data = np.load(mv_analysis_path)
     mv_paths = [os.path.join(mv_base_path, path) for path in mv_analysis_data['x_test']]
     mv_labels = mv_analysis_data['y_test']
-    print('> found', len(mv_paths), 'paths from', len(np.unique(mv_labels)), 'users')
+    logger.info('> found', len(mv_paths), 'paths from', len(np.unique(mv_labels)), 'users')
 
     data_set_df = pd.read_csv(audio_meta, delimiter=' ')
     gender_map = {k:v for k, v in zip(data_set_df['id'].values, data_set_df['gender'].values)}
@@ -302,8 +308,6 @@ def load_mv_list(mv_analysis_path, mv_base_path, audio_meta, n_templates=10):
             y_mv_test.append(class_index)
             g_mv_test.append(gender_map[class_paths[0].split(os.path.sep)[-3]])
 
-        print('\r> loaded', (class_index+1)*n_templates, '/', len(np.unique(mv_labels))*n_templates, 'audio files', end='')
-
-    print()
+        logger.info('\r> loaded', (class_index+1)*n_templates, '/', len(np.unique(mv_labels))*n_templates, 'audio files', end='')
 
     return x_mv_test, y_mv_test, g_mv_test

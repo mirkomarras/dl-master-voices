@@ -10,6 +10,8 @@ import os
 
 from helpers.audio import get_tf_spectrum, get_tf_filterbanks
 
+from loguru import logger
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class StepDecay():
@@ -169,19 +171,21 @@ class Model(object):
         """
         Load this model
         """
-        print('>', 'loading', self.name, 'model')
-        if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
-            if len(os.listdir(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))) > 0:
-                model_path = os.path.join(self.dir, 'v' + f'{self.id:03d}', 'model.h5')
+        logger.info('loading', self.name, 'model')
+        version_id = 'v' + str('{:03d}'.format(self.id))
+        if os.path.exists(os.path.join(self.dir, version_id)):
+            if len(os.listdir(os.path.join(self.dir, version_id))) > 0:
+                model_path = os.path.join(self.dir, version_id, 'model.h5')
+                logger.debug(model_path)
                 self.model = tf.keras.models.load_model(model_path, custom_objects={'VladPooling': VladPooling})
                 self.history = []
-                if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'history.csv')):
-                    self.history = pd.read_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'history.csv')).values.tolist()
-                print('>', 'loaded model from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
+                if os.path.exists(os.path.join(self.dir, version_id, 'history.csv')):
+                    self.history = pd.read_csv(os.path.join(self.dir, version_id, 'history.csv')).values.tolist()
+                logger.info('>', 'loaded model from', os.path.join(self.dir, version_id))
             else:
-                print('>', 'no pre-trained model for', self.name, 'model from', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
+                logger.warning('no pre-trained model for', self.name, 'model from', os.path.join(self.dir, version_id))
         else:
-            print('>', 'no directory for', self.name, 'model at', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
+            logger.error('no directory for', self.name, 'model at', os.path.join(self.dir, version_id))
 
 
     def train(self, train_data, val_data, output_type='spectrum', steps_per_epoch=10, epochs=1024, learning_rate=1e-3, decay_factor=0.1, decay_step=10, optimizer='adam'):

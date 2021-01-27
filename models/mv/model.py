@@ -12,6 +12,7 @@ from datetime import datetime
 # from helpers.audio import decode_audio, get_np_spectrum, get_tf_spectrum, denormalize_frames, spectrum_to_signal, normalize_frames, tf_normalize_frames, load_noise_paths, cache_noise_data
 from helpers import plotting, audio
 
+from loguru import logger
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -38,7 +39,7 @@ class SiameseModel(object):
         self.playback = playback
         if self.playback:
             assert os.path.isdir(ir_dir), f'Playback simulation is enabled, but impulse response directory is not set {ir_dir}'
-            print(f'> Setting up playback simulation ({ir_dir})')
+            logger.info(f'> Setting up playback simulation ({ir_dir})')
             # Load noise data
             self.noise_paths = audio.load_noise_paths(ir_dir)
             self.noise_cache = audio.cache_noise_data(self.noise_paths)
@@ -58,7 +59,7 @@ class SiameseModel(object):
 
         assert os.path.exists(self.dir_full) and os.path.exists(self.dir_full), 'Please check folder permission for seed and master voice version saving'
 
-        print('> created output dir', self.dir_full)
+        logger.debug('> created output dir', self.dir_full)
 
         # with open(os.path.join(self.dir_full, 'params.txt'), "w") as file:
         #     for arg in vars(params):
@@ -197,7 +198,7 @@ class SiameseModel(object):
         n_seed_voices = len(seed_voices) if self.gan is None else int(seed_voices)
         
         for iter in range(n_seed_voices): # For each audio sample to batch_optimize_by_path
-            print('Starting optimization', seed_voices[iter], ':', iter+1, 'of', n_seed_voices, '- GAN:', self.gan)
+            logger.debug('Starting optimization', seed_voices[iter], ':', iter+1, 'of', n_seed_voices, '- GAN:', self.gan)
 
             # We initialize the starting latent vector / spectrogram to batch_optimize_by_path (mv stands for master voice, sv stands for seed voice)
             if self.gan is not None:
@@ -206,13 +207,13 @@ class SiameseModel(object):
                 input_sv, input_avg, input_std = audio.get_np_spectrum(audio.decode_audio(seed_voices[iter]).astype(np.float32), self.sample_rate, num_fft=512, full=False)
                 input_sv = input_sv[..., np.newaxis]
 
-            print('> created master voice seed', input_sv.shape)
+            logger.debug('> created master voice seed', input_sv.shape)
             input_mv, performance = self.optimize(input_sv, train_data, test_data, thresholds, settings)
 
             gender = self.params.mv_gender[0] # Gender selector: 'm' or 'f'
             model_suffix = '' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]
             self.save(iter, input_sv, input_mv, input_avg, input_std, performance, filename=model_suffix)
-            print(f'Finished optimization! {gender} impersonation {performance["mv_far1_results"][0][gender]:.3f} -> {performance["mv_far1_results"][-1][gender]:.3f}')
+            logger.debug(f'Finished optimization! {gender} impersonation {performance["mv_far1_results"][0][gender]:.3f} -> {performance["mv_far1_results"][-1][gender]:.3f}')
 
             stats['mv_eer_results'].append(performance['mv_eer_results'][-1][gender].item())
             stats['mv_far1_results'].append(performance['mv_far1_results'][-1][gender].item())
@@ -258,16 +259,13 @@ class SiameseModel(object):
         performance['l2_norm'].append(tf.reduce_mean(tf.square(perturbation)).numpy().item())
         performance['max_dist'].append(np.max(np.abs(perturbation)).item())
 
-        print(f'! Baseline | Imp@EER m={results[0]["m"]:.3f} f={results[0]["f"]:.3f} | Imp@FAR1 m={results[1]["m"]:.3f} f={results[1]["f"]:.3f}', end='\n')
+        logger.info(f'! Baseline | Imp@EER m={results[0]["m"]:.3f} f={results[0]["f"]:.3f} | Imp@FAR1 m={results[1]["m"]:.3f} f={results[1]["f"]:.3f}', end='\n')
 
         for epoch in range(settings.n_epochs):  # For each optimization epoch
             t1 = datetime.now()
             epoch_similarities = []
 
             for step, batch_data in enumerate(train_data):
-
-                # if step == n_steps_per_epoch:
-                #     break
 
                 # Spectrogram optimization -----------------------------------------------------------------------------
                 with tf.GradientTape() as tape:
@@ -324,10 +322,6 @@ class SiameseModel(object):
                 performance['l2_norm'].append(tf.reduce_mean(tf.square(perturbation)).numpy().item())
                 performance['max_dist'].append(np.max(np.abs(perturbation)).item())
 
-                print(
-                    f'| Imp@EER m={results[0]["m"]:.3f} f={results[0]["f"]:.3f} | Imp@FAR1 m={results[1]["m"]:.3f} f={results[1]["f"]:.3f}',
-                    end='')
-
                 if (results[0]['m'] + results[0]['f']) > best_value_attempt:  # Check if the total impersonation rate after the current epoch is improved
                     best_value_attempt = results[0]['m'] + results[0]['f']  # Update the best impersonation rate value
                     remaining_attempts = settings.patience  # Resume remaining attempts to patience times
@@ -340,7 +334,8 @@ class SiameseModel(object):
                     break
 
             t3 = datetime.now()
-            print(f' # optimize. time = {(t2 - t1).total_seconds():.1f} s + val. time = {(t3 - t2).total_seconds():.1f} s')
+            logger.info(f'Imp@EER m={results[0]["m"]:.3f} f={results[0]["f"]:.3f} | Imp@FAR1 m={results[1]["m"]:.3f} f={results[1]["f"]:.3f}')
+            logger.info(f' # optimize. time = {(t2 - t1).total_seconds():.1f} s + val. time = {(t3 - t2).total_seconds():.1f} s')
 
         return input_sv + perturbation, performance
 
@@ -409,7 +404,7 @@ class SiameseModel(object):
 
         # We update and save the current impersonation rate history
         filename_stats = os.path.join(self.dir_full, 'optimization_progress_' + (str(iter) if self.gan is not None else filename))
-        print(f'> saving {filename_stats}')
+        logger.info(f'> saving {filename_stats}')
         np.savez(filename_stats, **performance_stats)
 
     def test(self, input_mv, thresholds, test_data):
