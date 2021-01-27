@@ -12,11 +12,7 @@ import argparse
 
 from helpers.audio import decode_audio, get_tf_spectrum, get_tf_filterbanks, get_play_n_rec_audio, load_noise_paths, cache_noise_data
 
-from models.verifier.thinresnet34 import ThinResNet34
-from models.verifier.resnet50 import ResNet50
-from models.verifier.resnet34 import ResNet34
-from models.verifier.xvector import XVector
-from models.verifier.vggvox import VggVox
+from models import verifier
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -94,8 +90,7 @@ def main():
 
         # Create and load speaker model
         print('Loading speaker model:', net)
-        available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thin_resnet': ThinResNet34}
-        model = available_nets[net.split('/')[0]](id=int(net.split('/')[1].replace('v', '')))
+        model = verifier.get_model(net)
         model.build(classes=0, mode='test')
         model.load()
 

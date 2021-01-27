@@ -270,8 +270,6 @@ class Model(object):
         :return:                    {'m': impersonation rate against male users, 'f': impersonation rate against female users}
         """
 
-        test_data.embeddings, test_data.user_ids, test_data.user_ids_male, test_data.user_ids_female, n_templates
-
         # We extract the speaker embedding associated to the master voice input
         extractor = self.infer()
         mv_emb = extractor.predict(input_mv[tf.newaxis, ...])
@@ -298,7 +296,7 @@ class Model(object):
         return results
 
     def test_imp_extended(self):
-
+        pass
         # if row['path1'] in speaker_embs:  # If we already computed the embedding for the first element of the verification pair
         #     emb_1 = speaker_embs[row['path1']]
         # else:
@@ -337,6 +335,6 @@ class Model(object):
         #     avg_scores.append(1 - cosine(np.average(avg_speaker_embs, axis=0), emb_2))
         #     avg_speaker_sets.append((','.join(avg_speaker_files)))
         #     avg_gender.append(row['gender'])
-        # 
+        #
         #     # Reset the avg 10 embedding list (even if not in use)
         #     avg_speaker_embs, avg_speaker_files = [], []
