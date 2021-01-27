@@ -214,7 +214,8 @@ class Model(object):
 
     def test(self, test_data, output_type='spectrum', policy='any', save=False, filename='vox1'):
         """
-        Method to test this model against verification attempts
+        Test speaker verification model
+
         :param test_data:       Pre-computed testing data pairs - shape ((pairs, None, 1), (pairs, None, 1)), (pairs, binary_label)
         :return:                (Model EER, EER threshold, FAR1% threshold)
         """
@@ -254,10 +255,10 @@ class Model(object):
 
         return [eer, far[id_eer], frr[id_eer], thr_eer, far[id_far1], frr[id_far1], thr_far1]
 
-
-    def test_impersonation(self, input_mv, thresholds, x_mv_test_embs, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates=10, mode='spectrum'):
+    def test_impersonation(self, input_mv, thresholds, test_data, mode='spectrum'):
         """
-        Method to test this model under impersonation attempts
+        Test impersonation rate for a given speech example.
+
         :param input_mv:            Input spectrogram against which this model is tested - shape (None, 1)
         :param thresholds:          List of verification threshold
         :param policy:              Verification policy - choices ['avg', 'any']
@@ -269,27 +270,73 @@ class Model(object):
         :return:                    {'m': impersonation rate against male users, 'f': impersonation rate against female users}
         """
 
+        test_data.embeddings, test_data.user_ids, test_data.user_ids_male, test_data.user_ids_female, n_templates
+
         # We extract the speaker embedding associated to the master voice input
         extractor = self.infer()
         mv_emb = extractor.predict(input_mv[tf.newaxis, ...])
         # mv_emb = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(extractor.predict(np.expand_dims(input_mv, axis=0)))
         mv_emb = tf.keras.backend.l2_normalize(mv_emb, 1)
-        scores = [1 - cosine(mv_emb, emb) for emb in x_mv_test_embs]
+        scores = [1 - cosine(mv_emb, emb) for emb in test_data.embeddings]
 
         # We set up an array of shape no_thresholds x no_test_user where we count the false accepts for the input master vice against the current user with the current thresholds
-        mv_fac = np.zeros((len(thresholds), len(np.unique(y_mv_test))))
+        mv_fac = np.zeros((len(thresholds), len(np.unique(test_data.user_ids))))
 
-        for class_index, class_label in enumerate(np.unique(y_mv_test)): # For each user in the test set
+        for class_index, class_label in enumerate(np.unique(test_data.user_ids)): # For each user in the test set
             # We extract the enrolled embeddings for the current user
-            user_scores = scores[class_index*n_templates:(class_index+1)*n_templates]
+            user_scores = scores[class_index*test_data.n_enrolled_examples:(class_index+1)*test_data.n_enrolled_examples]
             for thr_index, threshold in enumerate(thresholds): # For each verification threshold
                 mv_fac[thr_index, class_index] = min(1, len([1 for score in user_scores if score > threshold]))
 
         results = []
         for thr_index, _ in enumerate(thresholds): # For each threshold, we separately compute the percentage of females (males) users who have been impersonated
             results.append({
-                'm': np.sum(mv_fac[thr_index, np.array(male_x_mv_test)]) / len(male_x_mv_test), 
-                'f': np.sum(mv_fac[thr_index,np.array(female_x_mv_test)]) / len(female_x_mv_test)
+                'm': np.sum(mv_fac[thr_index, np.array(test_data.user_ids_male)]) / len(test_data.user_ids_male),
+                'f': np.sum(mv_fac[thr_index, np.array(test_data.user_ids_female)]) / len(test_data.user_ids_female)
             })
 
         return results
+
+    def test_imp_extended(self):
+
+        # if row['path1'] in speaker_embs:  # If we already computed the embedding for the first element of the verification pair
+        #     emb_1 = speaker_embs[row['path1']]
+        # else:
+        #     audio_1 = decode_audio(os.path.join('./data', row['path1'])).reshape(
+        #         (1, -1, 1))  # Load the user enrolled audio
+        #     input_1 = get_tf_spectrum(audio_1) if output_type == 'spectrum' else get_tf_filterbanks(
+        #         audio_1)  # Extract the acoustic representation
+        #     emb_1 = tf.keras.layers.Lambda(lambda emb1: tf.keras.backend.l2_normalize(emb1, 1))(
+        #         extractor.predict(input_1))  # Get the speaker embedding
+        #     speaker_embs[row['path1']] = emb_1  # Save the current speaker embedding for future usage
+        #
+        # if row['path2'] in speaker_embs:  # If we already computed the embedding for the second element of the verification pair
+        #     emb_2 = speaker_embs[row['path2']]
+        # else:
+        #     audio_2 = decode_audio(os.path.join('./data', row['path2'])).reshape(
+        #         (1, -1, 1))  # Load the master voice audio
+        #     if args.playback == 1:
+        #         print('> playback and recording simulated successfully')
+        #         audio_2 = get_play_n_rec_audio(audio_2, noise_paths, noise_cache,
+        #                                        noise_strength='random')  # Simulate playback and recording
+        #     input_2 = get_tf_spectrum(audio_2) if output_type == 'spectrum' else get_tf_filterbanks(
+        #         audio_2)  # Extract the acoustic representation
+        #     emb_2 = tf.keras.layers.Lambda(lambda emb2: tf.keras.backend.l2_normalize(emb2, 1))(
+        #         extractor.predict(input_2))  # Get the speaker embedding
+        #     speaker_embs[row['path2']] = emb_2  # Save the current master voice speaker embedding for future usage
+        #
+        # any_scores.append(1 - cosine(emb_1, emb_2))  # Compute the cosine similarity between the two embeddings
+        # avg_speaker_embs.append(emb_1)  # Add the current embedding to the list of embeddings of the current user
+        # avg_speaker_files.append(
+        #     row['path1'])  # Add the current enrolled audio to the list of audio files of the current user
+        #
+        # if (index + 1) % args.n_templates == 0:  # When we analyze all the enrolled audio file for the current user
+        #     print('\r> pair', index + 1, '/', len(df_trial_pairs.index), '-', mv_set, version, mv_csv_file, end='')
+        #
+        #     # Compute cosine similarity between the averaged embedding and the master voice embedding
+        #     avg_scores.append(1 - cosine(np.average(avg_speaker_embs, axis=0), emb_2))
+        #     avg_speaker_sets.append((','.join(avg_speaker_files)))
+        #     avg_gender.append(row['gender'])
+        # 
+        #     # Reset the avg 10 embedding list (even if not in use)
+        #     avg_speaker_embs, avg_speaker_files = [], []

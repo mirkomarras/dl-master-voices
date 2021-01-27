@@ -10,6 +10,7 @@ import os
 
 from helpers import plotting
 
+
 def l2_normalize(x, eps=1e-12):
   '''
   Scale input by the inverse of it's euclidean norm
@@ -588,4 +589,17 @@ class MultiscaleGAN(GAN):
             f'clip={self.clip_discriminator!s:.1}'
         ]
         return f'MS-GAN[{",".join(args)}]'
-        
+
+
+def get_model(netg, gender=None):
+
+    MODEL_DICT = {'dc-gan': DCGAN, 'ms-gan': MultiscaleGAN}
+
+    if '/v' in netg:
+        arch, version = netg.split('/v')
+        version = int(version)
+    else:
+        version = -1
+    assert arch in MODEL_DICT, "Specified model is not supported!"
+
+    return MODEL_DICT[arch](gender, version=version)

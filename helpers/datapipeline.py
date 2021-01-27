@@ -32,7 +32,7 @@ def data_pipeline_generator_verifier(x, y, slice_len=16000*3, sample_rate=16000)
             audio = np.pad(audio, (pad_start, pad_end), 'constant')
         yield audio.reshape((1, -1, 1)), y[index]
 
-    raise StopIteration()
+    return
 
 
 def data_pipeline_verifier(x, y, slice_len=16000*3, sample_rate=16000, batch=64, prefetch=1024, output_type='spectrum'):
@@ -85,7 +85,7 @@ def data_pipeline_generator_gan(x, slice_len, sample_rate=16000):
             audio = np.pad(audio, (pad_start, pad_end), 'constant')
         yield audio.reshape((1, -1, 1))
 
-    raise StopIteration()
+    return
 
 
 def data_pipeline_gan(x, slice_len, sample_rate=16000, batch=64, prefetch=1024, output_type='spectrum', resize=None, pad_width=None):
@@ -151,7 +151,7 @@ def data_pipeline_generator_mv(x, y, slice_len=16000*3, sample_rate=16000):
             audio = np.pad(audio, (pad_start, pad_end), 'constant')
         yield audio.reshape((1, -1, 1)), y[index]
 
-    raise StopIteration()
+    return
 
 
 def data_pipeline_mv(x, y, slice_len=16000*3, sample_rate=16000, batch=64, prefetch=1024, output_type='spectrum'):
@@ -166,16 +166,18 @@ def data_pipeline_mv(x, y, slice_len=16000*3, sample_rate=16000, batch=64, prefe
     :return:            Data pipeline
     """
 
-    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_verifier(x, y, slice_len=slice_len, sample_rate=sample_rate), output_types=(tf.float32, tf.int32), output_shapes=([1, slice_len, 1], []))
-    dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0),y), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+    dataset = tf.data.Dataset.from_generator(lambda: data_pipeline_generator_verifier(x, y, slice_len, sample_rate),
+                                             output_types=(tf.float32, tf.int32), output_shapes=([1, slice_len, 1], []))
+
+    n_threads = tf.data.experimental.AUTOTUNE
+    dataset = dataset.map(lambda x, y: (tf.squeeze(x, axis=0), y), num_parallel_calls=n_threads)
     dataset = dataset.batch(batch)
 
     if output_type == 'spectrum':
-        dataset = dataset.map(lambda x, y: (get_tf_spectrum(x, num_fft=512),y), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.map(lambda x, y: (get_tf_spectrum(x, num_fft=512), y), num_parallel_calls=n_threads)
 
     elif output_type == 'filterbank':
-        dataset = dataset.map(lambda x, y: (get_tf_filterbanks(x, n_filters=24),y), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.map(lambda x, y: (get_tf_filterbanks(x, n_filters=24), y), num_parallel_calls=n_threads)
 
     dataset = dataset.prefetch(prefetch)
-
     return dataset

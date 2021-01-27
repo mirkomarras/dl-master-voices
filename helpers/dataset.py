@@ -8,7 +8,8 @@ import csv
 import os
 from pathlib import Path
 
-from helpers.audio import decode_audio
+from helpers import audio
+from collections import namedtuple
 
 def get_mv_analysis_users(mv_analysis_path, type='all'):
     """
@@ -60,11 +61,15 @@ def load_data_set(audio_dir, mv_user_ids, include=False, n_samples=None):
     x = []
     y = []
 
+    if isinstance(audio_dir, str):
+        audio_dir = [audio_dir]
+
     print('Load data sets')
     user_count = 0
 
     for source_dir in audio_dir:
 
+        assert os.path.isdir(source_dir)
         print(f'> loading data from {source_dir} (sample user id: {mv_user_ids[0]})', )
 
         for user_id, user_dir in enumerate(os.listdir(source_dir)):
@@ -142,8 +147,8 @@ def load_test_data_from_file(base_path, trials_path, n_templates=1, n_pairs=10, 
         if (i+1) % print_interval == 0:
             print('\r> pair %5.0f / %5.0f' % (i+1, len(y)), end='')
 
-        x1.append(decode_audio(os.path.join(base_path, path_1), sample_rate=sample_rate).reshape((1, -1, 1)))
-        x2.append([decode_audio(os.path.join(base_path, path), sample_rate=sample_rate).reshape((1, -1, 1)) for path in (path_2 if isinstance(path_2, list) else [path_2])])
+        x1.append(audio.decode_audio(os.path.join(base_path, path_1), sample_rate=sample_rate).reshape((1, -1, 1)))
+        x2.append([audio.decode_audio(os.path.join(base_path, path), sample_rate=sample_rate).reshape((1, -1, 1)) for path in (path_2 if isinstance(path_2, list) else [path_2])])
 
     print('\n>', 'found', len(x1), 'pairs')
 
@@ -220,7 +225,7 @@ def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, 
         for path in class_paths:
             # TODO ugly workaround
             path = path.replace('dev/dev/', 'dev/')
-            x_mv_test.append(decode_audio(path.replace('.m4a', '.wav'), sample_rate=sample_rate).reshape((1, -1, 1)))
+            x_mv_test.append(audio.decode_audio(path.replace('.m4a', '.wav'), sample_rate=sample_rate).reshape((1, -1, 1)))
             y_mv_test.append(class_index)
 
         if gender_map[class_paths[0].split(os.path.sep)[-3]] == 'm':
@@ -232,7 +237,36 @@ def load_mv_data(mv_analysis_path, mv_base_path, audio_meta, sample_rate=16000, 
 
     print()
 
-    return x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test
+    class Dataset(object):
+
+        def __init__(self, filenames, user_ids, user_ids_male, user_ids_female, n_enrolled_examples):
+            self.embeddings = None
+            self.filenames = filenames
+            self.user_ids = user_ids
+            self.user_ids_male = user_ids_male
+            self.user_ids_female = user_ids_female
+            self.n_enrolled_examples = n_enrolled_examples
+
+        def precomputed_embeddings(self, sv):
+            self.embeddings = []
+            self._embedding_type = type(sv).__name__
+            # TODO We could use this to validate that the same files were used after loading cached embeddings
+            self._embedding_crc = None
+            for f in self.filenames:
+                sample = audio.decode_audio(f)
+                spectrum = audio.get_tf_spectrum(sample, num_fft=512)
+                # TODO We should normalize (tf.keras.backend.l2_normalize(x, 1)) but don't want TF dependencies in this module
+                self.embeddings.append(sv.predict(spectrum))
+
+        def save_embeddings(self):
+            pass
+
+        def load_embeddings(self):
+            pass
+
+    data = Dataset(x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test, n_templates)
+
+    return data
 
 
 def load_mv_list(mv_analysis_path, mv_base_path, audio_meta, n_templates=10):

@@ -15,13 +15,9 @@ print('PATH>', sys.path)
 from helpers.datapipeline import data_pipeline_mv
 from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender, load_mv_data
 
-from models.verifier.thinresnet34 import ThinResNet34
-from models.mv.model import SiameseModel
-from models.verifier.resnet50 import ResNet50
-from models.verifier.resnet34 import ResNet34
-from models.verifier.xvector import XVector
-from models.verifier.vggvox import VggVox
 from models import gan
+from models.mv.model import SiameseModel
+from models import verifier
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -55,7 +51,7 @@ def main():
     parser.add_argument('--netv', dest='netv', default='', type=str, action='store', help='Speaker verification model, e.g., xvector/v000')
 
     # Parameters for generative adversarial model or of the seed voice
-    # Note: if netg is specified, the master voices will be created by sampling spectrums from the GAN; otherwise, you need to specify a seed voice to optimize as a master voice
+    # Note: if netg is specified, the master voices will be created by sampling spectrums from the GAN; otherwise, you need to specify a seed voice to batch_optimize_by_path as a master voice
     parser.add_argument('--netg', dest='netg', default=None, type=str, action='store', help='Generative adversarial model, e.g., ms-gan/v000')
     parser.add_argument('--netg_gender', dest='netg_gender', default='neutral', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender of the generative adversarial model')
     parser.add_argument('--seed_voice', dest='seed_voice', default='', type=str, action='store', help='Path to the seed voice that will be optimized to become a master voice')
@@ -125,23 +121,19 @@ def main():
     # Output will be saved in sub-dirs in ./data/vs_mv_data - e.g., 'vggvox-v003_real_f_sv'
     dir_name = args.netv.replace('/', '-') + ('_' + args.netg.replace('/', '-') + '_' + args.netg_gender[0] + '-' + args.mv_gender[0] if args.netg else '_real_u-' + args.mv_gender[0])
 
-    # We initialize the siamese model that will be used to optimize master voices
-    siamese_model = SiameseModel(sample_rate=args.sample_rate, dir=os.path.join('data', 'vs_mv_data', dir_name), params=args, playback=args.playback, ir_dir=args.ir_dir)
+    # We initialize the siamese model that will be used to batch_optimize_by_path master voices
+    siamese_model = SiameseModel(dir=os.path.join('data', 'vs_mv_data', dir_name), params=args, playback=args.playback, ir_dir=args.ir_dir, sample_rate=args.sample_rate)
     print('> siamese network initialized')
 
     print('Setting verifier')
     # We initialize, build, and load a pre-trained speaker verification model; this model will be duplicated in order to create the siamese model
-    available_nets = {'xvector': XVector, 'vggvox': VggVox, 'resnet50': ResNet50, 'resnet34': ResNet34, 'thin_resnet': ThinResNet34}
-    selected_verifier = available_nets[args.netv.split('/')[0]](id=(int(args.netv.split('/')[1].replace('v','')) if '/v' in args.netv else -1))
-    siamese_model.set_verifier(selected_verifier)
+    siamese_model.set_verifier(verifier.get_model(args.netv))
     print('> verifier set')
 
     if args.netg is not None:
         print('Setting generator')
         # If we want to create mv from GAN examples, we initialize, build, and load a pre-trained GAN into the siamese model
-        available_generators = {'dc-gan': gan.DCGAN, 'ms-gan': gan.MultiscaleGAN}
-        selected_generator = available_generators[args.netg.split('/')[0]](args.netg_gender, version=int(args.netg.split('/')[1].replace('v','')))
-        siamese_model.set_generator(selected_generator)
+        siamese_model.set_generator(gan.get_model(args.netg, args.netg_gender))
         print('> generated set')
 
     print('Building siamese model')
@@ -167,11 +159,21 @@ def main():
     thresholds = [tuneThreshold(vox1_test_results['score'].values, vox1_test_results['label'].values, target_fa)[0] for target_fa in [None, 1.0]]
     print('> found thresholds (eer/far1%):', thresholds)
 
-    print('Optimizing master voice')
+    # Setup training and testing datasets
     train_data = data_pipeline_mv(x_train, y_train, args.sample_rate*args.n_seconds, args.sample_rate, args.batch, args.prefetch, output_type)
-    # TODO args.audio_dir.replace(args.audio_dir.split('/')[-1],'')
     test_data = load_mv_data(args.mv_splits, args.audio_dir, args.audio_meta, args.sample_rate, args.n_templates, 'test')
-    siamese_model.optimize(seed_voice=args.seed_voice, train_data=train_data, test_data=test_data, n_examples=args.n_examples, n_epochs=args.n_epochs, n_steps_per_epoch=len(x_train) // args.batch, thresholds=thresholds, gradient=args.gradient, max_perturbation=args.max_dist, l2_regularization=args.l2_reg)
+
+    # Construct optimization settings
+    settings = siamese_model.defaults().update({
+        'gradient': args.gradient,
+        'n_epochs': args.n_epochs,
+        'max_perturbation': args.max_dist,
+        'l2_regularization': args.l2_reg,
+        'n_examples': args.n_examples
+    })
+
+    # Run optimization
+    siamese_model.batch_optimize_by_path(args.seed_voice, train_data, test_data, thresholds, settings=settings)
 
 if __name__ == '__main__':
     main()
