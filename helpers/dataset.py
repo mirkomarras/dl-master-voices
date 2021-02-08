@@ -1,49 +1,62 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from collections import namedtuple
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import random
+import time
 import csv
 import os
-from pathlib import Path
 
 from loguru import logger
 
 from helpers import audio
-from collections import namedtuple
 
 
 class Dataset(object):
 
-    def __init__(self, filenames, user_ids, user_ids_male, user_ids_female, n_enrolled_examples):
+    def __init__(self, pop_file):
+
+        population = pd.read_csv(pop_file)
+
+        self.pop_file = pop_file.split(os.path.sep)[-1]
+        self.filenames = population['filename']
+        self.user_ids = population['user_id']
+        self.user_genders = population['gender']
+
         self.embeddings = None
-        self.filenames = filenames
-        self.user_ids = user_ids
-        self.user_ids_male = user_ids_male
-        self.user_ids_female = user_ids_female
-        self.n_enrolled_examples = n_enrolled_examples
-        self._embedding_type = None
+        self.embedding_type = None
 
     def precomputed_embeddings(self, sv, recompute=False):
+
         if self.embeddings is not None and not recompute:
-            logger.warning(f'Embeddings ({self._embedding_type}) already computed. Use recompute=True to override.')
+            logger.warning('Embeddings ({self.embedding_type}) already computed. Use recompute=True to override.')
             return
-        self.embeddings = []
-        self._embedding_type = type(sv).__name__
-        # TODO We could use this to validate that the same files were used after loading cached embeddings
-        # self._embedding_crc = None
-        for f in self.filenames:
-            # sample = audio.decode_audio(f)
-            spectrum = audio.get_tf_spectrum(f, num_fft=512)
-            # TODO We should normalize (tf.keras.backend.l2_normalize(x, 1)) but don't want TF dependencies in this module
-            self.embeddings.append(sv.predict(spectrum))
+
+        self.embedding_type = sv.name + '_' + 'v' + '{:03d}'.format(sv.id)
+        if os.path.exists(self.get_filename()):
+            self.load_embeddings()
+            return
+
+        self.embeddings = sv.predict(self.filenames)
+
+        self.save_embeddings()
+
+
+    def get_filename(self):
+        return os.path.join('data/vs_mv_data', self.pop_file, 'embeddings', self.embedding_type  + '.npz')
 
     def save_embeddings(self):
-        pass
+        filename = self.get_filename()
+        np.savez(filename, **self.embeddings)
+        logger.info('Embeddings saved for {}'.format(filename))
 
     def load_embeddings(self):
-        pass
+        filename = self.get_filename()
+        self.embeddings = np.load(filename)
+        logger.info('Embeddings loaded for {}'.format(filename))
 
 
 def get_mv_analysis_users(mv_analysis_path, type='all'):
@@ -65,23 +78,69 @@ def get_mv_analysis_users(mv_analysis_path, type='all'):
         if items[i].startswith('id'):
             pid = i
 
-    assert pid is not None, f"None of the elements in file path is recognized as user iD: {items}"
+    assert pid is not None, "None of the elements in file path is recognized as user iD: {items}"
 
     if type in ['all', 'train']:
         logger.info('Load train user ids for mv analysis')
         train_users = list(np.unique([path.split('/')[pid] for path in mv_analysis_data['x_train']]))
-        assert train_users[0].startswith('id'), f"The user IDs should start with 'id' - currently seeing {train_users[0]}"
+        assert train_users[0].startswith('id'), "The user IDs should start with 'id' - currently seeing {train_users[0]}"
         output_users = output_users + train_users
         logger.info(('>', 'found mv analysis train users', len(train_users)))
 
     if type in ['all', 'test']:
         logger.info('Load test user ids for mv analysis')
         test_users = list(np.unique([path.split('/')[pid] for path in mv_analysis_data['x_test']]))
-        assert test_users[0].startswith('id'), f"The user IDs should start with 'id' - currently seeing {train_users[0]}"
+        assert test_users[0].startswith('id'), "The user IDs should start with 'id' - currently seeing {train_users[0]}"
         output_users = output_users + test_users
         logger.info(('>', 'found mv analysis test users', len(test_users)))
 
     return output_users
+
+
+def generate_enrolled_samples(audio_meta='./data/vs_mv_pairs/meta_data_vox12_all.csv', dirname='data/voxceleb2/dev', n_train=20, n_test=10, n_split=(20, 20)):
+    npz_file = 'data/vs_mv_pairs/data_mv_vox2_debug.npz' # We soon remove this
+
+    # Retrieve gender data
+    data_set_df = pd.read_csv(audiometa, delimiter=' ')
+    gender_map = {k:v for k, v in zip(data_set_df['id'].values, data_set_df['gender'].values)}
+
+    users = os.listdir(dirname)
+    random.shuffle(users)
+
+    x_train, x_test, y_train, y_test, g_train, g_test = [], [], [], [], [], []
+
+    # Sampling training and testing data
+    logger.info('# Training population')
+    train_users = list(set(users) & set(get_mv_analysis_users(npz_file, type='train')))[:n_split[0]] if npz_file else list(users)[:n_split[0]]
+    for u in train_users:
+        files = [str(f).replace(dirname + '/', '') for f in Path(os.path.join(dirname, u)).glob('**/*.m4a')][:n_train]
+        x_train.append(files)
+        y_train.append([int(u[2:]) for _ in files])
+        g_train.append([gender_map[u] for _ in files])
+
+    logger.info('# Testing population')
+    test_users = list(set(users) & set(get_mv_analysis_users(npz_file, type='test')))[sum(n_split)-n_split[0]] if npz_file else list(users)[n_split[0]:sum(n_split)]
+    for u in test_users:
+        files = [str(f).replace(dirname + '/', '') for f in Path(os.path.join(dirname, u)).glob('**/*.m4a')][:n_test]
+        x_test.append(files)
+        y_test.extend([int(u[2:]) for _ in files])
+        g_test.append([gender_map[u] for _ in files])
+
+    # Add a time id
+    current_time = time.strftime('%Y%m%d-%H%M%S')
+
+    # Saving csv files
+    train_path = os.path.join('data', 'vs_mv_data', '{}_mv_train_population_debug_{}u_{}s.csv'.format(current_time, n_split[0], n_train))
+    logger.info('Writing to csv {}'.format(train_path))
+    train_set = pd.DataFrame(list(zip(x_train, y_train, g_train)), columns =['filename', 'user_id', 'gender'])
+    train_set.to_csv(train_path)
+
+    test_path = os.path.join('data', 'vs_mv_data', '{}_mv_test_population_debug_{}u_{}s.csv'.format(current_time, n_split[1], n_test))
+    logger.info('Writing to csv {}'.format(test_path))
+    test_set = pd.DataFrame(list(zip(x_test, y_test, g_test)), columns =['filename', 'user_id', 'gender'])
+    test_set.to_csv(test_path)
+
+    return train_path, train_set, test_set
 
 
 def load_data_set(audio_dir, mv_user_ids, include=False, n_samples=None):
@@ -105,7 +164,7 @@ def load_data_set(audio_dir, mv_user_ids, include=False, n_samples=None):
     for source_dir in audio_dir:
 
         assert os.path.isdir(source_dir)
-        logger.info((f'> loading data from {source_dir} (sample user id: {mv_user_ids[0]})', ))
+        logger.info(('> loading data from {source_dir} (sample user id: {mv_user_ids[0]})', ))
 
         for user_id, user_dir in enumerate(os.listdir(source_dir)):
 

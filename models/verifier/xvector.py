@@ -6,6 +6,7 @@ import os
 import random
 
 from models.verifier.model import Model
+from helpers.audio import get_tf_filterbanks
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -25,6 +26,11 @@ class XVector(Model):
 
     def __init__(self, name='xvector', id=''):
         super().__init__(name, id)
+
+
+    def compute_acoustic_representation(self, e):
+        return get_tf_filterbanks(e, n_filters=24)
+
 
     def build(self, classes=0, embs_size=512, embs_name='embs', loss='softmax', aggregation='gvlad', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
         super().build(classes, embs_size, embs_name, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay, mode)

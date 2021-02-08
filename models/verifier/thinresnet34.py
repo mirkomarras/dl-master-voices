@@ -7,12 +7,19 @@ import os
 from models.verifier.model import VladPooling
 from models.verifier.model import Model
 
+from helpers.audio import get_np_spectrum
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class ThinResNet34(Model):
 
     def __init__(self, name='thin_resnet', id=''):
         super().__init__(name, id)
+
+
+    def compute_acoustic_representation(self, e):
+        return get_np_spectrum(e, num_fft=512)
+
 
     def identity_block_2d(self, input_tensor, kernel_size, filters, stage, block, weight_decay, trainable):
         filters1, filters2, filters3 = filters
@@ -31,6 +38,7 @@ class ThinResNet34(Model):
         x = tf.keras.layers.Add()([x, input_tensor])
         x = tf.keras.layers.ReLU()(x)
         return x
+
 
     def conv_block_2d(self, input_tensor, kernel_size, filters, stage, block, strides, weight_decay, trainable):
         filters1, filters2, filters3 = filters
@@ -54,6 +62,7 @@ class ThinResNet34(Model):
         x = tf.keras.layers.ReLU()(x)
 
         return x
+
 
     def build(self, classes=0, embs_size=512, embs_name='embs', loss='softmax', aggregation='gvlad', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
         super().build(classes, embs_size, embs_name, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay, mode)

@@ -12,6 +12,7 @@ from models.verifier.resnet50 import ResNet50
 from models.verifier.resnet34 import ResNet34
 from models.verifier.xvector import XVector
 from models.verifier.vggvox import VggVox
+from models.verifier.model import Model
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -81,11 +82,13 @@ def main():
     model = available_nets[args.net.split('/')[0]](id=int(args.net.split('/')[1].replace('v','')))
     model.build(0, args.embs_size, args.embs_name, args.loss, args.aggregation, args.vlad_clusters, args.ghost_clusters, args.weight_decay, 'test')
     model.load()
+    model.infer()
 
     # Test model
     print('Testing model')
     t1 = time.time()
-    results = model.test(test_data, output_type=output_type, policy=args.policy, save=True, filename=args.test_pair_path.split('/')[-1].replace('.csv', '').split('_')[-2])
+    (x1, x2), y = test_data
+    model.evaluate((x1, x2, y))
     t2 = time.time()
     print('>', t2-t1, 'seconds for testing with', results)
 

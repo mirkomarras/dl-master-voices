@@ -9,7 +9,7 @@ import os
 
 from datetime import datetime
 
-# from helpers.audio import decode_audio, get_np_spectrum, get_tf_spectrum, denormalize_frames, spectrum_to_signal, normalize_frames, tf_normalize_frames, load_noise_paths, cache_noise_data
+from models.verifier.model import Model
 from helpers import plotting, audio
 
 from loguru import logger
@@ -38,8 +38,8 @@ class SiameseModel(object):
 
         self.playback = playback
         if self.playback:
-            assert os.path.isdir(ir_dir), f'Playback simulation is enabled, but impulse response directory is not set {ir_dir}'
-            logger.info(f'> Setting up playback simulation ({ir_dir})')
+            assert os.path.isdir(ir_dir), 'Playback simulation is enabled, but impulse response directory is not set {ir_dir}'
+            logger.info('> Setting up playback simulation ({ir_dir})')
             # Load noise data
             self.noise_paths = audio.load_noise_paths(ir_dir)
             self.noise_cache = audio.cache_noise_data(self.noise_paths)
@@ -51,7 +51,7 @@ class SiameseModel(object):
         assert os.path.exists(self.dir), 'Please check folder permission for seed and master voice saving'
 
         # Retrieve the version of the seed and master voices sets for that particolar combination of verifier and gan
-        self.id = f'{len(os.listdir(self.dir)):03d}'
+        self.id = '{len(os.listdir(self.dir)):03d}'
 
         # Create sub-directories for saving seed and master voices
         if not os.path.exists(self.dir_full):
@@ -71,9 +71,11 @@ class SiameseModel(object):
         #         file.write("%s,%s\n" % (arg, getattr(params, arg)))
         # print('> params saved in', os.path.join(self.dir_full, 'params.txt'))
 
+
     @property
     def dir_full(self):
         return os.path.join(self.dir, 'v' + self.id)
+
 
     def set_generator(self, gan):
         """
@@ -86,6 +88,7 @@ class SiameseModel(object):
 
         self.gan = gan
 
+
     def set_verifier(self, verifier):
         """
         Method to build, load, and set the verifier that will be used for master voice optimization
@@ -97,6 +100,7 @@ class SiameseModel(object):
         verifier.load()
 
         self.verifier = verifier
+
 
     def build(self, fft_size=256):
         """
@@ -124,6 +128,7 @@ class SiameseModel(object):
 
         # We create a model that, given two input examples, returns the cosine similarity between the corresponding embeddings
         self.siamese_model = tf.keras.Model([signal_input, another_signal_input], similarity)
+
 
     def defaults(self):
 
@@ -160,14 +165,14 @@ class SiameseModel(object):
             'min_sim': 0
         })
 
-    def batch_optimize_by_path(self, seed_voice, train_data, test_data, thresholds=None, settings=None):
+
+    def batch_optimize_by_path(self, seed_voice, train_data, test_gallery, settings=None):
         """
         Batch master voice optimization from seed utterances given by file/dir names.
 
         :param seed_voice:          Seed voice to
         :param train_data:          Real audio data against which master voices are optimized - shape (None,1)
         :param test_data:           Real user against which the current master voice are validated
-        :param thresholds:          list of thresholds for eer and far1 for the embedded verifier
 
         """
 
@@ -181,15 +186,6 @@ class SiameseModel(object):
         # x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test = test_data
 
         extractor = self.verifier.infer()
-
-        # Extract speaker embeddings for the target population
-        if test_data is not None:
-            test_data.embeddings = []
-            for step, sample in enumerate(test_data.filenames):
-                if (step % 100) == 0:
-                    print('\r> extracting embeddings', step, 'of', len(test_data.filenames), end='')
-                spectrum = audio.get_tf_spectrum(sample, num_fft=512)
-                test_data.embeddings.append(tf.keras.backend.l2_normalize(extractor.predict(spectrum), 1))
 
         # Collect stats from all seed voices
         stats = {k: [] for k in 'max_dist, l2_norm, mv_eer_results, mv_far1_results, sv_eer_results, sv_far1_results'.split(', ')}
@@ -208,12 +204,12 @@ class SiameseModel(object):
                 input_sv = input_sv[..., np.newaxis]
 
             logger.debug('> created master voice seed', input_sv.shape)
-            input_mv, performance = self.optimize(input_sv, train_data, test_data, thresholds, settings)
+            input_mv, performance = self.optimize(input_sv, train_data, test_gallery, settings)
 
             gender = self.params.mv_gender[0] # Gender selector: 'm' or 'f'
             model_suffix = '' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]
-            self.save(iter, input_sv, input_mv, input_avg, input_std, performance, filename=model_suffix)
-            logger.debug(f'Finished optimization! {gender} impersonation {performance["mv_far1_results"][0][gender]:.3f} -> {performance["mv_far1_results"][-1][gender]:.3f}')
+            self.save(iter, input_sv, input_mv, input_avg, input_std, performance, test_gallery, filename=model_suffix)
+            logger.debug('Finished optimization! {gender} impersonation {performance["mv_far1_results"][0][gender]:.3f} -> {performance["mv_far1_results"][-1][gender]:.3f}')
 
             stats['mv_eer_results'].append(performance['mv_eer_results'][-1][gender].item())
             stats['mv_far1_results'].append(performance['mv_far1_results'][-1][gender].item())
@@ -228,12 +224,12 @@ class SiameseModel(object):
 
         return stats #os.path.join(self.dir_full, 'stats.json')
 
-    def optimize(self, input_sv, train_data, test_data=None, thresholds=None, settings=None):
+
+    def optimize(self, input_sv, train_data, test_gallery=None, settings=None):
         """
 
         :param input_sv:
-        :param test_data:
-        :param thresholds:
+        :param test_gallery:
         :param train_data: a data pipeline yielding speaker embeddings of the training population
         :param settings: optimization settings (dict)
         :return:
@@ -253,13 +249,13 @@ class SiameseModel(object):
         input_sv = tf.convert_to_tensor(input_sv, dtype='float32')
 
         # Get baseline stats
-        results = self.test(input_mv, thresholds, test_data)
+        results = self.test(input_mv, test_gallery)
         performance['mv_eer_results'].append(results[0])
         performance['mv_far1_results'].append(results[1])
         performance['l2_norm'].append(tf.reduce_mean(tf.square(perturbation)).numpy().item())
         performance['max_dist'].append(np.max(np.abs(perturbation)).item())
 
-        logger.info(f'! Baseline | Imp@EER m={results[0]["m"]:.3f} f={results[0]["f"]:.3f} | Imp@FAR1 m={results[1]["m"]:.3f} f={results[1]["f"]:.3f}', end='\n')
+        logger.info('! Baseline | Imp@EER m={results[0]["m"]:.3f} f={results[0]["f"]:.3f} | Imp@FAR1 m={results[1]["m"]:.3f} f={results[1]["f"]:.3f}', end='\n')
 
         for epoch in range(settings.n_epochs):  # For each optimization epoch
             t1 = datetime.now()
@@ -286,8 +282,6 @@ class SiameseModel(object):
                 idxs = tf.where(tf.reshape(loss, (-1,)) > settings.min_sim)
                 grads = tf.gather(grads, tf.reshape(idxs, (-1,)))
 
-                # ------------------------------------------------------------------------------------------------------
-
                 if len(grads) > 0:
                     grad = tf.reduce_mean(grads, axis=0)
 
@@ -309,13 +303,13 @@ class SiameseModel(object):
             epoch_loss = tf.reduce_mean(epoch_similarities).numpy().item()
 
             t2 = datetime.now()
-            if thresholds is not None and test_data is not None:
+            if test_gallery is not None:
 
                 input_mv = input_sv + perturbation
                 # input_mv = tf.clip_by_value(input_mv, 0, 10000)
 
                 # We test the current master voice version for impersonation rates on the validation set
-                results = self.test(input_mv, thresholds, test_data)
+                results = self.test(input_mv, test_gallery)
                 performance['mv_avg_similarity'].append(epoch_loss)
                 performance['mv_eer_results'].append(results[0])
                 performance['mv_far1_results'].append(results[1])
@@ -334,12 +328,13 @@ class SiameseModel(object):
                     break
 
             t3 = datetime.now()
-            logger.info(f'Imp@EER m={results[0]["m"]:.3f} f={results[0]["f"]:.3f} | Imp@FAR1 m={results[1]["m"]:.3f} f={results[1]["f"]:.3f}')
-            logger.info(f' # optimize. time = {(t2 - t1).total_seconds():.1f} s + val. time = {(t3 - t2).total_seconds():.1f} s')
+            logger.info('Imp@EER m={results[0]["m"]:.3f} f={results[0]["f"]:.3f} | Imp@FAR1 m={results[1]["m"]:.3f} f={results[1]["f"]:.3f}')
+            logger.info(' # optimize. time = {(t2 - t1).total_seconds():.1f} s + val. time = {(t3 - t2).total_seconds():.1f} s')
 
         return input_sv + perturbation, performance
 
-    def save(self, iter, input_sv, input_mv, input_avg, input_std, performance_stats, filename=''):
+
+    def save(self, iter, input_sv, input_mv, input_avg, input_std, performance_stats, test_gallery, filename=''):
         """
         Method to save original and optimized master voices
         :param iter:                Number of the current iteration
@@ -351,7 +346,7 @@ class SiameseModel(object):
 
         assert input_sv.ndim == 3
         assert input_sv.shape == input_mv.shape
-        suffix = f'{iter}' if self.gan is not None else filename
+        suffix = '{iter}' if self.gan is not None else filename
 
         # We save the current audio associated to the master voice latent vector / spectrogram
         if self.gan is not None:
@@ -398,16 +393,26 @@ class SiameseModel(object):
         filename_fig = os.path.join(self.dir_full, 'spectrums_' + suffix + '.png')        
         fig = plotting.imsc(
             (sp_mv[:n_bins//2], sp[:n_bins//2], np.abs(sp_mv - sp)[:n_bins//2]), 
-            [f'master voice (IR_{gender}={ir_end:.2f}) []', f'seed voice (IR_{gender}={ir_start:.2f}) []', 'diff []'], 
+            ['master voice (IR_{gender}={ir_end:.2f}) []', 'seed voice (IR_{gender}={ir_start:.2f}) []', 'diff []'],
             cmap='jet', ncols=3)
         fig.savefig(filename_fig, bbox_inches='tight')
 
+        # We save the similarities, impostor, and gender impostor results
+        self.sims[Model.SECURITY_LEVEL_EER].to_csv(os.path.join('./data/vs_mv_models/', net, 'sims_' + test_gallery.pop_file + '_' + mv_set + '_' + 'eer' + '_' + 'any'))
+        self.imps[Model.SECURITY_LEVEL_EER].to_csv(os.path.join('./data/vs_mv_models/', net, 'imps_' + test_gallery.pop_file + '_' + mv_set + '_' + 'eer' + '_' + 'any'))
+        self.gnds[Model.SECURITY_LEVEL_EER].to_csv(os.path.join('./data/vs_mv_models/', net, 'gnds_' + test_gallery.pop_file + '_' + mv_set + '_' + 'eer' + '_' + 'any'))
+
+        self.sims[Model.SECURITY_LEVEL_FAR1].to_csv(os.path.join('./data/vs_mv_models/', net, 'sims_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
+        self.imps[Model.SECURITY_LEVEL_FAR1].to_csv(os.path.join('./data/vs_mv_models/', net, 'imps_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
+        self.gnds[Model.SECURITY_LEVEL_FAR1].to_csv(os.path.join('./data/vs_mv_models/', net, 'gnds_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
+
         # We update and save the current impersonation rate history
         filename_stats = os.path.join(self.dir_full, 'optimization_progress_' + (str(iter) if self.gan is not None else filename))
-        logger.info(f'> saving {filename_stats}')
+        logger.info('> saving {filename_stats}')
         np.savez(filename_stats, **performance_stats)
 
-    def test(self, input_mv, thresholds, test_data):
+
+    def test(self, input_mv, test_gallery):
         """
 
         Test impersonation rate of a single speech sample in a given population. Return array broken down by gender:
@@ -418,17 +423,30 @@ class SiameseModel(object):
         }
 
         :param input_mv:            np array with the speech sample (or latent vector)
-        :param thresholds:          2-D list of thresholds (for *eer* and *far1*)
-        :param test_data:           dataset with the test population
+        :param test_gallery:           dataset with the test population
         :return:
         """
 
-        if test_data is None:
-            return {'m': np.array(0), 'f': np.array(0)}, {'m': np.array(0), 'f': np.array(0)}
+        if test_gallery is None:
+            return {'m': np.array(0), 'f': np.array(0)}
 
         if self.gan is not None:
             input_spectrum, _, _ = audio.normalize_frames(np.squeeze(self.gan.get_generator()(np.expand_dims(input_mv, axis=0))[-1].numpy(), axis=0))
         else:
             input_spectrum = input_mv
 
-        return self.verifier.test_impersonation(input_spectrum, thresholds, test_data)
+        self.sims, self.imps, self.gnds = {}, {}, {}
+
+        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(tf.expand_dims(input_spectrum, axis=0), test_gallery, level=Model.SECURITY_LEVEL_EER)
+        eer_results = {'m': tf.mean(gnd_df[Dataset.Male].values), 'f': tf.mean(gnd_df[Dataset.Female].values)}
+        self.sims[Model.SECURITY_LEVEL_EER] = sim_df
+        self.imps[Model.SECURITY_LEVEL_EER] = imp_df
+        self.gnds[Model.SECURITY_LEVEL_EER] = gnd_df
+
+        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(tf.expand_dims(input_spectrum, axis=0), test_gallery, level=Model.SECURITY_LEVEL_FAR1)
+        far1_results = {'m': tf.mean(gnd_df[Dataset.Male].values), 'f': tf.mean(gnd_df[Dataset.Female].values)}
+        self.sims[Model.SECURITY_LEVEL_FAR1] = sim_df
+        self.imps[Model.SECURITY_LEVEL_FAR1] = imp_df
+        self.gnds[Model.SECURITY_LEVEL_FAR1] = gnd_df
+
+        return eer_results, far1_results

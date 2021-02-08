@@ -7,6 +7,8 @@ import os
 from models.verifier.model import VladPooling
 from models.verifier.model import Model
 
+from helpers.audio import get_np_spectrum
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class VggVox(Model):
@@ -21,6 +23,11 @@ class VggVox(Model):
     def __init__(self, name='vggvox', id=-1):
         super().__init__(name, id)
 
+
+    def compute_acoustic_representation(self, e):
+        return get_np_spectrum(e, num_fft=512)
+
+
     def __conv_bn_pool(self, x, layer_idx, conv_filters, conv_kernel_size, conv_strides, pool='', pool_size=(2, 2), pool_strides=None):
         x = tf.keras.layers.Conv2D(filters=conv_filters, kernel_size=conv_kernel_size, strides=conv_strides, padding='valid', name='{}{}'.format('conv', layer_idx))(x)
         x = tf.keras.layers.BatchNormalization(name='bn{}'.format(layer_idx))(x)
@@ -30,6 +37,7 @@ class VggVox(Model):
         elif pool == 'avg':
             x = tf.keras.layers.AveragePooling2D(pool_size=pool_size, strides=pool_strides, name='apool{}'.format(layer_idx))(x)
         return x
+
 
     def build(self, classes=0, embs_size=512, embs_name='embs', loss='softmax', aggregation='gvlad', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
         super().build(classes, embs_size, embs_name, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay, mode)
