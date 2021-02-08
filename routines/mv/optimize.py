@@ -38,6 +38,10 @@ def main():
     parser.add_argument('--audio_meta', dest='audio_meta', default='./data/vs_mv_pairs/meta_data_vox12_all.csv', type=str, action='store', help='Path to the CSV file with id-gender metadata of master voice training audios')
 
     parser.add_argument('--train_pop', dest='train_pop', default='./data/vs_mv_data/20200576-1456_mv_train_population_debug_100u_10s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv training')
+    parser.add_argument('--n_train_user', dest='n_train_user', default=20, type=int, action='store', help='')
+    parser.add_argument('--n_test_user', dest='n_test_user', default=10, type=int, action='store', help='')
+    parser.add_argument('--n_train_utterance', dest='n_train_utterance', default=20, type=int, help='')
+    parser.add_argument('--n_test_utterance', dest='n_test_utterance', default=20, type=int, action='store', help='')
     parser.add_argument('--mv_gender', dest='mv_gender', default='female', type=str, choices=['neutral', 'male', 'female'], action='store', help='Geneder against which master voices will be optimized')
 
     parser.add_argument('--n_examples', dest='n_examples', default=100, type=int, action='store', help='Number of master voices sampled to be created (only if netg is set)')
@@ -69,7 +73,7 @@ def main():
 
     # Load paths and labels for audio files that will be used during the optimization procedure
     if not settings['train_pop']:
-        train_pop, train_set, test_set = generate_enrolled_samples(audio_meta=settings['audio_meta'], dirname='data/voxceleb2/dev', n_train=20, n_test=10, n_split=(20, 20))
+        train_pop, train_set, test_set = generate_enrolled_samples(audio_meta=settings['audio_meta'], dirname='data/voxceleb2/dev', n_train=settings['n_train_user'], n_test=settings['n_test_user'], n_split=(settings['n_train_utterance'], settings['n_test_utterance']))
     else:
         train_pop, train_set, test_set = settings['train_pop'], pd.read_csv(settings['train_pop']), pd.read_csv(settings['train_pop'].replace('train', 'test'))
 
