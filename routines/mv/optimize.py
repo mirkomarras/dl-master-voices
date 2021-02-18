@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from sklearn.metrics import roc_curve
+from loguru import logger
 import pandas as pd
 import numpy as np
 import argparse
@@ -16,6 +17,7 @@ from models.mv.model import SiameseModel
 from models import verifier
 from models import gan
 
+
 logger.info('PATH>', sys.path)
 
 warnings.filterwarnings('ignore')
@@ -26,22 +28,19 @@ def main():
     parser = argparse.ArgumentParser(description='Master voice training')
 
     # Parameters for verifier
-    parser.add_argument('--netv', dest='netv', default='', type=str, action='store', help='Speaker verification model, e.g., xvector/v000')
+    parser.add_argument('--netv', dest='netv', default='vggvox/v003', type=str, action='store', help='Speaker verification model, e.g., xvector/v000')
 
     # Parameters for generative adversarial model or of the seed voice (if netg is specified, the master voices will be created by sampling spectrums from the GAN; otherwise, you need to specify a seed voice to batch_optimize_by_path as a master voice)
     parser.add_argument('--netg', dest='netg', default=None, type=str, action='store', help='Generative adversarial model, e.g., ms-gan/v000')
     parser.add_argument('--netg_gender', dest='netg_gender', default='neutral', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender of the generative adversarial model')
-    parser.add_argument('--seed_voice', dest='seed_voice', default='', type=str, action='store', help='Path to the seed voice that will be optimized to become a master voice')
+    parser.add_argument('--seed_voice', dest='seed_voice', default='data/voxceleb_subset/voxceleb2/dev/id00012/21Uxsk56VDQ/00001.m4a', type=str, action='store', help='Path to the seed voice that will be optimized to become a master voice')
 
     # Parameters for master voice optimization
     parser.add_argument('--audio_dir', dest='audio_dir', default='./data/voxceleb2/dev', type=str, action='store', help='Path to the folder where master voice training audios are stored')
     parser.add_argument('--audio_meta', dest='audio_meta', default='./data/vs_mv_pairs/meta_data_vox12_all.csv', type=str, action='store', help='Path to the CSV file with id-gender metadata of master voice training audios')
 
-    parser.add_argument('--train_pop', dest='train_pop', default='./data/vs_mv_data/20200576-1456_mv_train_population_debug_100u_10s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv training')
-    parser.add_argument('--n_train_user', dest='n_train_user', default=20, type=int, action='store', help='')
-    parser.add_argument('--n_test_user', dest='n_test_user', default=10, type=int, action='store', help='')
-    parser.add_argument('--n_train_utterance', dest='n_train_utterance', default=20, type=int, help='')
-    parser.add_argument('--n_test_utterance', dest='n_test_utterance', default=20, type=int, action='store', help='')
+    parser.add_argument('--train_pop', dest='train_pop', default='./data/vs_mv_pairs/mv_train_population_debug_20u_20s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv training')
+    parser.add_argument('--test_pop', dest='test_pop', default='./data/vs_mv_pairs/mv_test_population_debug_20u_10s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv testing')
     parser.add_argument('--mv_gender', dest='mv_gender', default='female', type=str, choices=['neutral', 'male', 'female'], action='store', help='Geneder against which master voices will be optimized')
 
     parser.add_argument('--n_examples', dest='n_examples', default=100, type=int, action='store', help='Number of master voices sampled to be created (only if netg is set)')
@@ -69,14 +68,9 @@ def main():
     # Parameter summary to print at the beginning of the script
     logger.info('Parameters summary')
     for key, value in settings.items():
-        logger.info(key, value)
+        logger.info('{}: {}'.format(key, value))
 
-    # Load paths and labels for audio files that will be used during the optimization procedure
-    if not settings['train_pop']:
-        train_pop, train_set, test_set = generate_enrolled_samples(audio_meta=settings['audio_meta'], dirname='data/voxceleb2/dev', n_train=settings['n_train_user'], n_test=settings['n_test_user'], n_split=(settings['n_train_utterance'], settings['n_test_utterance']))
-    else:
-        train_pop, train_set, test_set = settings['train_pop'], pd.read_csv(settings['train_pop']), pd.read_csv(settings['train_pop'].replace('train', 'test'))
-
+    train_set = pd.read_csv(settings['train_pop'])
     x_train, y_train = train_set['filename'], train_set['user_id']
     x_train, y_train = filter_by_gender(x_train, y_train, settings['audio_meta'], settings['mv_gender'])
     assert len(x_train) > 0, 'Looks like no user data was loaded! Check your data directories and gender filters'
@@ -86,7 +80,7 @@ def main():
     dir_name = settings['netv'].replace('/', '-') + ('_' + settings['netg'].replace('/', '-') + '_' + settings['netg_gender'][0] + '-' + settings['mv_gender'][0] if settings['netg'] else '_real_u-' + settings['mv_gender'][0])
 
     # We initialize the siamese model that will be used to batch_optimize_by_path master voices
-    siamese_model = SiameseModel(dir=os.path.join('data', 'vs_mv_data', dir_name), params=args, playback=settings['playback'], ir_dir=settings['ir_dir'], sample_rate=settings['sample_rate'])
+    siamese_model = SiameseModel(dir=os.path.join('data', 'vs_mv_data', dir_name), params=settings, playback=settings['playback'], ir_dir=settings['ir_dir'], sample_rate=settings['sample_rate'])
     logger.info('> siamese network initialized')
 
     logger.info('Setting verifier')
@@ -118,7 +112,10 @@ def main():
 
     # Setup training and testing datasets
     train_data = data_pipeline_mv(x_train, y_train, settings['sample_rate'] * settings['n_seconds'], settings['sample_rate'], settings['batch'], settings['prefetch'], output_type)
-    test_gallery = Dataset(train_pop)
+
+    # Create the testing gallery
+    logger.info('Checking testing gallery')
+    test_gallery = Dataset(settings['test_pop'])
     test_gallery.precomputed_embeddings(sv)
 
     # Construct optimization settings

@@ -10,6 +10,7 @@ import os
 from datetime import datetime
 
 from models.verifier.model import Model
+from helpers.dataset import Dataset
 from helpers import plotting, audio
 
 from loguru import logger
@@ -51,7 +52,7 @@ class SiameseModel(object):
         assert os.path.exists(self.dir), 'Please check folder permission for seed and master voice saving'
 
         # Retrieve the version of the seed and master voices sets for that particolar combination of verifier and gan
-        self.id = '{len(os.listdir(self.dir)):03d}'
+        self.id = '{:03d}'.format(len(os.listdir(self.dir)))
 
         # Create sub-directories for saving seed and master voices
         if not os.path.exists(self.dir_full):
@@ -98,6 +99,7 @@ class SiameseModel(object):
 
         verifier.build(mode='test')
         verifier.load()
+        verifier.evaluate()
 
         self.verifier = verifier
 
@@ -255,7 +257,7 @@ class SiameseModel(object):
         performance['l2_norm'].append(tf.reduce_mean(tf.square(perturbation)).numpy().item())
         performance['max_dist'].append(np.max(np.abs(perturbation)).item())
 
-        logger.info('! Baseline | Imp@EER m={results[0]["m"]:.3f} f={results[0]["f"]:.3f} | Imp@FAR1 m={results[1]["m"]:.3f} f={results[1]["f"]:.3f}', end='\n')
+        logger.info('! Baseline | Imp@EER m={:.3f} f={:.3f} | Imp@FAR1 m={:.3f} f={:.3f}'.format(results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"]), end='\n')
 
         for epoch in range(settings.n_epochs):  # For each optimization epoch
             t1 = datetime.now()
@@ -304,7 +306,7 @@ class SiameseModel(object):
 
             t2 = datetime.now()
             if test_gallery is not None:
-
+                print('coa')
                 input_mv = input_sv + perturbation
                 # input_mv = tf.clip_by_value(input_mv, 0, 10000)
 
@@ -328,8 +330,8 @@ class SiameseModel(object):
                     break
 
             t3 = datetime.now()
-            logger.info('Imp@EER m={results[0]["m"]:.3f} f={results[0]["f"]:.3f} | Imp@FAR1 m={results[1]["m"]:.3f} f={results[1]["f"]:.3f}')
-            logger.info(' # optimize. time = {(t2 - t1).total_seconds():.1f} s + val. time = {(t3 - t2).total_seconds():.1f} s')
+            logger.info('Imp@EER m={:.3f} f={:.3f} | Imp@FAR1 m={:.3f} f={:.3f}'.format(results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"]))
+            logger.info(' # optimize. time = {:.1f} s + val. time = {:.1f} s'.format((t2 - t1).total_seconds(), (t3 - t2).total_seconds()))
 
         return input_sv + perturbation, performance
 
@@ -346,7 +348,7 @@ class SiameseModel(object):
 
         assert input_sv.ndim == 3
         assert input_sv.shape == input_mv.shape
-        suffix = '{iter}' if self.gan is not None else filename
+        suffix = '{}'.format(iter) if self.gan is not None else filename
 
         # We save the current audio associated to the master voice latent vector / spectrogram
         if self.gan is not None:
@@ -393,18 +395,18 @@ class SiameseModel(object):
         filename_fig = os.path.join(self.dir_full, 'spectrums_' + suffix + '.png')        
         fig = plotting.imsc(
             (sp_mv[:n_bins//2], sp[:n_bins//2], np.abs(sp_mv - sp)[:n_bins//2]), 
-            ['master voice (IR_{gender}={ir_end:.2f}) []', 'seed voice (IR_{gender}={ir_start:.2f}) []', 'diff []'],
+            ['master voice (IR_{}={:.2f}) []'.format(gender, ir_end), 'seed voice (IR_{}={:.2f}) []'.format(gender, ir_start), 'diff []'],
             cmap='jet', ncols=3)
         fig.savefig(filename_fig, bbox_inches='tight')
 
         # We save the similarities, impostor, and gender impostor results
-        self.sims[Model.SECURITY_LEVEL_EER].to_csv(os.path.join('./data/vs_mv_models/', net, 'sims_' + test_gallery.pop_file + '_' + mv_set + '_' + 'eer' + '_' + 'any'))
-        self.imps[Model.SECURITY_LEVEL_EER].to_csv(os.path.join('./data/vs_mv_models/', net, 'imps_' + test_gallery.pop_file + '_' + mv_set + '_' + 'eer' + '_' + 'any'))
-        self.gnds[Model.SECURITY_LEVEL_EER].to_csv(os.path.join('./data/vs_mv_models/', net, 'gnds_' + test_gallery.pop_file + '_' + mv_set + '_' + 'eer' + '_' + 'any'))
+        self.sims['eer'].to_csv(os.path.join(self.dir_full, net + '_sims_' + test_gallery.pop_file + '_' + mv_set + '_' + 'eer' + '_' + 'any'))
+        self.imps['eer'].to_csv(os.path.join(self.dir_full, net + '_imps_' + test_gallery.pop_file + '_' + mv_set + '_' + 'eer' + '_' + 'any'))
+        self.gnds['eer'].to_csv(os.path.join(self.dir_full, net + '_gnds_' + test_gallery.pop_file + '_' + mv_set + '_' + 'eer' + '_' + 'any'))
 
-        self.sims[Model.SECURITY_LEVEL_FAR1].to_csv(os.path.join('./data/vs_mv_models/', net, 'sims_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
-        self.imps[Model.SECURITY_LEVEL_FAR1].to_csv(os.path.join('./data/vs_mv_models/', net, 'imps_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
-        self.gnds[Model.SECURITY_LEVEL_FAR1].to_csv(os.path.join('./data/vs_mv_models/', net, 'gnds_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
+        self.sims['far1'].to_csv(os.path.join(self.dir_full, net + '_sims_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
+        self.imps['far1'].to_csv(os.path.join(self.dir_full, net + '_imps_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
+        self.gnds['far1'].to_csv(os.path.join(self.dir_full, net + '_gnds_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
 
         # We update and save the current impersonation rate history
         filename_stats = os.path.join(self.dir_full, 'optimization_progress_' + (str(iter) if self.gan is not None else filename))
@@ -428,7 +430,7 @@ class SiameseModel(object):
         """
 
         if test_gallery is None:
-            return {'m': np.array(0), 'f': np.array(0)}
+            return {'m': np.array(0), 'f': np.array(0)}, {'m': np.array(0), 'f': np.array(0)}
 
         if self.gan is not None:
             input_spectrum, _, _ = audio.normalize_frames(np.squeeze(self.gan.get_generator()(np.expand_dims(input_mv, axis=0))[-1].numpy(), axis=0))
@@ -437,16 +439,16 @@ class SiameseModel(object):
 
         self.sims, self.imps, self.gnds = {}, {}, {}
 
-        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(tf.expand_dims(input_spectrum, axis=0), test_gallery, level=Model.SECURITY_LEVEL_EER)
-        eer_results = {'m': tf.mean(gnd_df[Dataset.Male].values), 'f': tf.mean(gnd_df[Dataset.Female].values)}
-        self.sims[Model.SECURITY_LEVEL_EER] = sim_df
-        self.imps[Model.SECURITY_LEVEL_EER] = imp_df
-        self.gnds[Model.SECURITY_LEVEL_EER] = gnd_df
+        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(tf.expand_dims(input_spectrum, axis=0), test_gallery, level='eer')
+        eer_results = {'m': np.mean(gnd_df[:, 0]), 'f': np.mean(gnd_df[:, 1])}
+        self.sims['eer'] = sim_df
+        self.imps['eer'] = imp_df
+        self.gnds['eer'] = gnd_df
 
-        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(tf.expand_dims(input_spectrum, axis=0), test_gallery, level=Model.SECURITY_LEVEL_FAR1)
-        far1_results = {'m': tf.mean(gnd_df[Dataset.Male].values), 'f': tf.mean(gnd_df[Dataset.Female].values)}
-        self.sims[Model.SECURITY_LEVEL_FAR1] = sim_df
-        self.imps[Model.SECURITY_LEVEL_FAR1] = imp_df
-        self.gnds[Model.SECURITY_LEVEL_FAR1] = gnd_df
+        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(tf.expand_dims(input_spectrum, axis=0), test_gallery, level='far1')
+        far1_results = {'m': np.mean(gnd_df[:, 0]), 'f': np.mean(gnd_df[:, 1])}
+        self.sims['far1'] = sim_df
+        self.imps['far1'] = imp_df
+        self.gnds['far1'] = gnd_df
 
         return eer_results, far1_results

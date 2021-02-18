@@ -7,7 +7,7 @@ import os
 from models.verifier.model import VladPooling
 from models.verifier.model import Model
 
-from helpers.audio import get_np_spectrum
+from helpers.audio import get_tf_spectrum
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -25,7 +25,7 @@ class ResNet50(Model):
 
 
     def compute_acoustic_representation(self, e):
-        return get_np_spectrum(e, num_fft=512)
+        return get_tf_spectrum(e, num_fft=512)
 
 
     def build(self, classes=0, embs_size=512, embs_name='embs', loss='softmax', aggregation='gvlad', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):

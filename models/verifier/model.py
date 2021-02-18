@@ -3,6 +3,7 @@
 
 from scipy.spatial.distance import euclidean, cosine
 from sklearn.metrics import roc_curve
+from itertools import groupby
 from loguru import logger
 import tensorflow as tf
 from tqdm import tqdm
@@ -11,8 +12,8 @@ import numpy as np
 import json
 import os
 
-from helpers.audio import get_tf_spectrum, get_tf_filterbanks
-from helpers.evaluation import get_verification_metrics
+from helpers.audio import get_tf_spectrum, get_tf_filterbanks, decode_audio
+from helpers.dataset import Dataset
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -95,11 +96,6 @@ class VladPooling(tf.keras.layers.Layer):
 
 class Model(object):
 
-    POLICY_ANY = 'any'
-    POLICY_AVG = 'avg'
-
-    SECURITY_LEVEL_EER = 'eer'
-    SECURITY_LEVEL_FAR1 = 'far1'
 
     def __init__(self, name='', id=-1):
         '''
@@ -227,33 +223,40 @@ class Model(object):
 
     def prepare_input(self, elements, playback):
         assert len(elements) > 0
+
         if len(elements.shape) == 1:
             if playback is not None:
-                elements = tf.map_fn(playback.simulate, elements)
-            elements = tf.map_fn(decode_audio, elements)
-        if len(elements.shape) == 2:
-            elements = tf.map_fn(self.compute_acoustic_representation, elements)
+                elements = [playback.simulate(e) for e in elements]
+            elements = [decode_audio(e) for e in elements]
+
+        if len(elements[0].shape) == 1:
+            elements = [self.compute_acoustic_representation(np.expand_dims(np.array(e), axis=(0, 2))) for e in elements]
+
         return elements
 
 
     def predict(self, elements, playback=None):
         elements = self.prepare_input(elements, playback)
-        embeddings = self._inference_model.predict(elements)
-        embeddings_norm = tf.keras.backend.l2_normalize(embeddings, axes=1)
-        return embeddings_norm
+        embeddings = np.array([self._inference_model.predict(e) for e in elements])
+        embeddings_norm = tf.keras.backend.l2_normalize(embeddings, axis=1)
+        return tf.squeeze(embeddings_norm, axis=1)
 
 
-    def compare(self, x1, x2):
+    def compare(self, x1, x2, only_scores=False):
         assert self._inference_model is not None
         scores = []
         for e1, e2 in tqdm(zip(x1, x2)):
-            emb_1 = self.predict(e1)[0]
-            emb_2 = self.predict(e2)[0]
+            if only_scores:
+                emb_1 = x1[0]
+                emb_2 = x2[0]
+            else:
+                emb_1 = self.predict(np.array([e1]))[0]
+                emb_2 = self.predict(np.array([e2]))[0]
             scores.append(1 - cosine(emb_1, emb_2))
         return scores
 
     
-    def evaluate(self, comparison_data):
+    def evaluate(self, comparison_data=None):
         if self._thresholds is None:
 
             if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'thresholds.json')):
@@ -263,11 +266,12 @@ class Model(object):
             else:
 
                 if comparison_data is None:
-                    test_pairs = os.path.join('.', 'data', 'vs_mv_pairs', 'trial_pairs_vox1_test.csv', names=['y', 'x1', 'x2'])
-                    x1, x2, y = test_pairs['x1'], test_pairs['x2'], test_pairs['y']
+                    test_pairs = pd.read_csv(os.path.join('.', 'data', 'vs_mv_pairs', 'trial_pairs_vox1_test.csv'), delimiter=' ', names=['y', 'x1', 'x2'])
+                    x1, x2, y = test_pairs['x1'].apply(lambda x: os.path.join('data/voxceleb_subset/voxceleb1/test', x)), test_pairs['x2'].apply(lambda x: os.path.join('data/voxceleb_subset/voxceleb1/test', x)), test_pairs['y']
                 else:
                     x1, x2, y = comparison_data
 
+                self.infer()
                 scores = self.compare(x1, x2)
 
                 far, tpr, thresholds = roc_curve(y, scores, pos_label=1)
@@ -275,7 +279,7 @@ class Model(object):
                 id_eer = np.argmin(np.abs(far - frr))
                 id_far1 = np.argmin(np.abs(far - 0.01))
                 eer = float(np.mean([far[id_eer], frr[id_eer]]))  # p = None --> EER, 1, 0.1
-                thrs = {Model.SECURITY_LEVEL_EER: thresholds[id_eer], Model.SECURITY_LEVEL_FAR1: thresholds[id_far1]}
+                thrs = {'eer': thresholds[id_eer], 'far1': thresholds[id_far1]}
                 logger.info('>', 'found thresholds {} - eer of {}'.format(thrs, eer))
 
                 with open(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'thresholds.json'), 'w') as thresholds_file:
@@ -285,33 +289,41 @@ class Model(object):
                 self._thresholds = thrs
 
 
-    def test_error_rates(self, elements, gallery, policy=Model.POLICY_ANY, level=Model.SECURITY_LEVEL_FAR1, playback=None):
-        assert self._thresholds is not None and self._inference_model is not None and policy in [Model.POLICY_ANY, Model.POLICY_AVG] and level in [Model.SECURITY_LEVEL_EER, Model.SECURITY_LEVEL_FAR1]
+    def test_error_rates(self, elements, gallery, policy='any', level='far1', playback=None):
+        assert self._thresholds is not None and self._inference_model is not None
 
         # Expand the elements so that we can flexibly manage sequences of elements
         elements = elements if len(elements.shape) >= 2 else np.expand_dims(elements, axis=0)  # audio (None,) audios (None, n) ---> use prepare_batch
 
         # Initialize the similarity matrix (elements, utterances) for any and (elements, users) for avg --> check whether
-        sim_matrix = np.zeros((len(elements), len(gallery.user_ids))) if policy == Model.POLICY_ANY else np.zeros((len(elements), len(np.unique(gallery.user_ids))))
+        sim_matrix = np.zeros((len(elements), len(gallery.user_ids))) if policy == 'any' else np.zeros((len(elements), len(np.unique(gallery.user_ids))))
         # Initialize the binary impersonation matrix (0: no imp, 1:imp) of shape (elements, users)
         imp_matrix = np.zeros((len(elements), len(np.unique(gallery.user_ids))))
         # Initialize the counting impersonation matrix for genders of shape (elements, 2) - male and females
         gnd_matrix = np.zeros((len(elements), 2))
 
         # Loop for all the mv elements and users # layer that
+        d = {}
+        for index, value in enumerate(gallery.user_ids):
+            if value not in d:
+                d[value] = index
+
+        gnds_idx = gallery.user_genders[np.array(list(d.values()))]
+
         for element_idx, element in enumerate(elements):
             element_emb = self.predict(element[tf.newaxis, ...], playback)
             for user_idx, user_id in enumerate(np.unique(gallery.user_ids)): # For each user in the gallery, reuse if the gallery size increase
-                if policy == Model.POLICY_ANY: # m1, u1 u2 u3     0.56 0.78 0.67      0.75 thr taking (max)
-                    user_sim = self.compare(np.tile(element_emb, (len(gallery.user_ids == user_id), 1)), gallery.embeddings[gallery.user_ids == user_id])
-                    sim_matrix[audio_idx, gallery.user_ids == user_id] = user_sim
-                    imp_matrix[thr_index, user_idx] = min(1, len([1 for score in user_sim if score > self._thresholds[level]]))
-                elif policy == Model.POLICY_AVG:
+                if policy == 'any':
+                    user_sim = self.compare(np.tile(element_emb, (len(gallery.embeddings[gallery.user_ids == user_id]), 1)), gallery.embeddings[gallery.user_ids == user_id], only_scores=True)
+                    sim_matrix[element_idx, gallery.user_ids == user_id] = user_sim
+                    imp_matrix[element_idx, user_idx] = min(1, len([1 for score in user_sim if score > self._thresholds[level]]))
+                elif policy == 'avg':
                     user_embedding = np.mean(gallery.embeddings[gallery.user_ids == user_id], axis=0)
                     user_sim = self.compare(np.expand_dims(element_emb, axis=0), np.expand_dims(user_embedding, axis=0))[0]
-                    sim_matrix[audio_idx, user_idx] = user_sim
-                    imp_matrix[thr_index, user_idx] = 1 if user_sim > self._thresholds[level] else 0
-            gnd_matrix[element_idx][Dataset.MALE] = np.sum(imp_matrix[element_idx, gallery.user_gnd == Dataset.MALE])
-            gnd_matrix[element_idx][Dataset.FEMALE] = np.sum(imp_matrix[element_idx, gallery.user_gnd == Dataset.FEMALE])
+                    sim_matrix[element_idx, user_idx] = user_sim
+                    imp_matrix[element_idx, user_idx] = 1 if user_sim > self._thresholds[level] else 0
 
-        return (sim_df, imp_df, gnd_df)
+            gnd_matrix[element_idx, 0] = np.sum(imp_matrix[element_idx, gnds_idx == 'm'])
+            gnd_matrix[element_idx, 1] = np.sum(imp_matrix[element_idx, gnds_idx == 'f'])
+
+        return (sim_matrix, imp_matrix, gnd_matrix)

@@ -2,12 +2,13 @@
 # -*- coding: utf-8 -*-
 
 import tensorflow as tf
+import numpy as np
 import os
 
 from models.verifier.model import VladPooling
 from models.verifier.model import Model
 
-from helpers.audio import get_np_spectrum
+from helpers.audio import get_tf_spectrum, decode_audio
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -25,7 +26,7 @@ class VggVox(Model):
 
 
     def compute_acoustic_representation(self, e):
-        return get_np_spectrum(e, num_fft=512)
+        return get_tf_spectrum(e)
 
 
     def __conv_bn_pool(self, x, layer_idx, conv_filters, conv_kernel_size, conv_strides, pool='', pool_size=(2, 2), pool_strides=None):

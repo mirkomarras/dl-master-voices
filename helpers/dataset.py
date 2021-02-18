@@ -3,6 +3,7 @@
 
 from collections import namedtuple
 from pathlib import Path
+from tqdm import tqdm
 import pandas as pd
 import numpy as np
 import random
@@ -21,13 +22,16 @@ class Dataset(object):
 
         population = pd.read_csv(pop_file)
 
-        self.pop_file = pop_file.split(os.path.sep)[-1]
-        self.filenames = population['filename']
-        self.user_ids = population['user_id']
-        self.user_genders = population['gender']
+        self.pop_file = pop_file.split(os.path.sep)[-1].split('.')[0]
+        self.population = population['filename'].values
+        self.user_ids = population['user_id'].values
+        self.user_genders = population['gender'].values
 
         self.embeddings = None
         self.embedding_type = None
+
+    def set_embedding_type(self, sv):
+        self.embedding_type = sv.name + '_' + 'v' + '{:03d}'.format(sv.id)
 
     def precomputed_embeddings(self, sv, recompute=False):
 
@@ -35,27 +39,33 @@ class Dataset(object):
             logger.warning('Embeddings ({self.embedding_type}) already computed. Use recompute=True to override.')
             return
 
-        self.embedding_type = sv.name + '_' + 'v' + '{:03d}'.format(sv.id)
+        self.set_embedding_type(sv)
+
         if os.path.exists(self.get_filename()):
             self.load_embeddings()
             return
 
-        self.embeddings = sv.predict(self.filenames)
+        self.embeddings = sv.predict(self.population)
 
         self.save_embeddings()
 
 
-    def get_filename(self):
-        return os.path.join('data/vs_mv_data', self.pop_file, 'embeddings', self.embedding_type  + '.npz')
+    def get_filename(self): # data/vs_mv_data/20200576-1456_mv_train_population_debug_100u_10s.csv  -> remove time, use debug/something label
+        dirname = os.path.join('data/vs_mv_data', self.pop_file, 'embeddings')
+        if not os.path.exists(dirname):
+            os.makedirs(dirname)
+        return os.path.join(dirname, self.embedding_type  + '.npz')
 
     def save_embeddings(self):
         filename = self.get_filename()
-        np.savez(filename, **self.embeddings)
+
+        print(self.embeddings.numpy().shape)
+        np.savez(filename, self.embeddings.numpy())
         logger.info('Embeddings saved for {}'.format(filename))
 
     def load_embeddings(self):
         filename = self.get_filename()
-        self.embeddings = np.load(filename)
+        self.embeddings = np.load(filename)['arr_0']
         logger.info('Embeddings loaded for {}'.format(filename))
 
 
@@ -97,50 +107,41 @@ def get_mv_analysis_users(mv_analysis_path, type='all'):
     return output_users
 
 
-def generate_enrolled_samples(audio_meta='./data/vs_mv_pairs/meta_data_vox12_all.csv', dirname='data/voxceleb2/dev', n_train=20, n_test=10, n_split=(20, 20)):
-    npz_file = 'data/vs_mv_pairs/data_mv_vox2_debug.npz' # We soon remove this
+def generate_enrolled_samples(prepr, ptag='debug', audio_meta='data/vs_mv_pairs/meta_data_vox12_all.csv', audio_folder='data/voxceleb_subset/voxceleb2/dev/'):
+    '''
+    Create populations for training and testing master voices
+    :param prepr: dictionary with pop name as key and a dictionary with {'nusers': xx, 'nuttrs': yy}
+    :param ptag: tag of the population to add to the filename
+    :param audio_meta: csv with gender label on the audio files
+    :param audio_folder: directory where the audio files are stored
+    :return: None - it saves a file for each pop name in the form 'data/mv_vs_pairs/mv_{pop name}_population_{ntag}_{nusers}u_{nuttrs}s.csv'.
+    '''
+    npz_file = 'data/vs_mv_pairs/data_mv_vox2_all.npz' # We soon remove this
 
     # Retrieve gender data
-    data_set_df = pd.read_csv(audiometa, delimiter=' ')
+    data_set_df = pd.read_csv(audio_meta, delimiter=' ')
     gender_map = {k:v for k, v in zip(data_set_df['id'].values, data_set_df['gender'].values)}
 
-    users = os.listdir(dirname)
+    # Shiffle users
+    users = os.listdir(audio_folder)
     random.shuffle(users)
 
-    x_train, x_test, y_train, y_test, g_train, g_test = [], [], [], [], [], []
-
     # Sampling training and testing data
-    logger.info('# Training population')
-    train_users = list(set(users) & set(get_mv_analysis_users(npz_file, type='train')))[:n_split[0]] if npz_file else list(users)[:n_split[0]]
-    for u in train_users:
-        files = [str(f).replace(dirname + '/', '') for f in Path(os.path.join(dirname, u)).glob('**/*.m4a')][:n_train]
-        x_train.append(files)
-        y_train.append([int(u[2:]) for _ in files])
-        g_train.append([gender_map[u] for _ in files])
+    for pt, pr in prepr.items():
+        logger.info('# Population of type {}'.format(pt))
+        selected_users = list(set(users) & set(get_mv_analysis_users(npz_file, type=pt)))[:pr['nusers']]
 
-    logger.info('# Testing population')
-    test_users = list(set(users) & set(get_mv_analysis_users(npz_file, type='test')))[sum(n_split)-n_split[0]] if npz_file else list(users)[n_split[0]:sum(n_split)]
-    for u in test_users:
-        files = [str(f).replace(dirname + '/', '') for f in Path(os.path.join(dirname, u)).glob('**/*.m4a')][:n_test]
-        x_test.append(files)
-        y_test.extend([int(u[2:]) for _ in files])
-        g_test.append([gender_map[u] for _ in files])
+        x, y, g = [], [], []
+        for u in tqdm(selected_users):
+            files = [str(f).replace(audio_folder + '/', '') for f in Path(audio_folder, u).glob('**/*.wav')][:pr['nuttrs']]
+            x += files
+            y += [int(u[2:]) for _ in files]
+            g += [gender_map[u] for _ in files]
 
-    # Add a time id
-    current_time = time.strftime('%Y%m%d-%H%M%S')
-
-    # Saving csv files
-    train_path = os.path.join('data', 'vs_mv_data', '{}_mv_train_population_debug_{}u_{}s.csv'.format(current_time, n_split[0], n_train))
-    logger.info('Writing to csv {}'.format(train_path))
-    train_set = pd.DataFrame(list(zip(x_train, y_train, g_train)), columns =['filename', 'user_id', 'gender'])
-    train_set.to_csv(train_path)
-
-    test_path = os.path.join('data', 'vs_mv_data', '{}_mv_test_population_debug_{}u_{}s.csv'.format(current_time, n_split[1], n_test))
-    logger.info('Writing to csv {}'.format(test_path))
-    test_set = pd.DataFrame(list(zip(x_test, y_test, g_test)), columns =['filename', 'user_id', 'gender'])
-    test_set.to_csv(test_path)
-
-    return train_path, train_set, test_set
+        filepath = os.path.join('data', 'vs_mv_pairs', 'mv_{}_population_{}_{}u_{}s.csv'.format(pt, ptag, pr['nusers'], pr['nuttrs']))
+        logger.info('Saving to csv {}'.format(filepath))
+        pdf = pd.DataFrame(list(zip(x, y, g)), columns =['filename', 'user_id', 'gender'])
+        pdf.to_csv(filepath, index=False)
 
 
 def load_data_set(audio_dir, mv_user_ids, include=False, n_samples=None):

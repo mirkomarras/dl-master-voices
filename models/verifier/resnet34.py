@@ -7,7 +7,7 @@ import os
 from models.verifier.model import VladPooling
 from models.verifier.model import Model
 
-from helpers.audio import get_np_spectrum
+from helpers.audio import get_tf_spectrum
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -17,7 +17,7 @@ class ResNet34(Model):
         super().__init__(name, id)
 
     def compute_acoustic_representation(self, e):
-        return get_np_spectrum(e, num_fft=512)
+        return get_tf_spectrum(e, num_fft=512)
 
     def identity_block_2d(self, input_tensor, kernel_size, filters, stage, block, weight_decay, trainable):
         filters1, filters2, filters3 = filters
