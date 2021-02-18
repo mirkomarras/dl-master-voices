@@ -237,7 +237,7 @@ class Model(object):
 
     def predict(self, elements, playback=None):
         elements = self.prepare_input(elements, playback)
-        embeddings = np.array([self._inference_model.predict(e) for e in elements])
+        embeddings = np.array([self._inference_model.predict(np.expand_dims(e, axis=0)) for e in elements])
         embeddings_norm = tf.keras.backend.l2_normalize(embeddings, axis=1)
         return tf.squeeze(embeddings_norm, axis=1)
 
