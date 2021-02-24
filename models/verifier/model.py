@@ -237,15 +237,19 @@ class Model(object):
 
     def predict(self, elements, playback=None):
         elements = self.prepare_input(elements, playback)
-        embeddings = np.array([self._inference_model.predict(np.expand_dims(e, axis=0)) for e in elements])
+        if isinstance(elements, list):
+            embeddings = tf.concat([self._inference_model.predict(e) for e in elements], axis=0)
+        else:
+            embeddings = self._inference_model.predict(elements)
         embeddings_norm = tf.keras.backend.l2_normalize(embeddings, axis=1)
-        return tf.squeeze(embeddings_norm, axis=1)
+        # tf.squeeze(embeddings_norm, axis=1)
+        return embeddings_norm
 
 
     def compare(self, x1, x2, only_scores=False):
         assert self._inference_model is not None
         scores = []
-        for e1, e2 in tqdm(zip(x1, x2)):
+        for e1, e2 in zip(x1, x2):
             if only_scores:
                 emb_1 = x1[0]
                 emb_2 = x2[0]
@@ -255,19 +259,23 @@ class Model(object):
             scores.append(1 - cosine(emb_1, emb_2))
         return scores
 
-    
-    def evaluate(self, comparison_data=None):
+    # TODO [Critical] Hard-coded paths for testing
+    def calibrate_thresholds(self, comparison_data=None):
         if self._thresholds is None:
 
-            if os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'thresholds.json')):
-                with open(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'thresholds.json'), 'r') as thresholds_file:
+            thresholds_path = os.path.join(self.get_dirname(), 'thresholds.json')
+
+            if os.path.exists(thresholds_path):
+                with open(thresholds_path, 'r') as thresholds_file:
                     self._thresholds = json.load(thresholds_file)
 
             else:
 
                 if comparison_data is None:
                     test_pairs = pd.read_csv(os.path.join('.', 'data', 'vs_mv_pairs', 'trial_pairs_vox1_test.csv'), delimiter=' ', names=['y', 'x1', 'x2'])
-                    x1, x2, y = test_pairs['x1'].apply(lambda x: os.path.join('data/voxceleb_subset/voxceleb1/test', x)), test_pairs['x2'].apply(lambda x: os.path.join('data/voxceleb_subset/voxceleb1/test', x)), test_pairs['y']
+                    x1 = test_pairs['x1'].apply(lambda x: os.path.join('data/voxceleb1/test', x)), 
+                    x2 = test_pairs['x2'].apply(lambda x: os.path.join('data/voxceleb1/test', x))
+                    y = test_pairs['y']
                 else:
                     x1, x2, y = comparison_data
 
@@ -282,8 +290,8 @@ class Model(object):
                 thrs = {'eer': thresholds[id_eer], 'far1': thresholds[id_far1]}
                 logger.info('>', 'found thresholds {} - eer of {}'.format(thrs, eer))
 
-                with open(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'thresholds.json'), 'w') as thresholds_file:
-                    logger.info('>', 'thresholds saved in {}'.format(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'thresholds.json')))
+                with open(thresholds_path, 'w') as thresholds_file:
+                    logger.info('>', 'thresholds saved in {}'.format(thresholds_path))
                     json.dump(thrs, thresholds_file)
 
                 self._thresholds = thrs
@@ -314,7 +322,10 @@ class Model(object):
             element_emb = self.predict(element[tf.newaxis, ...], playback)
             for user_idx, user_id in enumerate(np.unique(gallery.user_ids)): # For each user in the gallery, reuse if the gallery size increase
                 if policy == 'any':
-                    user_sim = self.compare(np.tile(element_emb, (len(gallery.embeddings[gallery.user_ids == user_id]), 1)), gallery.embeddings[gallery.user_ids == user_id], only_scores=True)
+                    user_sim = self.compare(
+                        np.tile(element_emb, (np.sum(gallery.user_ids == user_id), 1)), 
+                        gallery.embeddings[gallery.user_ids == user_id], 
+                        only_scores=True)
                     sim_matrix[element_idx, gallery.user_ids == user_id] = user_sim
                     imp_matrix[element_idx, user_idx] = min(1, len([1 for score in user_sim if score > self._thresholds[level]]))
                 elif policy == 'avg':

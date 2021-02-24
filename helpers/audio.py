@@ -10,6 +10,8 @@ import random
 import math
 import os
 
+from loguru import logger
+
 def decode_audio(fp, sample_rate=16000):
     """
     Function to decode an audio file
@@ -44,7 +46,7 @@ def load_noise_paths(noise_dir):
             assert file.endswith('.wav')
             noise_paths[noise_type].append(os.path.join(noise_dir, noise_type, file))
 
-        print('  ', noise_type, len(noise_paths[noise_type]))
+        logger.debug(f'  {noise_type}, {len(noise_paths[noise_type])}')
 
     return noise_paths
 
@@ -353,8 +355,6 @@ def spectrum_to_signal(spectrum, slice_length, iter=300, sample_rate=16000, fram
         inv_signal = inv_istft(inv_spectrum, slice_length, sample_rate, frame_stride, num_fft)
         error = np.sqrt(np.sum((spectrum - abs(inv_spectrum))**2) / spectrum.size)
         if verbose:
-            print('\rIteration: {}/{} - Error: {} '.format(i+1, iter, error), end='')
-    if verbose:
-        print()
+            logger.debug(f'GL iteration: {i+1}/{iter} - Error: {error} ')
 
     return inv_signal

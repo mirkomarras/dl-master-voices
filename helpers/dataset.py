@@ -95,14 +95,14 @@ def get_mv_analysis_users(mv_analysis_path, type='all'):
         train_users = list(np.unique([path.split('/')[pid] for path in mv_analysis_data['x_train']]))
         assert train_users[0].startswith('id'), "The user IDs should start with 'id' - currently seeing {train_users[0]}"
         output_users = output_users + train_users
-        logger.info(('>', 'found mv analysis train users', len(train_users)))
+        logger.info(f'found mv analysis train users {len(train_users)}')
 
     if type in ['all', 'test']:
         logger.info('Load test user ids for mv analysis')
         test_users = list(np.unique([path.split('/')[pid] for path in mv_analysis_data['x_test']]))
         assert test_users[0].startswith('id'), "The user IDs should start with 'id' - currently seeing {train_users[0]}"
         output_users = output_users + test_users
-        logger.info(('>', 'found mv analysis test users', len(test_users)))
+        logger.info(f'found mv analysis test users { len(test_users)}')
 
     return output_users
 
