@@ -1,3 +1,4 @@
+import re
 import os
 import sys
 from loguru import logger
@@ -11,9 +12,9 @@ def setup_logging(filename=None, long_date=False, level='INFO'):
 
     if long_date:
         # If needed, can add "<cyan>{name}</cyan>:" to show file which triggered the message
-        log_format = '<green>{time:YYYY-MM-DD HH:mm:ss}</> | <lvl>{level}</lvl> | <lvl>{message}</>'
+        log_format = '<green>{time:YYYY-MM-DD HH:mm:ss}</> | <lvl>{level:8s}</lvl> | <lvl>{message}</>'
     else:
-        log_format = '<green>{time:HH:mm:ss}</> | <lvl>{level}</> | <lvl>{message}</lvl>'
+        log_format = '<green>{time:HH:mm:ss}</> | <lvl>{level:8s}</> | <lvl>{message}</lvl>'
 
     config = {
         "handlers": [
@@ -27,3 +28,7 @@ def setup_logging(filename=None, long_date=False, level='INFO'):
         config['handlers'].append({"sink": filename, "serialize": False, "format": log_format, "level": level})
 
     logger.configure(**config)
+
+
+def sanitize_path(name, sub='_'):
+    return re.sub(r'[ _~*!+#@":"!<>\[\]]+', sub, name).strip(sub)

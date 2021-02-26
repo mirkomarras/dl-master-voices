@@ -209,11 +209,11 @@ def filter_by_gender(paths, labels, meta_file, gender='neutral'):
                 filtered_paths.append(path)
                 filtered_labels.append(label)
 
-        logger.info(('>', 'filtered', len(filtered_paths), 'audio files from', len(np.unique(filtered_labels)), 'users'))
+        logger.info(f'filtered {len(filtered_paths)} audio files from {len(np.unique(filtered_labels))} users')
 
         return filtered_paths, filtered_labels
 
-    logger.info(('>', 'remaining', len(paths), 'audio files from', len(np.unique(labels)), 'users'))
+    logger.info(f'remaining {len(paths)} audio files from {len(np.unique(labels))} users')
 
     return paths, labels
 

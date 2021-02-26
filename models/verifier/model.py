@@ -15,6 +15,8 @@ import os
 from helpers.audio import get_tf_spectrum, get_tf_filterbanks, decode_audio
 from helpers.dataset import Dataset
 
+from loguru import logger
+
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class StepDecay():
@@ -32,7 +34,7 @@ class StepDecay():
     def __call__(self, epoch):
         exp = np.floor((1 + epoch) / self.decay_step)
         alpha = self.init_alpha * (self.decay_factor ** exp)
-        print('Learning rate for next epoch', float(alpha))
+        # logger.debug('Learning rate for next epoch', float(alpha))
         return float(alpha)
 
 
@@ -117,7 +119,8 @@ class Model(object):
         if not os.path.exists(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))):
             os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
 
-        print('> created model folder', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
+        path = os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))
+        logger.info(f'created model folder {path}')
 
 
     def infer(self):
@@ -155,17 +158,19 @@ class Model(object):
         """
         Save this model
         """
-        print('>', 'saving', self.name, 'model')
-        self.model.save(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'model.h5'))
+        logger.info('saving {self.name} model')
+        path = os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))
+        self.model.save(os.path.join(path, 'model.h5'))
         pd.DataFrame(self.history, columns=['loss', 'acc', 'err', 'far@eer', 'frr@eer', 'thr@eer', 'far@far1', 'frr@far1', 'thr@far']).to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'history.csv'), index=False)
-        print('>', 'saved', self.name, 'model in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
+        logger.info(f'saved {self.name} model in {path}')
 
 
     def save_params(self, params):
-        with open(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'params.txt'), "w") as file:
+        path = os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'params.txt')
+        with open(path, "w") as file:
             for arg in vars(params):
                 file.write("%s,%s\n" % (arg, getattr(params, arg)))
-        print('> params saved in', os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'params.txt'))
+        logger.info(f'params saved in {path}')
 
 
     def get_dirname(self):
@@ -176,7 +181,7 @@ class Model(object):
         """
         Load this model
         """
-        logger.info('loading', self.name, 'model')
+        logger.info(f'loading pre-trained {self.name}')
         version_id = 'v' + str('{:03d}'.format(self.id))
         if os.path.exists(os.path.join(self.dir, version_id)):
             if len(os.listdir(os.path.join(self.dir, version_id))) > 0:
@@ -186,11 +191,11 @@ class Model(object):
                 self.history = []
                 if os.path.exists(os.path.join(self.dir, version_id, 'history.csv')):
                     self.history = pd.read_csv(os.path.join(self.dir, version_id, 'history.csv')).values.tolist()
-                logger.info('>', 'loaded model from', os.path.join(self.dir, version_id))
+                logger.info(f'loaded checkpoint from {os.path.join(self.dir, version_id)}')
             else:
-                logger.warning('no pre-trained model for', self.name, 'model from', os.path.join(self.dir, version_id))
+                logger.warning(f'No pre-trained model for {self.name} in {os.path.join(self.dir, version_id)}')
         else:
-            logger.error('no directory for', self.name, 'model at', os.path.join(self.dir, version_id))
+            logger.error(f'No directory for {self.name} model at {os.path.join(self.dir, version_id)}')
 
 
     def train(self, train_data, val_data, steps_per_epoch=10, epochs=1024, learning_rate=1e-3, decay_factor=0.1, decay_step=10, optimizer='adam'):
@@ -207,7 +212,7 @@ class Model(object):
         :return:                None
         """
 
-        print('>', 'training', self.name, 'model')
+        logger.info(f'Starting training for {self.name}')
 
         lr_callback = tf.keras.callbacks.LearningRateScheduler(StepDecay(init_alpha=learning_rate, decay_factor=decay_factor, decay_step=decay_step))
 
@@ -218,7 +223,7 @@ class Model(object):
             self.history.append([tf_history['loss'][0], tf_history['accuracy'][0]] + self.test(val_data, output_type))
             self.save()
 
-        print('>', 'trained', self.name, 'model')
+        logger.info(f'Training finished for {self.name}')
 
 
     def prepare_input(self, elements, playback):
@@ -334,7 +339,7 @@ class Model(object):
                     sim_matrix[element_idx, user_idx] = user_sim
                     imp_matrix[element_idx, user_idx] = 1 if user_sim > self._thresholds[level] else 0
 
-            gnd_matrix[element_idx, 0] = np.sum(imp_matrix[element_idx, gnds_idx == 'm'])
-            gnd_matrix[element_idx, 1] = np.sum(imp_matrix[element_idx, gnds_idx == 'f'])
+            gnd_matrix[element_idx, 0] = np.mean(imp_matrix[element_idx, gnds_idx == 'm'])
+            gnd_matrix[element_idx, 1] = np.mean(imp_matrix[element_idx, gnds_idx == 'f'])
 
         return (sim_matrix, imp_matrix, gnd_matrix)

@@ -189,7 +189,7 @@ def denormalize_frames(spectrum, means, stds, epsilon=1e-12):
 def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, normalized=True, full=False):
     """
     Function to compute a numpy spectrum from signal
-    :param signal:          Audio signal from which the spectrum will be extracted  - shape (None, 1)
+    :param signal:          Audio signal from which the spectrum will be extracted - 1-dim signal
     :param sample_rate:     Sample rate of an audio sample to be processed
     :param frame_size:      Size of a frame in seconds
     :param frame_stride:    Stride of a frame in seconds
@@ -215,7 +215,7 @@ def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
 def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, normalized=True):
     """
     Function to compute a tensorflow spectrum from signal
-    :param signal:          Audio signal from which the spectrum will be extracted  - shape (None, 1)
+    :param signal:          Audio signal from which the spectrum will be extracted  - shape (..., samples)
     :param sample_rate:     Sample rate of an audio sample to be processed
     :param frame_size:      Size of a frame in seconds
     :param frame_stride:    Stride of a frame in seconds
@@ -226,7 +226,8 @@ def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
     assert sample_rate > 0 and frame_size > 0 and frame_stride > 0 and num_fft > 0
     assert frame_stride < frame_size
 
-    signal = tf.squeeze(signal, axis=-1)
+    if len(signal.shape) > 2:
+        signal = tf.squeeze(signal, axis=-1)
 
     # Compute the spectrogram
     magnitude_spectrum = tf.signal.stft(signal, int(frame_size*sample_rate), int(frame_stride*sample_rate), fft_length=num_fft)

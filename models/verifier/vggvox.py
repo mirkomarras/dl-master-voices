@@ -9,6 +9,8 @@ from models.verifier.model import VladPooling
 from models.verifier.model import Model
 
 from helpers.audio import get_tf_spectrum, decode_audio
+from loguru import logger
+
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -42,7 +44,7 @@ class VggVox(Model):
 
     def build(self, classes=0, embs_size=512, embs_name='embs', loss='softmax', aggregation='gvlad', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
         super().build(classes, embs_size, embs_name, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay, mode)
-        print('>', 'building', self.name, 'model on', classes, 'classes')
+        logger.info(f'building {self.name} for {classes} classes')
 
         input_layer = tf.keras.Input(shape=(256, None, 1,), name='Input_1')
 
@@ -88,5 +90,3 @@ class VggVox(Model):
 
         self.embs_name = embs_name
         self.model = tf.keras.Model(inputs=input_layer, outputs=output_layer, name='vggvox_{}_{}'.format(loss, aggregation))
-
-        print('>', 'built', self.name, 'model on', classes, 'classes')
