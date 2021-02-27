@@ -48,6 +48,9 @@ class SiameseModel(object):
             # Load noise data
             self.noise_paths = audio.load_noise_paths(ir_dir)
             self.noise_cache = audio.cache_noise_data(self.noise_paths)
+        else:
+            self.noise_paths = None
+            self.noise_cache = None
 
         # Create sub-directories for saving seed and master voices
         if not os.path.exists(self.dir):
@@ -74,7 +77,7 @@ class SiameseModel(object):
         elif attack_type == 'pgd@spec':
             self.attack = PGDSpectrumDistortion(self.siamese_model)
         elif attack_type == 'pgd@wave':
-            self.attack = PGDWaveformDistortion(self.siamese_model)
+            self.attack = PGDWaveformDistortion(self.siamese_model, self.playback, self.noise_paths, self.noise_cache)
         else:
             raise ValueError(f'Attack not implemented: {attack_type}')
 

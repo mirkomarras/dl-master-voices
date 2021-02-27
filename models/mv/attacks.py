@@ -35,9 +35,12 @@ class Attack(object):
 
 class PGDWaveformDistortion(Attack):
 
-    def __init__(self, siamese_model):
+    def __init__(self, siamese_model, playback=False, ir_paths=None, ir_cache=None):
         super().__init__()
         self.siamese_model = siamese_model
+        self.playback = playback
+        self.ir_paths = ir_paths
+        self.ir_cache = ir_cache
 
     def setup(self, seed_sample):
         attack_vector = np.zeros_like(seed_sample, dtype=np.float32)
@@ -51,12 +54,11 @@ class PGDWaveformDistortion(Attack):
             with tf.GradientTape() as tape:
 
                 tape.watch(attack_vector)
-                # input_mv = seed_sample[tf.newaxis, ...] + attack_vector_repeated
                 input_mv = self.run(seed_sample[tf.newaxis, ...], attack_vector)
 
                 # Playback simulation
-                # TODO Add playback simulation
-                # input_mv
+                if self.playback:
+                    input_mv = audio.get_play_n_rec_audio(input_mv[..., tf.newaxis], self.ir_paths, self.ir_cache)
 
                 # Convert to spectrogram
                 input_mv = audio.get_tf_spectrum(input_mv)
