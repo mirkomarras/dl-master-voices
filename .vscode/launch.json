@@ -1,0 +1,31 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Mastervoice",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/routines/mv/optimize.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--netv", "vggvox/v000",
+                "--seed", "./data/vs_mv_seed/female",
+                "--audio_dir", "data/voxceleb2/dev",
+                "--gender", "female",
+                "--gradient", "normed",
+                "--train_pop", "data/vs_mv_pairs/mv_train_population_dev-test_100u_50s.csv",
+                "--test_pop", "data/vs_mv_pairs/mv_test_population_dev-test_100u_10s.csv",
+                "--batch", "16",
+                "--attack", "nes@cloning"
+            ],
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "-1",
+                "TF_CPP_MIN_LOG_LEVEL": "3",
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    ]
+}
