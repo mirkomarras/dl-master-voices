@@ -438,6 +438,7 @@ class SiameseModel(object):
 
         input_spectrum = self.ensure_spectrogram(input_mv)
 
+        # TODO This should not be populated in the background - need a better way of passing the results around
         self.sims, self.imps, self.gnds = {}, {}, {}
 
         # tf.expand_dims(input_spectrum, axis=0)

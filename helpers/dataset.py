@@ -126,10 +126,20 @@ def generate_enrolled_samples(prepr, ptag='debug', audio_meta='data/vs_mv_pairs/
     users = os.listdir(audio_folder)
     random.shuffle(users)
 
+    logger.info(f'Found {len(users)} users in {audio_folder}')
+
+    users = set(users)
     # Sampling training and testing data
     for pt, pr in prepr.items():
         logger.info('# Population of type {}'.format(pt))
-        selected_users = list(set(users) & set(get_mv_analysis_users(npz_file, type=pt)))[:pr['nusers']]
+
+        if ptag == 'interspeech':
+            subpopulation = set(get_mv_analysis_users(npz_file, type=pt)) & users
+        else:
+            subpopulation = users
+            
+        selected_users = list(subpopulation)[:pr['nusers']]
+        users = users - set(selected_users)
 
         x, y, g = [], [], []
         for u in tqdm(selected_users):
@@ -139,7 +149,7 @@ def generate_enrolled_samples(prepr, ptag='debug', audio_meta='data/vs_mv_pairs/
             g += [gender_map[u] for _ in files]
 
         filepath = os.path.join('data', 'vs_mv_pairs', 'mv_{}_population_{}_{}u_{}s.csv'.format(pt, ptag, pr['nusers'], pr['nuttrs']))
-        logger.info('Saving to csv {}'.format(filepath))
+        logger.info(f'{len(selected_users)} users selected - saving to {filepath}')
         pdf = pd.DataFrame(list(zip(x, y, g)), columns =['filename', 'user_id', 'gender'])
         pdf.to_csv(filepath, index=False)
 

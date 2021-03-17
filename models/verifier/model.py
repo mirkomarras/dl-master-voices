@@ -326,6 +326,7 @@ class Model(object):
         for element_idx, element in enumerate(elements):
             element_emb = self.predict(element[tf.newaxis, ...], playback)
             for user_idx, user_id in enumerate(np.unique(gallery.user_ids)): # For each user in the gallery, reuse if the gallery size increase
+                
                 if policy == 'any':
                     user_sim = self.compare(
                         np.tile(element_emb, (np.sum(gallery.user_ids == user_id), 1)), 

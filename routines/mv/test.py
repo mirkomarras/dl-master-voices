@@ -27,7 +27,7 @@ def main():
     parser.add_argument('--playback', dest='playback', default=0, type=int, action='store', help='Playback and recording in master voice test condition: 0 no, 1 yes')
     parser.add_argument('--noise_dir', dest='noise_dir', default='data/vs_noise_data', type=str, action='store', help='Noise directory')
 
-    parser.add_argument('--mv_set', dest='mv_set', default='vggvox-v000_real_f-f_mv/v000', type=str, action='append', help='Directory with MV data')
+    parser.add_argument('--mv_set', dest='mv_set', default='vggvox-v000_real_f-f_mv/v000', action='store', help='Directory with MV data')
     parser.add_argument('--pop', dest='pop', default='./data/vs_mv_pairs/mv_test_population_debug_20u_10s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv training')
     parser.add_argument('--policy', dest='policy', default='any', type=str, action='store', help='Policy of verification, eigher any or avg')
     parser.add_argument('--level', dest='level', default='far1', type=str, action='store', help='Levelof security, either eer or far1')
@@ -66,7 +66,7 @@ def main():
         sv = verifier.get_model(net)
         sv.build(classes=0, mode='test')
         sv.load()
-        sv.evaluate()
+        sv.calibrate_thresholds()
         sv.infer()
 
         # Create the test gallery
@@ -74,14 +74,19 @@ def main():
         test_gallery.precomputed_embeddings(sv)
 
         for mv_set in mv_sets:
-            print(np.array([os.path.join(mv_set, file) for file in os.listdir(mv_set)]).shape)
-            embeddings = sv.predict(np.array([os.path.join(mv_set, file) for file in os.listdir(mv_set)]))
+            # TODO [Cirtical] Data not loaded correctly into predict
+            # print(np.array([os.path.join(mv_set, file) for file in os.listdir(mv_set)]).shape)
+            filenames = [os.path.join(mv_set, file) for file in os.listdir(mv_set) if file.endswith('.wav')]
+            # logger.info(xx)
+            # nn_input = np.array()
+            # logger.info(f'Input size {nn_input.shape}')
+            embeddings = sv.predict(filenames)
             sim_df, imp_df, gnd_df = sv.test_error_rates(embeddings, test_gallery, policy=settings['policy'], level=settings['level'], playback=None)
 
             # We save the similarities, impostor, and gender impostor results
-            sim_df.to_csv(os.path.join('./data/vs_mv_models/', net + '_sims_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
-            imp_df.to_csv(os.path.join('./data/vs_mv_models/', net  + '_imps_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
-            gnd_df.to_csv(os.path.join('./data/vs_mv_models/', net  + '_nds_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
+            # sim_df.to_csv(os.path.join('./data/vs_mv_models/', net + '_sims_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
+            # imp_df.to_csv(os.path.join('./data/vs_mv_models/', net  + '_imps_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
+            # gnd_df.to_csv(os.path.join('./data/vs_mv_models/', net  + '_nds_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
 
 if __name__ == '__main__':
     main()

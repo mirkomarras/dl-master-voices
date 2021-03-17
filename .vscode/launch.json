@@ -19,7 +19,7 @@
                 "--train_pop", "data/vs_mv_pairs/mv_train_population_dev-test_100u_50s.csv",
                 "--test_pop", "data/vs_mv_pairs/mv_test_population_dev-test_100u_10s.csv",
                 "--batch", "16",
-                "--attack", "nes@cloning"
+                "--attack", "pgd@spec"
             ],
             "env": {
                 "CUDA_VISIBLE_DEVICES": "-1",

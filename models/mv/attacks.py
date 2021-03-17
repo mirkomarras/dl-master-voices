@@ -152,7 +152,7 @@ class PGDSpectrumDistortion(Attack):
 
 class NESVoiceCloning(object):
 
-    def __init__(self, siamese_model, text='Hello Google', n=10, sigma=0.1, antithetic=True):
+    def __init__(self, siamese_model, text='Hello Google', n=30, sigma=0.1, antithetic=True):
         super().__init__()
         self.siamese_model = siamese_model
         self.n = n
