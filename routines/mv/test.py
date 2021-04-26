@@ -74,15 +74,20 @@ def main():
         test_gallery.precomputed_embeddings(sv)
 
         for mv_set in mv_sets:
-            # TODO [Cirtical] Data not loaded correctly into predict
-            # print(np.array([os.path.join(mv_set, file) for file in os.listdir(mv_set)]).shape)
+            # TODO [Critical] Decide where matrices will be saved
             filenames = [os.path.join(mv_set, file) for file in os.listdir(mv_set) if file.endswith('.wav')]
-            # logger.info(xx)
-            # nn_input = np.array()
-            # logger.info(f'Input size {nn_input.shape}')
-            embeddings = sv.predict(filenames)
-            sim_df, imp_df, gnd_df = sv.test_error_rates(embeddings, test_gallery, policy=settings['policy'], level=settings['level'], playback=None)
+            logger.info('retrieve master voice filenames {}'.format(len(filenames)))
 
+            embeddings = sv.predict(np.array(filenames))
+            logger.info('compute master voice embeddings {}'.format(embeddings.shape))
+
+            logger.info('testing error rates...')
+            sims, imps, gnds = sv.test_error_rates(embeddings, test_gallery, policy=settings['policy'], level=settings['level'], playback=None)
+            logger.info('computed sims matrix {}'.format(sims.shape))
+            logger.info('computed imps matrix {}'.format(imps.shape))
+            logger.info('computed gnds matrix {}'.format(gnds.shape))
+
+            print(imps)
             # We save the similarities, impostor, and gender impostor results
             # sim_df.to_csv(os.path.join('./data/vs_mv_models/', net + '_sims_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
             # imp_df.to_csv(os.path.join('./data/vs_mv_models/', net  + '_imps_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))

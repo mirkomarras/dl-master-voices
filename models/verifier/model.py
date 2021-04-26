@@ -120,7 +120,7 @@ class Model(object):
             os.makedirs(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id))))
 
         path = os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))
-        logger.info(f'created model folder {path}')
+        logger.info('created model folder {}'.format(path))
 
 
     def infer(self):
@@ -162,7 +162,7 @@ class Model(object):
         path = os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))
         self.model.save(os.path.join(path, 'model.h5'))
         pd.DataFrame(self.history, columns=['loss', 'acc', 'err', 'far@eer', 'frr@eer', 'thr@eer', 'far@far1', 'frr@far1', 'thr@far']).to_csv(os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)), 'history.csv'), index=False)
-        logger.info(f'saved {self.name} model in {path}')
+        logger.info('saved {} model in {}'.format(self.name, path))
 
 
     def save_params(self, params):
@@ -170,7 +170,7 @@ class Model(object):
         with open(path, "w") as file:
             for arg in vars(params):
                 file.write("%s,%s\n" % (arg, getattr(params, arg)))
-        logger.info(f'params saved in {path}')
+        logger.info('params saved in {}'.format(path))
 
 
     def get_dirname(self):
@@ -181,7 +181,7 @@ class Model(object):
         """
         Load this model
         """
-        logger.info(f'loading pre-trained {self.name}')
+        logger.info('loading pre-trained {}'.format(self.name))
         version_id = 'v' + str('{:03d}'.format(self.id))
         if os.path.exists(os.path.join(self.dir, version_id)):
             if len(os.listdir(os.path.join(self.dir, version_id))) > 0:
@@ -191,11 +191,11 @@ class Model(object):
                 self.history = []
                 if os.path.exists(os.path.join(self.dir, version_id, 'history.csv')):
                     self.history = pd.read_csv(os.path.join(self.dir, version_id, 'history.csv')).values.tolist()
-                logger.info(f'loaded checkpoint from {os.path.join(self.dir, version_id)}')
+                logger.info('loaded checkpoint from {}'.format(os.path.join(self.dir, version_id)))
             else:
-                logger.warning(f'No pre-trained model for {self.name} in {os.path.join(self.dir, version_id)}')
+                logger.warning('No pre-trained model for {} in {}'.format(self.name, os.path.join(self.dir, version_id)))
         else:
-            logger.error(f'No directory for {self.name} model at {os.path.join(self.dir, version_id)}')
+            logger.error('No directory for {} model at {}'.format(self.name, os.path.join(self.dir, version_id)))
 
 
     def train(self, train_data, val_data, steps_per_epoch=10, epochs=1024, learning_rate=1e-3, decay_factor=0.1, decay_step=10, optimizer='adam'):
@@ -212,7 +212,7 @@ class Model(object):
         :return:                None
         """
 
-        logger.info(f'Starting training for {self.name}')
+        logger.info('Starting training for {}'.format(self.name))
 
         lr_callback = tf.keras.callbacks.LearningRateScheduler(StepDecay(init_alpha=learning_rate, decay_factor=decay_factor, decay_step=decay_step))
 
@@ -220,11 +220,14 @@ class Model(object):
 
         for epoch in range(epochs):
             tf_history = self.model.fit(train_data, steps_per_epoch=steps_per_epoch, initial_epoch=epoch, epochs=epoch + 1, callbacks=[lr_callback]).history
-            self.history.append([tf_history['loss'][0], tf_history['accuracy'][0]] + self.test(val_data, output_type))
+            self.history.append([tf_history['loss'][0], tf_history['accuracy'][0]])
             self.save()
 
-        logger.info(f'Training finished for {self.name}')
+        logger.info('Training finished for {}'.format(self.name))
 
+
+    def compute_acoustic_representation(self):
+        pass
 
     def prepare_input(self, elements, playback):
         assert len(elements) > 0
@@ -243,7 +246,7 @@ class Model(object):
     def predict(self, elements, playback=None):
         elements = self.prepare_input(elements, playback)
         if isinstance(elements, list):
-            embeddings = tf.concat([self._inference_model.predict(e) for e in elements], axis=0)
+            embeddings = tf.concat([self._inference_model.predict(e) for e in elements if not e.shape[2] == 1], axis=0)
         else:
             embeddings = self._inference_model.predict(elements)
         embeddings_norm = tf.keras.backend.l2_normalize(embeddings, axis=1)
@@ -324,7 +327,8 @@ class Model(object):
         gnds_idx = gallery.user_genders[np.array(list(d.values()))]
 
         for element_idx, element in enumerate(elements):
-            element_emb = self.predict(element[tf.newaxis, ...], playback)
+            element = element.numpy()
+            element_emb = self.predict(element[tf.newaxis, ...], playback) if len(element.shape) > 1 else element
             for user_idx, user_id in enumerate(np.unique(gallery.user_ids)): # For each user in the gallery, reuse if the gallery size increase
                 
                 if policy == 'any':
