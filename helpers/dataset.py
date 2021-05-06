@@ -148,7 +148,12 @@ def generate_enrolled_samples(prepr, ptag='debug', audio_meta='data/vs_mv_pairs/
             y += [int(u[2:]) for _ in files]
             g += [gender_map[u] for _ in files]
 
+        n_males = int(len([x for x in g if x == "m"]) / pr['nuttrs'])
+        n_females = int(len([x for x in g if x == "f"]) / pr['nuttrs'])
+
         filepath = os.path.join('data', 'vs_mv_pairs', 'mv_{}_population_{}_{}u_{}s.csv'.format(pt, ptag, pr['nusers'], pr['nuttrs']))
+        logger.debug(f'samples / person = {pr["nuttrs"]}')
+        logger.info(f'ptag={ptag} Dataset breakdown: m={n_males}, f={n_females}')
         logger.info(f'{len(selected_users)} users selected - saving to {filepath}')
         pdf = pd.DataFrame(list(zip(x, y, g)), columns =['filename', 'user_id', 'gender'])
         pdf.to_csv(filepath, index=False)

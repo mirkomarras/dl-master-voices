@@ -62,6 +62,7 @@ def main():
     group.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Length in seconds of an audio for master voice optimization')
     group.add_argument('--max_dist', dest='max_dist', default=0, type=float, action='store', help='Max distortion (L∞)')
     group.add_argument('--l2_reg', dest='l2_reg', default=0, type=float, action='store', help='Distortion penalty (L2 regularization)')
+    group.add_argument('--run_id', dest='run_id', default=None, type=int, action='store', help='Run ID if you need to resume (defaults to None which creates a new ID each time)')
 
     group = parser.add_argument_group('Playback Simulation')
     group.add_argument('--play', dest='playback', default=False, action='store_true', help='Simulate playback at optimization time')
@@ -86,7 +87,7 @@ def main():
     #     group_dict={a.dest:getattr(args,a.dest,None) for a in group._group_actions}
     #     arg_groups[group.title]=argparse.Namespace(**group_dict)
 
-    display_fields = {'netv', 'attack', 'seed_voice', 'mv_gender'}
+    display_fields = {'netv', 'attack', 'seed_voice', 'mv_gender', 'n_epochs'}
 
     logger.info('Parameters summary:')
     for key, value in vars(args).items():
@@ -103,7 +104,7 @@ def main():
     dir_name = utils.sanitize_path(f'{args.netv}_{args.attack}_{args.mv_gender[0]}'.replace('/', '_'))
 
     # We initialize the siamese model that will be used to batch_optimize_by_path master voices
-    siamese_model = SiameseModel(dir=os.path.join('data', 'vs_mv_data', dir_name), params=args, playback=args.playback, ir_dir=args.ir_dir, sample_rate=args.sample_rate)
+    siamese_model = SiameseModel(dir=os.path.join('data', 'vs_mv_data', dir_name), params=args, playback=args.playback, ir_dir=args.ir_dir, sample_rate=args.sample_rate, run_id=args.run_id)
     logger.info('Siamese network initialized')
 
     logger.info('Setting verifier')
@@ -138,7 +139,8 @@ def main():
     assert test_gallery.population.shape[0] == test_gallery.embeddings.shape[0], "Number of fetched embeddings does not match #people in the population. Outdated cache?"
 
     # Construct optimization args
-    opt_settings = siamese_model.defaults().update({
+    opt_settings = siamese_model.defaults()
+    opt_settings.update({
         'gradient': args.gradient,
         'n_epochs': args.n_epochs,
         'max_attack_vector': args.max_dist,

@@ -27,7 +27,7 @@ class SiameseModel(object):
        Class to represent Master Voice (MV) models with master voice training and testing functionalities
     """
 
-    def __init__(self, dir, params, playback=False, ir_dir=None, sample_rate=16000):
+    def __init__(self, dir, params, playback=False, ir_dir=None, sample_rate=16000, run_id=None):
         """
         Method to initialize a master voice model that will save audio samples in 'data/vs_mv_data/{net}-{netv}_{gan}-{ganv}_{f|m}-{f|m}_{mv|sv}'
         :param sample_rate:     Sample rate of an audio sample to be processed
@@ -58,18 +58,21 @@ class SiameseModel(object):
 
         assert os.path.exists(self.dir), 'Please check folder permission for seed and master voice saving'
 
-        # Retrieve the version of the seed and master voices sets for that particolar combination of verifier and gan
-        self.id = '{:03d}'.format(len(os.listdir(self.dir)))
+        # Retrieve the version of the seed and master voices sets for that particular combination of verifier and gan
+        if run_id is None:
+            self.id = '{:03d}'.format(len(os.listdir(self.dir)))
+        else:
+            self.id = '{:03d}'.format(run_id)
 
         # Create sub-directories for saving seed and master voices
         if not os.path.exists(self.dir_full):
+            logger.debug(f'Created output dir: {self.dir_full}')
             os.makedirs(self.dir_full)
+        else:
+            logger.debug(f'Output dir exists: {self.dir_full}')
 
         assert os.path.exists(self.dir_full) and os.path.exists(self.dir_full), 'Please check folder permission for seed and master voice version saving'
-
-        logger.debug('Created output dir {self.dir_full}')
-
-        # self.attack = PGDSpectrumDistortion()
+        
 
     def setup_attack(self, attack_type):
         if attack_type == 'nes@cloning':
@@ -198,13 +201,21 @@ class SiameseModel(object):
 
         extractor = self.verifier.infer()
 
-        # Collect stats from all seed voices
-        stats = {k: [] for k in 'max_dist, l2_norm, mv_eer_results, mv_far1_results, sv_eer_results, sv_far1_results'.split(', ')}
-
         seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
         n_seed_voices = len(seed_voices) if self.gan is None else int(seed_voices)
+
+        # Find the last computed sample
+        existing_files = [x for x in os.listdir(self.dir_full) if x.startswith('opt_progress_ori')]
+        n_seed_start = len(existing_files)
+
+        if n_seed_start > 0:
+            with open(os.path.join(self.dir_full, 'stats.json'), 'r') as f:
+                stats = json.load(f)
+        else:
+            # Collect stats from all seed voices
+            stats = {k: [] for k in 'max_dist,l2_norm,mv_eer_results,mv_far1_results,sv_eer_results,sv_far1_results'.split(',')}
         
-        for iter in range(n_seed_voices): # For each audio sample to batch_optimize_by_path
+        for iter in range(n_seed_start, n_seed_voices): # For each audio sample to batch_optimize_by_path
             logger.info(f'Starting optimization {seed_voices[iter]}: {iter+1} of {n_seed_voices}')
             #, , ':', iter+1, 'of', n_seed_voices, '- GAN:', self.gan)
 
@@ -214,6 +225,11 @@ class SiameseModel(object):
             # else:
 
             input_sv = audio.decode_audio(seed_voices[iter]).astype(np.float32)
+            # Clip to max 3 seconds
+            max_length = 3 * 16000
+            if input_sv.shape[0] > max_length:
+                logger.warning(f'Clipping speech to {max_length} samples')
+                input_sv = input_sv[:max_length]
             input_mv, performance = self.optimize(input_sv, train_data, test_gallery, settings)
 
             gender = self.params.mv_gender[0] # Gender selector: 'm' or 'f'
@@ -235,9 +251,9 @@ class SiameseModel(object):
             stats['l2_norm'].append(performance['l2_norm'][-1])
             stats['max_dist'].append(performance['max_dist'][-1])
 
-        # Summarize all
-        with open(os.path.join(self.dir_full, 'stats.json'), 'w') as f:
-            json.dump(stats, f, indent=4)
+            # Summarize all
+            with open(os.path.join(self.dir_full, 'stats.json'), 'w') as f:
+                json.dump(stats, f, indent=4)
 
         return stats #os.path.join(self.dir_full, 'stats.json')
 
@@ -348,11 +364,16 @@ class SiameseModel(object):
         mv_wave = self.ensure_waveform(attack_sample, aux_signal=seed_wave)
         
         # Save spectrograms and wave files
-        logger.info(f'Saving samples to {self.dir_full}')
-        np.save(os.path.join(self.dir_full, 'sv_' + suffix), seed_spec)
-        sf.write(os.path.join(self.dir_full, 'sv_' + suffix + '.wav'), seed_wave, self.sample_rate)
-        np.save(os.path.join(self.dir_full, 'mv_' + suffix), mv_spec)
-        sf.write(os.path.join(self.dir_full, 'mv_' + suffix + '.wav'), mv_wave, self.sample_rate)
+        logger.info(f'Saving speech samples to {self.dir_full}/{{sv/mv}}')
+
+        for xv in ('sv', 'mv'):
+            if not os.path.exists(os.path.join(self.dir_full, xv)):
+                os.makedirs(os.path.join(self.dir_full, xv))
+
+        np.save(os.path.join(self.dir_full, 'sv', suffix), seed_spec)
+        sf.write(os.path.join(self.dir_full, 'sv', suffix + '.wav'), seed_wave, self.sample_rate)
+        np.save(os.path.join(self.dir_full, 'mv', suffix), mv_spec)
+        sf.write(os.path.join(self.dir_full, 'mv', suffix + '.wav'), mv_wave, self.sample_rate)
 
         # # We save the current audio associated to the master voice latent vector / spectrogram
         # if self.gan is not None:
@@ -400,10 +421,10 @@ class SiameseModel(object):
 
         # We save the similarities, impostor, and gender impostor results ---------------------------------------------
         net = self.params.netv.replace('/', '_')
-        filename_format = f'{net}_{population_name}_{{}}_any.npz'
+        filename_format = f'{net}_{population_name}_{{}}_any_{suffix}.npz'
 
+        # During optimization, we keep track of impersonation performance only for the `any` policy?
         for thr in ('eer', 'far1'):
-            # TODO [Critical] Why all filenames end with _any?
             # TODO [Critical] Why save scores that are pre-populated in some member arrays?
             results = {'sims': self.sims[thr], 'imps': self.imps[thr], 'gnds': self.gnds[thr]}
             filename_stats = os.path.join(self.dir_full, filename_format.format(thr))
@@ -411,7 +432,7 @@ class SiameseModel(object):
             np.savez(filename_stats, results)
 
         # We update and save the current impersonation rate history
-        filename_stats = os.path.join(self.dir_full, f'opt_progress_{suffix}')
+        filename_stats = os.path.join(self.dir_full, f'opt_progress_{suffix}.npz')
         logger.info(f'Saving progress stats to {filename_stats}')
         np.savez(filename_stats, **performance_stats)
 
