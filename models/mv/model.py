@@ -239,7 +239,8 @@ class SiameseModel(object):
             # input_sv, input_avg, input_std = audio.get_np_spectrum(input_sv, self.sample_rate, num_fft=512, full=False)
             # input_sv = input_sv[..., np.newaxis]
 
-            # input_avg, input_std, 
+            # TODO Remove me - added for temporary debugging
+            self.test_gallery = test_gallery
             self.save(input_sv, input_mv, performance, model_suffix, test_gallery.pop_file)
             
             logger.info(f'Finished optimization! {gender} impersonation {performance["mv_far1_results"][0][gender]:.3f} -> {performance["mv_far1_results"][-1][gender]:.3f}')
@@ -422,6 +423,12 @@ class SiameseModel(object):
         # We save the similarities, impostor, and gender impostor results ---------------------------------------------
         net = self.params.netv.replace('/', '_')
         filename_format = f'{net}_{population_name}_{{}}_any_{suffix}.npz'
+
+        # TODO Remove me - added for temporary debugging
+        mv_spec_recomp = audio.get_tf_spectrum(mv_wave[tf.newaxis, ...])
+        results_ori = self.test(mv_spec[tf.newaxis, ..., tf.newaxis], self.test_gallery)
+        results_ref = self.test(seed_spec[tf.newaxis, ..., tf.newaxis], self.test_gallery)
+        results_recomp = self.test(mv_spec_recomp, self.test_gallery)
 
         # During optimization, we keep track of impersonation performance only for the `any` policy?
         for thr in ('eer', 'far1'):
