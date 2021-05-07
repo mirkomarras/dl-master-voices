@@ -17,3 +17,5 @@ tensorflow==2.3
 tqdm==4.31.1
 webrtcvad==2.0.10
 scikit-image
+h5py==2.10.0
+loguru
