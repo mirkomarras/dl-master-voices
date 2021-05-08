@@ -259,8 +259,8 @@ class Model(object):
         scores = []
         for e1, e2 in zip(x1, x2):
             if only_scores:
-                emb_1 = x1[0]
-                emb_2 = x2[0]
+                emb_1 = e1
+                emb_2 = e2
             else:
                 emb_1 = self.predict(np.array([e1]))[0]
                 emb_2 = self.predict(np.array([e2]))[0]
@@ -314,7 +314,7 @@ class Model(object):
         # Initialize the similarity matrix (elements, utterances) for any and (elements, users) for avg --> check whether
         sim_matrix = np.zeros((len(elements), len(gallery.user_ids))) if policy == 'any' else np.zeros((len(elements), len(np.unique(gallery.user_ids))))
         # Initialize the binary impersonation matrix (0: no imp, 1:imp) of shape (elements, users)
-        imp_matrix = np.zeros((len(elements), len(np.unique(gallery.user_ids))))
+        imp_matrix = np.zeros((len(elements), len(np.unique(gallery.user_ids))), np.uint8)
         # Initialize the counting impersonation matrix for genders of shape (elements, 2) - male and females
         gnd_matrix = np.zeros((len(elements), 2))
 
@@ -327,7 +327,8 @@ class Model(object):
         gnds_idx = gallery.user_genders[np.array(list(d.values()))]
 
         for element_idx, element in enumerate(elements):
-            element = element.numpy()
+            if hasattr(element, 'numpy'):
+                element = element.numpy()
             element_emb = self.predict(element[tf.newaxis, ...], playback) if len(element.shape) > 1 else element
             for user_idx, user_id in enumerate(np.unique(gallery.user_ids)): # For each user in the gallery, reuse if the gallery size increase
                 
@@ -336,13 +337,14 @@ class Model(object):
                         np.tile(element_emb, (np.sum(gallery.user_ids == user_id), 1)), 
                         gallery.embeddings[gallery.user_ids == user_id], 
                         only_scores=True)
+                    user_sim = np.array(user_sim)
                     sim_matrix[element_idx, gallery.user_ids == user_id] = user_sim
-                    imp_matrix[element_idx, user_idx] = min(1, len([1 for score in user_sim if score > self._thresholds[level]]))
+                    imp_matrix[element_idx, user_idx] = np.any(user_sim > self._thresholds[level])
                 elif policy == 'avg':
                     user_embedding = np.mean(gallery.embeddings[gallery.user_ids == user_id], axis=0)
                     user_sim = self.compare(np.expand_dims(element_emb, axis=0), np.expand_dims(user_embedding, axis=0))[0]
                     sim_matrix[element_idx, user_idx] = user_sim
-                    imp_matrix[element_idx, user_idx] = 1 if user_sim > self._thresholds[level] else 0
+                    imp_matrix[element_idx, user_idx] = user_sim > self._thresholds[level]
 
             gnd_matrix[element_idx, 0] = np.mean(imp_matrix[element_idx, gnds_idx == 'm'])
             gnd_matrix[element_idx, 1] = np.mean(imp_matrix[element_idx, gnds_idx == 'f'])

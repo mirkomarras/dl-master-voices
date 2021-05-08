@@ -12,7 +12,7 @@ import os
 
 from loguru import logger
 
-def decode_audio(fp, sample_rate=16000):
+def decode_audio(fp, sample_rate=16000, max_length=4):
     """
     Function to decode an audio file
     :param fp:              File path to the audio sample
@@ -27,6 +27,9 @@ def decode_audio(fp, sample_rate=16000):
             audio_sf, new_sample_rate = librosa.load(fp, sr=sample_rate, mono=True)
     except:
         audio_sf, new_sample_rate = librosa.load(fp, sr=sample_rate, mono=True)
+
+    if audio_sf.shape[0] > max_length * sample_rate:
+        audio_sf = audio_sf[:max_length*sample_rate]
 
     return audio_sf
 
