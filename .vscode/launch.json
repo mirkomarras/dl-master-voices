@@ -20,8 +20,8 @@
                 "--train_pop", "data/vs_mv_pairs/mv_train_population_interspeech_1000u_50s.csv",
                 "--test_pop", "data/vs_mv_pairs/mv_test_population_interspeech_1000u_10s.csv",
                 "--batch", "16",
-                "--attack", "pgd@wave",
-                "--n_epochs", "2",
+                "--attack", "pgd@spec",
+                "--n_epochs", "1",
                 "--memory-growth"
             ],
             "env": {

@@ -318,19 +318,17 @@ class Model(object):
         # Initialize the counting impersonation matrix for genders of shape (elements, 2) - male and females
         gnd_matrix = np.zeros((len(elements), 2))
 
-        # Loop for all the mv elements and users # layer that
-        d = {}
-        for index, value in enumerate(gallery.user_ids):
-            if value not in d:
-                d[value] = index
-
-        gnds_idx = gallery.user_genders[np.array(list(d.values()))]
+        # gnds_idx = gallery.user_genders[np.array(list(d.values()))]
+        # TODO Hard-coded bugfix - need to set the 10 based on the actual population
+        n_samples_pp = gallery.n_samples_per_person
+        gnds_idx = gallery.user_genders[::n_samples_pp]
 
         for element_idx, element in enumerate(elements):
             if hasattr(element, 'numpy'):
                 element = element.numpy()
             element_emb = self.predict(element[tf.newaxis, ...], playback) if len(element.shape) > 1 else element
-            for user_idx, user_id in enumerate(np.unique(gallery.user_ids)): # For each user in the gallery, reuse if the gallery size increase
+            # TODO Hard-coded bugfix - need to set the 10 based on the actual population
+            for user_idx, user_id in enumerate(gallery.user_ids[::n_samples_pp]): # For each user in the gallery, reuse if the gallery size increase
                 
                 if policy == 'any':
                     user_sim = self.compare(

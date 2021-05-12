@@ -23,8 +23,10 @@ class Dataset(object):
         population = pd.read_csv(pop_file)
 
         self.pop_file = pop_file.split(os.path.sep)[-1].split('.')[0]
+        
         self.population = population['filename'].values
         self.user_ids = population['user_id'].values
+        self.n_samples_per_person = int(len(self.user_ids) / len(np.unique(self.user_ids)))
         self.user_genders = population['gender'].values
 
         self.embeddings = None

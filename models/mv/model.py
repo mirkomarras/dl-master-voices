@@ -363,6 +363,10 @@ class SiameseModel(object):
         # Prepare the attack sample
         mv_spec = self.ensure_spectrogram(attack_sample, numpy=True).squeeze()
         mv_wave = self.ensure_waveform(attack_sample, aux_signal=seed_wave)
+
+        _, input_avg, input_std = audio.get_np_spectrum(seed_wave.ravel())
+        mv_spec_denormed = np.squeeze(np.squeeze(audio.denormalize_frames(np.squeeze(mv_spec), input_avg, input_std)))
+        seed_spec_denormed = np.squeeze(np.squeeze(audio.denormalize_frames(np.squeeze(seed_spec), input_avg, input_std)))
         
         # Save spectrograms and wave files
         logger.info(f'Saving speech samples to {self.dir_full}/{{sv/mv}}')
@@ -415,7 +419,7 @@ class SiameseModel(object):
         assert n_bins in (256, 512), "Could not recognize the number of FFT bins"
         filename_fig = os.path.join(self.dir_full, 'spectrums_' + suffix + '.png')        
         fig = plotting.imsc(
-            (mv_spec[:n_bins//2], seed_spec[:n_bins//2], np.abs(mv_spec - seed_spec)[:n_bins//2]), 
+            (mv_spec_denormed, seed_spec_denormed, np.abs(mv_spec_denormed - seed_spec_denormed)), 
             ['master voice (IR_{}={:.2f}) []'.format(gender, ir_end), 'seed voice (IR_{}={:.2f}) []'.format(gender, ir_start), 'diff []'],
             cmap='jet', ncols=3)
         fig.savefig(filename_fig, bbox_inches='tight')
@@ -429,6 +433,15 @@ class SiameseModel(object):
         results_ori = self.test(mv_spec[tf.newaxis, ..., tf.newaxis], self.test_gallery)
         results_ref = self.test(seed_spec[tf.newaxis, ..., tf.newaxis], self.test_gallery)
         results_recomp = self.test(mv_spec_recomp, self.test_gallery)
+
+        # TODO Remove me - temporary sanity check
+        logger.warning(f'(Seed) Imp@EER {gender}={results_ref[gender][0]} | Imp@FAR1 {gender}={results_ref[gender][1]}')
+        logger.warning(f'(Optimized) Imp@EER {gender}={results_ori[gender][0]} | Imp@FAR1 {gender}={results_ori[gender][1]}')
+        logger.warning(f'(Inverted) Imp@EER {gender}={results_recomp[gender][0]} | Imp@FAR1 {gender}={results_recomp[gender][1]}')
+
+        performance_stats['imp_seed'] = [results_ref[gender][0], results_ref[gender][1]]
+        performance_stats['imp_opt'] = [results_ori[gender][0], results_ori[gender][1]]
+        performance_stats['imp_inv'] = [results_recomp[gender][0], results_recomp[gender][1]]
 
         # During optimization, we keep track of impersonation performance only for the `any` policy?
         for thr in ('eer', 'far1'):
