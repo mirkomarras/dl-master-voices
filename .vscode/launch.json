@@ -14,14 +14,15 @@
                 "--netv", "vggvox/v000",
                 "--seed", "./data/vs_mv_seed/female",
                 "--audio_dir", "data/voxceleb2/dev",
-                "--gender", "male",
+                "--gender", "female",
                 "--gradient", "normed",
-                "--train_pop", "data/vs_mv_pairs/mv_train_population_dev-many_100u_10s.csv",
-                "--test_pop", "data/vs_mv_pairs/mv_test_population_dev-many_100u_10s.csv",
+                "--learning_rate", "1",
+                "--train_pop", "data/vs_mv_pairs/mv_train_population_interspeech_1000u_50s.csv",
+                "--test_pop", "data/vs_mv_pairs/mv_test_population_interspeech_1000u_10s.csv",
                 "--batch", "16",
-                "--attack", "pgd@spec",
-                "--n_epochs", "5",
-                "--run_id", "28"
+                "--attack", "pgd@wave",
+                "--n_epochs", "2",
+                "--memory-growth"
             ],
             "env": {
                 "CUDA_VISIBLE_DEVICES": "0",
