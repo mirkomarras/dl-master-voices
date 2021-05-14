@@ -435,13 +435,13 @@ class SiameseModel(object):
         results_recomp = self.test(mv_spec_recomp, self.test_gallery)
 
         # TODO Remove me - temporary sanity check
-        logger.warning(f'(Seed) Imp@EER {gender}={results_ref[gender][0]} | Imp@FAR1 {gender}={results_ref[gender][1]}')
-        logger.warning(f'(Optimized) Imp@EER {gender}={results_ori[gender][0]} | Imp@FAR1 {gender}={results_ori[gender][1]}')
-        logger.warning(f'(Inverted) Imp@EER {gender}={results_recomp[gender][0]} | Imp@FAR1 {gender}={results_recomp[gender][1]}')
+        logger.warning(f'(Seed) Imp@EER {gender}={results_ref[0][gender]} | Imp@FAR1 {gender}={results_ref[1][gender]}')
+        logger.warning(f'(Optimized) Imp@EER {gender}={results_ori[0][gender]} | Imp@FAR1 {gender}={results_ori[1][gender]}')
+        logger.warning(f'(Inverted) Imp@EER {gender}={results_recomp[0][gender]} | Imp@FAR1 {gender}={results_recomp[1][gender]}')
 
-        performance_stats['imp_seed'] = [results_ref[gender][0], results_ref[gender][1]]
-        performance_stats['imp_opt'] = [results_ori[gender][0], results_ori[gender][1]]
-        performance_stats['imp_inv'] = [results_recomp[gender][0], results_recomp[gender][1]]
+        performance_stats['imp_seed'] = [results_ref[0][gender], results_ref[1][gender]]
+        performance_stats['imp_opt'] = [results_ori[0][gender], results_ori[1][gender]]
+        performance_stats['imp_inv'] = [results_recomp[0][gender], results_recomp[1][gender]]
 
         # During optimization, we keep track of impersonation performance only for the `any` policy?
         for thr in ('eer', 'far1'):
