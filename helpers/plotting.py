@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 
 from skimage.transform import resize
+from scipy.stats import gaussian_kde
 import matplotlib.pyplot as plot
 import matplotlib.pylab as plt
+import pandas as pd
 import numpy as np
+import glob
+import os
 
 from helpers import audio
 
@@ -174,6 +178,7 @@ def quickshow(x, label=None, *, axes=None, cmap='gray'):
         axes.set_xticks([])
         axes.set_yticks([])        
 
+
 def waveforms(wav, spectrums=True, sampling=16000):
     cols = 2 if spectrums else 1
     
@@ -222,12 +227,14 @@ def corrcoeff(a, b):
     b = (b - np.mean(b)) / (1e-9 + np.std(b))
     return np.mean(a * b)
 
+
 def rsquared(a, b):
     """ Returns the coefficient of determination (R^2) between two arrays (normalized) """
     from sklearn.metrics import r2_score
     a = (a - np.mean(a)) / (1e-9 + np.std(a))
     b = (b - np.mean(b)) / (1e-9 + np.std(b))
     return r2_score(a, b)
+
 
 def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1, guide=False, color=None, kde=False, marginals=False):
 
@@ -292,4 +299,210 @@ def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1
     if ylabel is not None: axes.set_ylabel(ylabel)
 
     if 'fig' in locals():
-        return fig    
+        return fig
+
+
+def imp_rate_change(mv_set, target_pop, net):
+    def get_subplot(imps_mv_eer, imps_sv_eer, imps_sv_far1, imps_mv_far1, gender_map, gender):
+        # Distributions
+        distr_mv_eer = (imps_mv_eer > 0).sum(axis=1) / imps_mv_eer.shape[1]
+        distr_mv_far1 = (imps_mv_far1 > 0).sum(axis=1) / imps_mv_eer.shape[1]
+        distr_sv_eer = (imps_sv_eer > 0).sum(axis=1) / imps_mv_eer.shape[1]
+        distr_sv_far1 = (imps_sv_far1 > 0).sum(axis=1) / imps_mv_eer.shape[1]
+
+        # Title
+        plt.title('Attack to {} users ({}s)'.format(gender, gender_map.count(gender[0])))
+
+        # Plotting
+        xs = np.linspace(0, 1, 200)
+        plt.plot(xs, gaussian_kde(distr_mv_eer)(xs), color='blue', linestyle='-', label=r'MVs $\tau_{EER}$')
+        plt.plot(xs, gaussian_kde(distr_mv_far1)(xs), color='blue', linestyle='--', label=r'MVs $\tau_{FAR1\%}$')
+        plt.plot(xs, gaussian_kde(distr_sv_eer)(xs), color='green', linestyle='-', label=r'SVs $\tau_{EER}$')
+        plt.plot(xs, gaussian_kde(distr_sv_far1)(xs), color='green', linestyle='--', label=r'SVs $\tau_{FAR1\%}$')
+
+        # Decorations
+        plt.legend(ncol=2)
+        plt.xlim(0, 1)
+        plt.xlabel('Impersonation Rate')
+        plt.ylim(0, None)
+        plt.ylabel('Density')
+
+        plt.grid()
+
+    # Load impersonation rates
+    mv_eer_path = os.path.join('..', 'data', 'vs_mv_data', mv_set, 'mv', target_pop + '-' + net + '-any-eer.npz')
+    imps_mv_eer = np.load(mv_eer_path, allow_pickle=True)['results'][()]['imps']
+    imps_sv_eer = np.load(mv_eer_path.replace('mv' + os.sep, 'sv' + os.sep), allow_pickle=True)['results'][()]['imps']
+    imps_sv_far1 = np.load(mv_eer_path.replace('mv' + os.sep, 'sv' + os.sep).replace('eer', 'far1'), allow_pickle=True)['results'][()]['imps']
+    imps_mv_far1 = np.load(mv_eer_path.replace('eer', 'far1'), allow_pickle=True)['results'][()]['imps']
+
+    # Load gender indexes
+    pop_data = pd.read_csv(os.path.join('..', 'data', 'vs_mv_pairs', target_pop + '.csv'))
+    gnds = pop_data.drop_duplicates('user_id')['gender'].to_list()
+    m_idx = [i for i, x in enumerate(gnds) if x == 'm']
+    f_idx = [i for i, x in enumerate(gnds) if x == 'f']
+
+    # Grid
+    plt.figure(figsize=(30, 10), dpi=300)
+    plt.suptitle('mv_set={}, target_pop={}, net={}'.format(mv_set, target_pop, net), fontweight='bold')
+
+    plt.subplot(1, 2, 1)
+    get_subplot(imps_mv_eer[:, m_idx], imps_sv_eer[:, m_idx], imps_sv_far1[:, m_idx], imps_mv_far1[:, m_idx], gnds,
+                'male')
+
+    plt.subplot(1, 2, 2)
+    get_subplot(imps_mv_eer[:, f_idx], imps_sv_eer[:, f_idx], imps_sv_far1[:, f_idx], imps_mv_far1[:, f_idx], gnds, 'female')
+
+    plt.tight_layout()
+    plt.show()
+
+
+def imp_rate_scatter(mv_set, target_pop, net, policy):
+    def get_subplot(imps_sv, imps_mv, level, gender):
+        # Distributions
+        distr_mv = (imps_mv > 0).sum(axis=1) / imps_mv.shape[1]
+        distr_sv = (imps_sv > 0).sum(axis=1) / imps_sv.shape[1]
+
+        # Plotting
+        plt.title('level={}, gender={}'.format(level, gender))
+        plt.scatter(distr_sv, distr_mv)
+        plt.plot([0, 1], [0, 1], color='grey', linestyle='--')
+
+        # Decorations
+        plt.xlim(0, 1)
+        plt.xlabel('Impersonation Rate (before)')
+        plt.ylim(0, 1)
+        plt.ylabel('Impersonation Rate (after)')
+        plt.grid()
+
+    # Impersonation rates
+    mv_eer_path = os.path.join('..', 'data', 'vs_mv_data', mv_set, 'mv', target_pop + '-' + net + '-' + policy + '-eer.npz')
+    imps_mv_eer = np.load(mv_eer_path, allow_pickle=True)['results'][()]['imps']
+    imps_sv_eer = np.load(mv_eer_path.replace('mv' + os.sep, 'sv' + os.sep), allow_pickle=True)['results'][()]['imps']
+    imps_sv_far1 = np.load(mv_eer_path.replace('mv' + os.sep, 'sv' + os.sep).replace('eer', 'far1'), allow_pickle=True)['results'][()]['imps']
+    imps_mv_far1 = np.load(mv_eer_path.replace('eer', 'far1'), allow_pickle=True)['results'][()]['imps']
+
+    # Load gender indexes
+    pop_data = pd.read_csv(os.path.join('..', 'data', 'vs_mv_pairs', target_pop + '.csv'))
+    gnds = pop_data.drop_duplicates('user_id')['gender'].to_list()
+    m_idx = [i for i, x in enumerate(gnds) if x == 'm']
+    f_idx = [i for i, x in enumerate(gnds) if x == 'f']
+
+    # Grid
+    plt.figure(figsize=(30, 20))
+    plt.suptitle('mv_set={}, target_pop={}, net={}'.format(mv_set, target_pop, net), fontweight='bold')
+
+    # Female
+    plt.subplot(2, 2, 1)
+    get_subplot(imps_sv_eer[:, m_idx], imps_mv_eer[:, m_idx], 'eer', 'male')
+
+    plt.subplot(2, 2, 2)
+    get_subplot(imps_sv_eer[:, f_idx], imps_mv_eer[:, f_idx], 'eer', 'female')
+
+    plt.subplot(2, 2, 3)
+    get_subplot(imps_sv_far1[:, m_idx], imps_mv_far1[:, m_idx], 'far1', 'male')
+
+    plt.subplot(2, 2, 4)
+    get_subplot(imps_sv_far1[:, f_idx], imps_mv_far1[:, f_idx], 'far1', 'female')
+
+    plt.tight_layout()
+    plt.show()
+
+
+def cross_asv_table(mv_sets, test_pop, policy, level, gender):
+    print('test_pop={}, policy={}, level={}, gender={}'.format(test_pop, policy, level, gender))
+
+    results = {}
+    for mv_set in mv_sets:
+        base_path = os.path.join('..','data', 'vs_mv_data', mv_set, 'mv')
+        source_asv = mv_set.split(os.sep)[0]
+
+        # Find paths across asv
+        paths = [os.path.join(base_path, p) for p in os.listdir(base_path) if test_pop in p and policy in p and level in p]
+        paths.sort()
+
+        # Loop across target asv
+        results[source_asv] = {}
+        for p in paths:
+            target_asv = p.split('\\')[-1].split('-')[1]
+            gnd_sv = np.load(p.replace('mv' + os.sep, 'sv' + os.sep), allow_pickle=True)['results'][()]['gnds']
+            gnd_mv = np.load(p, allow_pickle=True)['results'][()]['gnds']
+            gnd_sv_score = np.mean(gnd_sv[:, int(gender == 'female')])
+            gnd_mv_score = np.mean(gnd_mv[:, int(gender == 'female')])
+            results[source_asv][target_asv] = (gnd_sv_score, gnd_mv_score)
+
+    return pd.DataFrame(results).transpose()
+
+
+def v1(source_imps, max_pres):
+    top_k_imp_rates = []
+
+    for other in np.arange(len(source_imps)):
+        top_k_sum_imps = np.sum(source_imps[np.array([other])], axis=0)
+        top_k_imp_rates.append(np.sum(top_k_sum_imps > 0) / len(top_k_sum_imps))
+
+    return np.argsort(-np.array(top_k_imp_rates))[:max_pres]
+
+
+def v2(source_imps, max_pres):
+    ordered_mv_list = []
+
+    for _ in np.arange(max_pres):
+
+        top_k_imp_rates = []
+        for other in np.arange(len(source_imps)):
+            top_k_sum_imps = np.sum(source_imps[np.array(ordered_mv_list + [other])], axis=0)
+            top_k_imp_rates.append(np.sum(top_k_sum_imps > 0) / len(top_k_sum_imps))
+
+        top_1 = np.argsort(-np.array(top_k_imp_rates))[0]
+        ordered_mv_list.append(top_1)
+
+    return ordered_mv_list
+
+
+def multiple_presentation_table(source_pop, target_pop, mv_sets, net, policy, level, gender, max_pres=5):
+    b = os.path.join('..', 'data', 'vs_mv_data')
+
+    results = {}
+    for mv_set in mv_sets:
+        results[mv_set] = []
+
+        # Find best master voices in the train population
+        path = os.path.join(b, mv_set, 'mv', source_pop + '-' + net + '-' + policy + '-' + level + '.npz')
+        source_imps = np.load(path, allow_pickle=True)['results'][()]['imps']
+
+        # Find user indexes for males and females
+        pop_data = pd.read_csv(os.path.join('..', 'data', 'vs_mv_pairs', source_pop + '.csv'))
+        gnds = pop_data.drop_duplicates('user_id')['gender'].to_list()
+        g_idx = [i for i, x in enumerate(gnds) if not x == gender[0]]
+        ng_idx = [i for i, x in enumerate(gnds) if x == gender[0]]
+
+        source_imps[:, np.array(g_idx)] = 0
+
+        # Find top k
+        ordered_mv_list_v1 = v1(source_imps, max_pres)
+        ordered_mv_list_v2 = v2(source_imps, max_pres)
+
+        for pres in np.arange(1, max_pres + 1):
+            # Retrieve impersonation rates
+            d = os.path.join(b, mv_set, 'mv', target_pop + '-' + net + '-' + policy + '-' + level + '.npz')
+            imps = np.load(d, allow_pickle=True)['results'][()]['imps']
+            imps[:, np.array(g_idx)] = 0
+
+            # Random k presentation attack
+            top_k = ordered_mv_list_v1[:pres]
+            top_k_sum_imps = np.sum(imps[top_k], axis=0)
+            ran_k_imp_rate = np.sum(top_k_sum_imps[np.array(ng_idx)] > 0) / len(top_k_sum_imps[np.array(ng_idx)])
+
+            # Top k presentation attack
+            top_k = ordered_mv_list_v2[:pres]
+            top_k_sum_imps = np.sum(imps[top_k], axis=0)
+            top_k_imp_rate = np.sum(top_k_sum_imps[np.array(ng_idx)] > 0) / len(top_k_sum_imps[np.array(ng_idx)])
+
+            # Pair reference and top
+            results[mv_set].append((np.round(ran_k_imp_rate, 2), np.round(top_k_imp_rate, 2)))
+
+    df = pd.DataFrame(results).transpose()
+    df.columns = ['#Pres = {}'.format(i+1) for i in df.columns]
+
+    return df
