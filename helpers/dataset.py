@@ -18,9 +18,10 @@ from helpers import audio
 
 class Dataset(object):
 
-    def __init__(self, pop_file):
+    def __init__(self, pop_file, dirname='/scratch/mm11333/voxceleb2/dev'):
 
         population = pd.read_csv(pop_file)
+        population['filename'] = population['filename'].apply(lambda f: os.path.join(dirname, f))
 
         self.pop_file = pop_file.split(os.path.sep)[-1].split('.')[0]
         

@@ -1,18 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import itertools
 import os
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-from scipy.spatial.distance import cosine
-from itertools import product
 from loguru import logger
-import tensorflow as tf
-import pandas as pd
 import numpy as np
 import argparse
 
-from helpers.audio import decode_audio, get_tf_spectrum, get_tf_filterbanks, get_play_n_rec_audio, load_noise_paths, cache_noise_data
 from helpers.dataset import Dataset
 from models import verifier
 
@@ -22,15 +18,16 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 def main():
     parser = argparse.ArgumentParser(description='Tensorflow master voice trial pairs generation and testing')
 
-    parser.add_argument('--net', dest='net', default='vggvox/v003', type=str, action='store', help='Speaker model, e.g., vggvox/v003')
+    parser.add_argument('--net', dest='net', default='vggvox/v004,resnet50/v004,thin_resnet/v002,resnet34/v002,xvector/v003', type=str, action='store', help='Speaker model, e.g., vggvox/v003')
 
     parser.add_argument('--playback', dest='playback', default=0, type=int, action='store', help='Playback and recording in master voice test condition: 0 no, 1 yes')
     parser.add_argument('--noise_dir', dest='noise_dir', default='data/vs_noise_data', type=str, action='store', help='Noise directory')
 
-    parser.add_argument('--mv_set', dest='mv_set', default='vggvox-v000_real_f-f_mv/v000', action='store', help='Directory with MV data')
-    parser.add_argument('--pop', dest='pop', default='./data/vs_mv_pairs/mv_test_population_debug_20u_10s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv training')
-    parser.add_argument('--policy', dest='policy', default='any', type=str, action='store', help='Policy of verification, eigher any or avg')
-    parser.add_argument('--level', dest='level', default='far1', type=str, action='store', help='Levelof security, either eer or far1')
+    parser.add_argument('--mv_set', dest='mv_set', default='vggvox_v000_pgd_spec_m/v028/sv,vggvox_v000_pgd_spec_m/v028/mv', action='store', help='Directory with MV data')
+    parser.add_argument('--pop', dest='pop', default='data/vs_mv_pairs/mv_test_population_is2019_100u_10s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv training')
+    parser.add_argument('-d', '--dirname', dest='dirname', default='data/voxceleb2/dev/', type=str, action='store', help='Path to the voxceleb dataset')
+    parser.add_argument('--policy', dest='policy', default='any,avg', type=str, action='store', help='Policy of verification, eigher any or avg')
+    parser.add_argument('--level', dest='level', default='eer,far1', type=str, action='store', help='Levelof security, either eer or far1')
 
     settings = vars(parser.parse_args())
 
@@ -51,18 +48,16 @@ def main():
 
     # Create all the paths to the mv_set/version folders we want to test
     if settings['mv_set'] is None or len(settings['mv_set']) == 0:
-        mv_sets = [os.path.join('./data/vs_mv_data', mv_set, version) for mv_set in os.listdir('./data/vs_mv_data') for version in os.listdir(os.path.join('./data/vs_mv_data', mv_set))]
+        mv_sets = [os.path.join('./', 'data', 'vs_mv_data', mv_set, version) for mv_set in os.listdir(os.path.join('.', 'data', 'vs_mv_data')) for version in os.listdir(os.path.join('.', 'data', 'vs_mv_data', mv_set))]
     else:
-        mv_sets = [os.path.join('./data/vs_mv_data', settings['mv_set'])]
+        mv_sets = [os.path.join('./', 'data', 'vs_mv_data', mv_set) for mv_set in settings['mv_set'].split(',')]
 
     logger.info(mv_sets)
 
     # Create the csv file with the similarity scores for each master voice, i.e., each master voice is compared with all the users enrolled templates
-    logger.info('Compute similarity scores')
-    for net in map(str, settings['net'].split(',')):
-
+    combs = list(itertools.product(map(str, settings['net'].split(',')), map(str, settings['policy'].split(',')), map(str, settings['level'].split(','))))
+    for net, policy, level in combs:
         # Build and load pre-trained weights of a sv
-        logger.info('Loading speaker model:', net)
         sv = verifier.get_model(net)
         sv.build(classes=0, mode='test')
         sv.load()
@@ -70,11 +65,11 @@ def main():
         sv.infer()
 
         # Create the test gallery
-        test_gallery = Dataset(settings['pop'])
+        test_gallery = Dataset(settings['pop'], settings['dirname'])
         test_gallery.precomputed_embeddings(sv)
 
         for mv_set in mv_sets:
-            # TODO [Critical] Decide where matrices will be saved
+            logger.info('testing setup net={} policy={} level={} mv_set={}:'.format(net, policy, level, mv_set))
             filenames = [os.path.join(mv_set, file) for file in os.listdir(mv_set) if file.endswith('.wav')]
             logger.info('retrieve master voice filenames {}'.format(len(filenames)))
 
@@ -82,16 +77,12 @@ def main():
             logger.info('compute master voice embeddings {}'.format(embeddings.shape))
 
             logger.info('testing error rates...')
-            sims, imps, gnds = sv.test_error_rates(embeddings, test_gallery, policy=settings['policy'], level=settings['level'], playback=None)
-            logger.info('computed sims matrix {}'.format(sims.shape))
-            logger.info('computed imps matrix {}'.format(imps.shape))
-            logger.info('computed gnds matrix {}'.format(gnds.shape))
+            sims, imps, gnds = sv.test_error_rates(embeddings, test_gallery, policy=policy, level=level, playback=None)
 
-            print(imps)
-            # We save the similarities, impostor, and gender impostor results
-            # sim_df.to_csv(os.path.join('./data/vs_mv_models/', net + '_sims_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
-            # imp_df.to_csv(os.path.join('./data/vs_mv_models/', net  + '_imps_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
-            # gnd_df.to_csv(os.path.join('./data/vs_mv_models/', net  + '_nds_' + test_gallery.pop_file + '_' + mv_set + '_' + 'far1' + '_' + 'any'))
+            results = {'sims': sims, 'imps': imps, 'gnds': gnds}
+            filename_stats = os.path.join(mv_set, settings['pop'].split('/')[-1][:-4] + '-' + net.replace('/', '_') + '-' + str(policy) + '-' + str(level) + '.npz')
+            logger.info('saving stats to {}'.format(filename_stats))
+            np.savez(filename_stats, results=results)
 
 if __name__ == '__main__':
     main()
