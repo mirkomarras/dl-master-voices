@@ -205,7 +205,7 @@ class SiameseModel(object):
         n_seed_voices = len(seed_voices) if self.gan is None else int(seed_voices)
 
         # Find the last computed sample
-        existing_files = [x for x in os.listdir(self.dir_full) if x.startswith('opt_progress_ori')]
+        existing_files = [x for x in os.listdir(self.dir_full) if x.startswith('opt_progress')]
         n_seed_start = len(existing_files)
 
         if n_seed_start > 0:
