@@ -18,10 +18,9 @@ from helpers import audio
 
 class Dataset(object):
 
-    def __init__(self, pop_file, dirname='/scratch/mm11333/voxceleb2/dev'):
+    def __init__(self, pop_file):
 
         population = pd.read_csv(pop_file)
-        population['filename'] = population['filename'].apply(lambda f: os.path.join(dirname, f))
 
         self.pop_file = pop_file.split(os.path.sep)[-1].split('.')[0]
         
@@ -62,7 +61,7 @@ class Dataset(object):
     def save_embeddings(self):
         filename = self.get_filename()
 
-        print(self.embeddings.numpy().shape)
+        logger.info(self.embeddings.numpy().shape)
         np.savez(filename, self.embeddings.numpy())
         logger.info('Embeddings saved for {}'.format(filename))
 

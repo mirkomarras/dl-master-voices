@@ -25,7 +25,6 @@ def main():
 
     parser.add_argument('--mv_set', dest='mv_set', default='vggvox_v000_pgd_spec_m/v028/sv,vggvox_v000_pgd_spec_m/v028/mv', action='store', help='Directory with MV data')
     parser.add_argument('--pop', dest='pop', default='data/vs_mv_pairs/mv_test_population_is2019_100u_10s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv training')
-    parser.add_argument('-d', '--dirname', dest='dirname', default='data/voxceleb2/dev/', type=str, action='store', help='Path to the voxceleb dataset')
     parser.add_argument('--policy', dest='policy', default='any,avg', type=str, action='store', help='Policy of verification, eigher any or avg')
     parser.add_argument('--level', dest='level', default='eer,far1', type=str, action='store', help='Levelof security, either eer or far1')
 
@@ -65,7 +64,7 @@ def main():
         sv.infer()
 
         # Create the test gallery
-        test_gallery = Dataset(settings['pop'], settings['dirname'])
+        test_gallery = Dataset(settings['pop'])
         test_gallery.precomputed_embeddings(sv)
 
         for mv_set in mv_sets:

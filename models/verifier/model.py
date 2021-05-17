@@ -328,8 +328,7 @@ class Model(object):
             for user_idx, user_id in enumerate(gallery.user_ids[::n_samples_pp]): # For each user in the gallery, reuse if the gallery size increase
                 
                 if policy == 'any':
-                    user_sim = self.compare(
-                        np.tile(element_emb, (np.sum(gallery.user_ids == user_id), 1)), gallery.embeddings[gallery.user_ids == user_id], only_scores=True)
+                    user_sim = self.compare(np.tile(element_emb, (np.sum(gallery.user_ids == user_id), 1)), gallery.embeddings[gallery.user_ids == user_id], only_scores=True)
                     user_sim = np.array(user_sim)
                     sim_matrix[element_idx, gallery.user_ids == user_id] = user_sim
                     imp_matrix[element_idx, user_idx] = np.any(user_sim > self._thresholds[level])
@@ -339,7 +338,7 @@ class Model(object):
                     sim_matrix[element_idx, user_idx] = user_sim
                     imp_matrix[element_idx, user_idx] = user_sim > self._thresholds[level]
 
-            gnd_matrix[element_idx, 0] = np.mean(imp_matrix[element_idx, gnds_idx == 'm']) * 2
-            gnd_matrix[element_idx, 1] = np.mean(imp_matrix[element_idx, gnds_idx == 'f']) * 2
+            gnd_matrix[element_idx, 0] = np.mean(imp_matrix[element_idx, gnds_idx == 'm'])
+            gnd_matrix[element_idx, 1] = np.mean(imp_matrix[element_idx, gnds_idx == 'f'])
 
         return (sim_matrix, imp_matrix, gnd_matrix)
