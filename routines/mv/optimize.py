@@ -156,7 +156,8 @@ def main():
         'gradient': args.gradient,
         'n_epochs': args.n_epochs,
         'max_attack_vector': args.max_dist,
-        'l2_regularization': args.l2_reg
+        'l2_regularization': args.l2_reg,
+        'learning_rate': args.learning_rate
     })
 
     # Run optimization

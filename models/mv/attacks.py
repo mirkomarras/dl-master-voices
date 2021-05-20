@@ -123,8 +123,8 @@ class PGDSpectrumDistortion(Attack):
             grads = tape.gradient(loss, attack_vector_repeated)
 
             # Find viable speakers worth pursuing (e.g,. closer than a certain distance)
-            idxs = tf.where(tf.reshape(loss, (-1,)) > settings.min_sim)
-            grads = tf.gather(grads, tf.reshape(idxs, (-1,)))
+            # idxs = tf.where(tf.reshape(loss, (-1,)) > settings.min_sim)
+            # grads = tf.gather(grads, tf.reshape(idxs, (-1,)))
 
             if len(grads) > 0:
                 grad = tf.reduce_mean(grads, axis=0)
@@ -133,7 +133,7 @@ class PGDSpectrumDistortion(Attack):
                     grad = tf.sign(grad)
                 elif settings.gradient == 'normed':
                     grad = grad / (1e-9 + tf.linalg.norm(grad))
-                elif settings.gradient is None:
+                elif settings.gradient is None or settings.gradient == 'none':
                     pass
                 else:
                     raise ValueError('Unsupported gradient mode!')
