@@ -302,7 +302,7 @@ def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1
         return fig
 
 
-def imp_rate_change(mv_set, target_pop, net):
+def imp_rate_change(mv_set, target_pop, net, policy):
     def get_subplot(imps_mv_eer, imps_sv_eer, imps_sv_far1, imps_mv_far1, gender_map, gender):
         # Distributions
         distr_mv_eer = (imps_mv_eer > 0).sum(axis=1) / imps_mv_eer.shape[1]
@@ -330,7 +330,7 @@ def imp_rate_change(mv_set, target_pop, net):
         plt.grid()
 
     # Load impersonation rates
-    mv_eer_path = os.path.join('..', 'data', 'vs_mv_data', mv_set, 'mv', target_pop + '-' + net + '-any-eer.npz')
+    mv_eer_path = os.path.join('..', 'data', 'vs_mv_data', mv_set, 'mv', target_pop + '-' + net + '-' + policy + '-eer.npz')
     imps_mv_eer = np.load(mv_eer_path, allow_pickle=True)['results'][()]['imps']
     imps_sv_eer = np.load(mv_eer_path.replace('mv' + os.sep, 'sv' + os.sep), allow_pickle=True)['results'][()]['imps']
     imps_sv_far1 = np.load(mv_eer_path.replace('mv' + os.sep, 'sv' + os.sep).replace('eer', 'far1'), allow_pickle=True)['results'][()]['imps']
@@ -414,6 +414,9 @@ def cross_asv_table(mv_sets, test_pop, policy, level, gender):
 
     results = {}
     for mv_set in mv_sets:
+        if '_' + gender[0] not in mv_set:
+            continue
+
         base_path = os.path.join('..','data', 'vs_mv_data', mv_set, 'mv')
         source_asv = mv_set.split(os.sep)[0]
 
@@ -429,7 +432,7 @@ def cross_asv_table(mv_sets, test_pop, policy, level, gender):
             gnd_mv = np.load(p, allow_pickle=True)['results'][()]['gnds']
             gnd_sv_score = np.mean(gnd_sv[:, int(gender == 'female')])
             gnd_mv_score = np.mean(gnd_mv[:, int(gender == 'female')])
-            results[source_asv][target_asv] = (gnd_sv_score, gnd_mv_score)
+            results[source_asv][target_asv] = (np.round(gnd_sv_score, 2), np.round(gnd_mv_score, 2))
 
     return pd.DataFrame(results).transpose()
 
@@ -465,6 +468,9 @@ def multiple_presentation_table(source_pop, target_pop, mv_sets, net, policy, le
 
     results = {}
     for mv_set in mv_sets:
+        if '_' + gender[0] not in mv_set:
+            continue
+            
         results[mv_set] = []
 
         # Find best master voices in the train population
