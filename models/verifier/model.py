@@ -307,6 +307,7 @@ class Model(object):
 
     def test_error_rates(self, elements, gallery, policy='any', level='far1', playback=None):
         assert self._thresholds is not None and self._inference_model is not None
+        logger.info('used thresholds {}'.format(self._thresholds))
 
         # Expand the elements so that we can flexibly manage sequences of elements
         elements = elements if len(elements.shape) >= 2 else np.expand_dims(elements, axis=0)  # audio (None,) audios (None, n) ---> use prepare_batch

@@ -470,7 +470,7 @@ def multiple_presentation_table(source_pop, target_pop, mv_sets, net, policy, le
     for mv_set in mv_sets:
         if '_' + gender[0] not in mv_set:
             continue
-            
+
         results[mv_set] = []
 
         # Find best master voices in the train population
