@@ -100,8 +100,9 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
                                        prefetch=1024, output_type=output, pad_width='auto', resize=resize)
 
     elif dataset.startswith('voxceleb'):
+
         gender = dataset.split('-')[-1] if '-' in dataset else None
-        audio_dir = './data/voxceleb1/dev'
+        audio_dir = './data/voxceleb2/dev'
         audio_dir = audio_dir.split(',')
         
         x_train, y_train = load_data_set(audio_dir, {})
@@ -132,6 +133,8 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
         gan_ = gan.MultiscaleGAN(dataset, patch=height, width_ratio=width_ratio, min_output=8, latent_dist=dist)
     elif model == 'ae':
         gan_ = ae.Autoencoder(dataset, z_dim=z_dim, patch_size=height)
+    elif model == 'vae':
+        gan_ = ae.VariationalAutoencoder(dataset, z_dim=z_dim, patch_size=height)
     else:
         raise ValueError(f'Unsupported GAN model: {model}')
 
@@ -148,7 +151,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GAN training')
 
     parser.add_argument('-m', '--model', dest='model', default='ms-gan', type=str, action='store', 
-                        choices=['dc-gan', 'ms-gan', 'ae'], help='Network model architecture')
+                        choices=['dc-gan', 'ms-gan', 'ae', 'vae'], help='Model architecture')
     parser.add_argument('-d', '--dataset', dest='dataset', default='voxceleb', type=str, 
                         help='Dataset, e.g.: mnist, digits, voxceleb, voxceleb-male, voxceleb-female')
     parser.add_argument('-D', '--dist', dest='dist', default='normal', type=str, 
@@ -163,7 +166,12 @@ if __name__ == '__main__':
                         help='Number of training examples (defaults to 0 - use all)')
     parser.add_argument('-e', '--epochs', dest='epochs', default=500, type=int, action='store', 
                         help='Number of training epochs (defaults to 500)')
+    parser.add_argument('--memory-growth', dest='memory_growth', action='store_true', help='Enable dynamic memory growth in Tensorflow')                       
         
     args = parser.parse_args()
-    
+
+    if args.memory_growth:
+        physical_devices = tf.config.list_physical_devices("GPU")
+        tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
     train_gan(args.model, args.dataset, args.length, args.batch, args.examples, args.size, args.epochs, args.dist)
