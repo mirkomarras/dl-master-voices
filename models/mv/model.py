@@ -71,8 +71,13 @@ class SiameseModel(object):
         else:
             logger.debug(f'Output dir exists: {self.dir_full}')
 
+        self.save_params()
+
         assert os.path.exists(self.dir_full) and os.path.exists(self.dir_full), 'Please check folder permission for seed and master voice version saving'
-        
+
+    def save_params():
+        with open(os.path.join(self.dir_full, 'params.txt'), 'w') as file:
+            file.write(json.dumps(self.params))
 
     def setup_attack(self, attack_type):
         if attack_type == 'nes@cloning':
