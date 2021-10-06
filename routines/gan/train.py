@@ -10,10 +10,10 @@ import tensorflow as tf
 from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender
 from helpers.datapipeline import data_pipeline_generator_gan, data_pipeline_gan
 
-from models import gan
+from models import gan, ae
 
 
-def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, epochs=500, dist='normal'):
+def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, epochs=500, dist='normal', z_dim=256):
     
     print(f'Training {model} on {dataset} ({length}s clips)')
 
@@ -78,8 +78,6 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
         train_data = data_pipeline_gan(x_train, slice_len=slice_len, sample_rate=sample_rate, batch=batch, 
                                        prefetch=1024, output_type=output, pad_width='auto', resize=resize)
         
-
-
     elif dataset == 'seven':
         audio_dir = './data/seven/train'
         x_train = [os.path.join(audio_dir, x) for x in os.listdir(audio_dir)]
@@ -132,6 +130,8 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
         gan_ = gan.DCGAN(dataset, patch=height, width_ratio=width_ratio, latent_dist=dist)
     elif model == 'ms-gan':
         gan_ = gan.MultiscaleGAN(dataset, patch=height, width_ratio=width_ratio, min_output=8, latent_dist=dist)
+    elif model == 'ae':
+        gan_ = ae.Autoencoder(dataset, z_dim=z_dim, patch_size=height)
     else:
         raise ValueError(f'Unsupported GAN model: {model}')
 
@@ -148,7 +148,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='GAN training')
 
     parser.add_argument('-m', '--model', dest='model', default='ms-gan', type=str, action='store', 
-                        choices=['dc-gan', 'ms-gan'], help='Network model architecture')
+                        choices=['dc-gan', 'ms-gan', 'ae'], help='Network model architecture')
     parser.add_argument('-d', '--dataset', dest='dataset', default='voxceleb', type=str, 
                         help='Dataset, e.g.: mnist, digits, voxceleb, voxceleb-male, voxceleb-female')
     parser.add_argument('-D', '--dist', dest='dist', default='normal', type=str, 
