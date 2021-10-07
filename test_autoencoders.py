@@ -6,10 +6,13 @@ Created on Wed Oct  6 09:18:43 2021
 @author: pkorus
 """
 
+import numpy as np
 from tqdm import tqdm
 import tensorflow as tf
 
 import librosa
+
+from helpers import plotting
 
 from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender
 from helpers.datapipeline import data_pipeline_generator_gan, data_pipeline_gan
@@ -23,13 +26,21 @@ from models import gan, ae
 physical_devices = tf.config.list_physical_devices("GPU")
 tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
+tf.config.set_visible_devices([], 'GPU')
+
 # %%
 
 gan_ = ae.VariationalAutoencoder('voxceleb', z_dim=256, patch_size=256)
 
+# gan_ = ae.Autoencoder('voxceleb', z_dim=256, patch_size=256, version=0)
+
 print('GAN model directory: ' + gan_.dirname())
-gan_.load()
+# gan_.load()
 gan_.summarize_models()
+
+# %% Explore model structure
+
+
 
 # %%
 
@@ -93,25 +104,31 @@ sp = np.vstack((sp, np.zeros((1, sp.shape[1])), sp[:0:-1]))
 sp = sp.clip(0)
 
 inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1] + 1) / 100.0 * sample_rate), verbose=False)
-librosa.output.write_wav('tmp/signal.wav', inv_signal, sample_rate)
+# librosa.output.write_wav('tmp/signal.wav', inv_signal, sample_rate)
+
+sounddevice.play(inv_signal, 16000)
 
 plotting.imsc(sp, cmap='jet')
 
 # %% 
 
-aux_signal = decode_audio(x_train[0])[:slice_len-100]
+aux_signal = decode_audio(x_train[2])[:slice_len-100]
 
 # x, input_avg, input_std = get_np_spectrum(aux_signal.ravel(), normalized=False)
 x = get_np_spectrum(aux_signal.ravel(), normalized=False)
 
-sp = np.squeeze(np.squeeze(denormalize_frames(np.squeeze(x), input_avg, input_std)))
+# sp = np.squeeze(np.squeeze(denormalize_frames(np.squeeze(x), input_avg, input_std)))
+
+sp = x.squeeze()
 
 sp = np.vstack((sp, np.zeros((1, sp.shape[1])), sp[:0:-1]))
 sp = sp.clip(0)
 
 inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1] + 1) / 100.0 * sample_rate), verbose=False)
 
-librosa.output.write_wav('tmp/signal.wav', inv_signal, sample_rate)
+sounddevice.play(inv_signal, 16000)
+
+# librosa.output.write_wav('tmp/signal.wav', inv_signal, sample_rate)
 
 # %% Distort latent space
 
@@ -124,3 +141,4 @@ z_ind[0, 12] = 0.5
 X = gan_.decode(z + z_ind)
 
 plotting.imsc(X.numpy(), cmap='jet')
+

@@ -23,7 +23,7 @@ from matplotlib.figure import Figure
 
 from helpers import plotting, audio
 
-from models import gan
+from models import gan, ae
 
 import sounddevice as sd
 import soundfile as sf
@@ -108,15 +108,15 @@ class SensorInteractWindow(QtWidgets.QMainWindow):
     def get_current_spectrum(self):
         pixel_x, pixel_y = self._last_position
         
-        if self.gan.latent_dist == 'normal':
-            value = 6 * (self._last_position[0] / 256 - 0.5)
-        else:
+        if hasattr(self.gan, 'latent_dist') and self.gan.latent_dist == 'uniform':
             value = (self._last_position[0] / 256)
+        else:
+            value = 6 * (self._last_position[0] / 256 - 0.5)
                 
         z0 = np.copy(self.z)
         z0[0, self.index] = value        
         
-        return self.gan.generator(z0)[-1]
+        return self.gan.decode(z0)[-1]
 
     def update_viz(self, pixel_x, pixel_y):
         self._last_position = (pixel_x, pixel_y)
@@ -182,31 +182,31 @@ class SensorInteractWindow(QtWidgets.QMainWindow):
         # grad_kt = plots.thumbnails(grad_k, 2)
         
         # index = 0
-        if self.gan.latent_dist == 'normal':
-            value = 6 * (self._last_position[0] / 256 - 0.5)
-        else:
+        if hasattr(self.gan, 'latent_dist') and self.gan.latent_dist == 'uniform':
             value = (self._last_position[0] / 256)
+        else:
+            value = 6 * (self._last_position[0] / 256 - 0.5)
         
         # np.random.normal(size=(1,128))
         # z = tf.convert_to_tensor(z)
         
-        sp = self.gan.generator(self.z)[-1].numpy()
+        sp = self.gan.decode(self.z)[-1].numpy()
         
         z0 = np.copy(self.z)
         z0[0, self.index] = value
         # self.z = tf.convert_to_tensor(z0)
         
-        sp0 = self.gan.generator(z0)[-1].numpy()
+        sp0 = self.gan.decode(z0)[-1].numpy()
         
         plotting.quickshow(sp, 'original sample', cmap='jet', axes=self.axes[0])
         plotting.quickshow(sp0, f'set idx={self.index} to {value:.2f}', cmap='jet', axes=self.axes[1])
         
         self.axes[2].plot(z0.ravel())
         self.axes[2].plot([self.index], z0[0, self.index], 'ro')
-        if self.gan.latent_dist == 'normal':
-            self.axes[2].set_ylim([-3.2, 3.2])
-        else:
+        if hasattr(self.gan, 'latent_dist') and self.gan.latent_dist == 'uniform':
             self.axes[2].set_ylim([0.05, 1.05])
+        else:
+            self.axes[2].set_ylim([-3.2, 3.2])
 
         # plots.image(batch_x[..., [0, 1, 3]], f'RAW {self.label}', axes=self.axes[0])
         # plots.image(batch_y0, 'RGB image ($y_0$)', axes=self.axes[1])
@@ -226,13 +226,21 @@ class SensorInteractWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self._main)
         layout = QtWidgets.QHBoxLayout(self._main)
         
-        model = 'ms-gan'
-        dataset = 'vctk'
+        model = 'vae'
+        dataset = 'voxceleb'
         version = 0
         dist = 'normal'
         patch = 256
         
-        self.gan = gan.MultiscaleGAN(dataset, version=version, patch=patch, width_ratio=1, min_output=8, latent_dist=dist)
+        if model == 'vae':
+            self.gan = ae.VariationalAutoencoder(dataset, version=version, z_dim=256, patch_size=256)
+        
+        if model == 'ae':
+            self.gan = ae.Autoencoder(dataset, version=version, z_dim=256, patch_size=256)
+
+        elif model == 'ms-gan':
+            self.gan = gan.MultiscaleGAN(dataset, version=version, patch=patch,         width_ratio=1, min_output=8, latent_dist=dist)
+
         self.gan.load()
 
         self.index = 0        

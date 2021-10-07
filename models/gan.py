@@ -60,11 +60,12 @@ class Spectral_Norm(tf.keras.constraints.Constraint):
 class GAN(object):
     
     
-    def __init__(self, dataset, version=None, gradient_penalty=True, clip_discriminator=False, latent_dist='normal'):
+    def __init__(self, dataset, version=None, gradient_penalty=True, clip_discriminator=False, latent_dist='normal', gender='neutral'):
         self.dataset = dataset
         self.z_dim = 128
+        self.gender = gender
         self.latent_dist = latent_dist
-        self.root_dir = './data/models/gan/'        
+        self.root_dir = './data/vs_mv_models/'        
         self.gradient_penalty = gradient_penalty
         self.clip_discriminator = clip_discriminator
         self.performance = {'gen': [], 'disc': [], 'accuracy': []}
@@ -409,10 +410,11 @@ class GAN(object):
 
 class DCGAN(GAN):
     
-    def __init__(self, dataset, version=None, z_dim=128, patch=32, width_ratio=1, kernel_size=5, gan_dim=16, bn=True, sn=False, gradient_penalty=True, clip_discriminator=False, latent_dist='normal'):
+    def __init__(self, dataset, version=None, z_dim=128, patch=32, width_ratio=1, kernel_size=5, gan_dim=16, bn=True, sn=False, gradient_penalty=True, clip_discriminator=False, latent_dist='normal', gender='neutral'):
         super().__init__(dataset, version, gradient_penalty, clip_discriminator, latent_dist)
         self.n_scales = 1
         
+        self.gender = gender
         self.z_dim = z_dim
         self.patch = patch
         self.width_ratio = width_ratio
@@ -473,7 +475,7 @@ class DCGAN(GAN):
 
 class MultiscaleGAN(GAN):
 
-    def __init__(self, dataset, version=None, z_dim=128, patch=256, width_ratio=1, kernel_size=5, bn=True, drop=0, sn=False, min_output=8, up='conv', gp=True, cd=False, latent_dist='normal'):
+    def __init__(self, dataset, version=None, z_dim=128, patch=256, width_ratio=1, kernel_size=5, bn=True, drop=0, sn=False, min_output=8, up='conv', gp=True, cd=False, latent_dist='normal', gender='neutral'):
         """
         A Multiscale GAN with direct connection of (multi-scale) generator outputs to corresponding feature maps in the discriminator.
 
@@ -491,6 +493,7 @@ class MultiscaleGAN(GAN):
         # Save hyperparameters for future reference
         self.g_layers = int(np.log2(min(patch, patch * width_ratio)) - 2)
         self.d_layers = self.g_layers
+        self.gender = gender
         self.z_dim = z_dim
         self.patch = patch
         self.width_ratio = width_ratio

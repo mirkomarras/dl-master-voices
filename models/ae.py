@@ -24,7 +24,6 @@ class Autoencoder(tf.keras.Model):
         self.patch_size = patch_size
 
         # self.latent_dist = latent_dist
-        self.root_dir = './data/models/ae/'
         self.build_models()
         self.reset_metrics()
         
@@ -38,7 +37,11 @@ class Autoencoder(tf.keras.Model):
                 self.version = max(candidates) + 1
             else:
                 self.version = 0
-                
+
+    @property
+    def root_dir(self):
+        return './data/models/ae/'
+
     def reset_metrics(self):
         self.performance = {'loss': [], 'mse': []}
 
@@ -161,19 +164,11 @@ class Autoencoder(tf.keras.Model):
             print(f'ERROR Error loading discriminator: {e}')
     
     def sample_z(self, n=1):
-        if self.latent_dist == 'normal':
-            return tf.random.normal([n, self.z_dim])
-        elif self.latent_dist == 'uniform':
-            return tf.random.uniform([n, self.z_dim], maxval=1)
-        else:
-            raise ValueError(f'Unsupported latent distribution: {self.latent_dist}')
+        return tf.random.normal([n, self.z_dim])
 
     def sample(self, n=1, strip_scales=True):
         samples = self.generator(self.sample_z(n), training=False)
-        if strip_scales and isinstance(samples, list):
-            return samples[-1]
-        else:
-            return samples        
+        return samples        
 
     def encode(self, x):
         return self.encoder(x)
@@ -299,32 +294,36 @@ class VariationalAutoencoder(Autoencoder):
 
     def __init__(self, dataset, version=None, z_dim=128, patch_size=256):
         super(VariationalAutoencoder, self).__init__(dataset, version, z_dim, patch_size)
-        self.root_dir = './data/models/vae/'
-                
+
+    @property
+    def root_dir(self):
+        return './data/models/vae/'
+
     # def reset_metrics(self):
     #     self.performance = {'loss': [], 'mse'"}
 
     def build_models(self):
         # n_layers = np.log2(128) - np.log2(32)
+        z_depth = 32
         z_res = self.patch_size // 8
 
         self.encoder = tf.keras.Sequential([
             tf.keras.Input((self.patch_size, self.patch_size, 1)),
-            tf.keras.layers.Conv2D(32, 3, activation=tf.nn.leaky_relu, strides=(2,2), padding='same'),
-            tf.keras.layers.Conv2D(64, 3, activation=tf.nn.leaky_relu, strides=(2,2), padding='same'),
-            tf.keras.layers.Conv2D(128, 3, activation=tf.nn.leaky_relu, strides=(2,2), padding='same'),
+            tf.keras.layers.Conv2D(z_depth // 4, 3, activation=tf.nn.leaky_relu, strides=(2,2), padding='same'),
+            tf.keras.layers.Conv2D(z_depth // 2, 3, activation=tf.nn.leaky_relu, strides=(2,2), padding='same'),
+            tf.keras.layers.Conv2D(z_depth, 3, activation=tf.nn.leaky_relu, strides=(2,2), padding='same'),
             tf.keras.layers.Flatten(),
             tf.keras.layers.Dense(self.z_dim + self.z_dim)
         ])
         
         self.decoder = tf.keras.Sequential([
             tf.keras.Input((self.z_dim,)),
-            tf.keras.layers.Dense(z_res * z_res * 64, activation=tf.nn.leaky_relu),
-            tf.keras.layers.Reshape(target_shape=(z_res, z_res, 64)),
-            tf.keras.layers.Conv2DTranspose(128, 3, strides=2, activation=tf.nn.leaky_relu, padding='same'),
-            tf.keras.layers.Conv2DTranspose(64, 3, strides=2, activation=tf.nn.leaky_relu, padding='same'),
-            tf.keras.layers.Conv2DTranspose(32, 3, strides=2, activation=tf.nn.leaky_relu, padding='same'),
-            tf.keras.layers.Conv2DTranspose(1, 1, strides=1)
+            tf.keras.layers.Dense(z_res * z_res * z_depth, activation=tf.nn.leaky_relu),
+            tf.keras.layers.Reshape(target_shape=(z_res, z_res, z_depth)),
+            tf.keras.layers.Conv2DTranspose(z_depth // 2, 3, strides=2, activation=tf.nn.leaky_relu, padding='same'),
+            tf.keras.layers.Conv2DTranspose(z_depth // 4, 3, strides=2, activation=tf.nn.leaky_relu, padding='same'),
+            tf.keras.layers.Conv2DTranspose(z_depth // 4, 3, strides=2, activation=tf.nn.leaky_relu, padding='same'),
+            tf.keras.layers.Conv2D(1, 3, strides=1, padding='same')
         ])
 
     @property
@@ -351,8 +350,8 @@ class VariationalAutoencoder(Autoencoder):
         fig = plotting.imsc(tf.concat(X_vis, axis=0).numpy(), '', ncols=z_rep)
         fig.savefig(os.path.join(self.dirname(True), f'latent_{counter:04d}.jpg'), bbox_inches='tight', quality=80)
     
-    def sample_z(self, n=1):
-        return tf.random.normal([n, self.z_dim])
+    # def sample_z(self, n=1):
+    #     return tf.random.normal([n, self.z_dim])
 
     def sample(self, n=1, strip_scales=True):
         samples = self.decode(self.sample_z(n), training=False)
