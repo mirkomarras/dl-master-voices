@@ -416,17 +416,21 @@ class VariationalAutoencoder(Autoencoder):
         opt = tf.keras.optimizers.Adam()
         loss_m = tf.keras.metrics.Mean()
         mse_m = tf.keras.metrics.Mean()
+
+        step_id = 0
         
         with tqdm(total=epochs, desc='AE', ncols=140) as pbar:
             for epoch in range(1, epochs+1):
                 loss_m.reset_states()
                 mse_m.reset_states()
                 # for example in ds:
-                for step, batch_data in enumerate(ds):
-                    x = batch_data
-                    mse, loss = self.training_step(x, opt)
-                    loss_m.update_state(loss)
-                    mse_m.update_state(mse)
+                for batch_data in ds:
+                    with tf.profiler.experimental.Trace('train', step_num=step_id, _r=1):
+                        x = batch_data
+                        mse, loss = self.training_step(x, opt)
+                        loss_m.update_state(loss)
+                        mse_m.update_state(mse)
+                        step_id += 1
 
                 loss_v = loss_m.result().numpy()
                 mse_v = mse_m.result().numpy()

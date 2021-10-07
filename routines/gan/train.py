@@ -115,7 +115,7 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
             
         # Create and train model
         train_data = data_pipeline_gan(x_train, slice_len=slice_len, sample_rate=sample_rate, batch=batch,
-                                       prefetch=1024, output_type=output, pad_width='auto', resize=resize)
+                                       prefetch=10, output_type=output, pad_width='auto', resize=resize)
     
     else:
         raise ValueError(f'Unsupported dataset: {dataset}')
@@ -142,7 +142,17 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
 
     print(f'Saving results & models to {gan_.dirname()}')
 
+    # TODO Profiler
+    # profile_dir = 'var/training-profile'
+    # print(f'[PROFILE] Starting profiler & writing to {profile_dir}')
+    # options = tf.profiler.experimental.ProfilerOptions(host_tracer_level=3, python_tracer_level=1, device_tracer_level=1)
+    # tf.profiler.experimental.start(profile_dir, options)
+
     gan_.train(train_data, epochs, 10)
+
+    # TODO Profiler
+    # tf.profiler.experimental.stop()
+
     gan_.save(True, False)
 
 
@@ -166,6 +176,8 @@ if __name__ == '__main__':
                         help='Number of training examples (defaults to 0 - use all)')
     parser.add_argument('-e', '--epochs', dest='epochs', default=500, type=int, action='store', 
                         help='Number of training epochs (defaults to 500)')
+    parser.add_argument('-z', '--z_dim', dest='z_dim', default=256, type=int, action='store', 
+                        help='Latent space size (defaults to 256)')
     parser.add_argument('--memory-growth', dest='memory_growth', action='store_true', help='Enable dynamic memory growth in Tensorflow')                       
         
     args = parser.parse_args()
@@ -174,4 +186,4 @@ if __name__ == '__main__':
         physical_devices = tf.config.list_physical_devices("GPU")
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
-    train_gan(args.model, args.dataset, args.length, args.batch, args.examples, args.size, args.epochs, args.dist)
+    train_gan(args.model, args.dataset, args.length, args.batch, args.examples, args.size, args.epochs, args.dist, args.z_dim)
