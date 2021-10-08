@@ -211,7 +211,7 @@ class PGDVariationalAutoencoder(Attack):
         return attack_vector, epoch_similarities
 
     def run(self, seed_sample, attack_vector):
-        return self.gan.decode(attack_vector)
+        return self.gm.decode(attack_vector)
 
 class NESVoiceCloning(object):
 
