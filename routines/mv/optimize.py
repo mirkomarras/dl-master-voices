@@ -39,7 +39,7 @@ def main():
     group.add_argument('--gender', dest='mv_gender', default='female', type=str, choices=['neutral', 'male', 'female'], action='store', help='Geneder against which master voices will be optimized')
 
     # Parameters for generative adversarial model or of the seed voice (if netg is specified, the master voices will be created by sampling spectrums from the GAN; otherwise, you need to specify a seed voice to batch_optimize_by_path as a master voice)
-    # group.add_argument('--netg', dest='netg', default=None, type=str, action='store', help='Generative adversarial model, e.g., ms-gan/v000')
+    group.add_argument('--gm', dest='gm', default=None, type=str, action='store', help='Generative model, e.g., ms-gan/v000')
     # group.add_argument('--netg_gender', dest='netg_gender', default='neutral', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender of the generative adversarial model')
 
     # Parameters for master voice optimization
@@ -60,7 +60,7 @@ def main():
     group = parser.add_argument_group('Misc')
     group.add_argument('--n_templates', dest='n_templates', default=10, type=int, action='store', help='Number of enrolment templates per user (used for testing impersonation)')
     group.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Audio sampling rate')
-    group.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Length in seconds of an audio for master voice optimization')
+    group.add_argument('--n_seconds', dest='n_seconds', default=2.58, type=float, action='store', help='Length in seconds of an audio for master voice optimization')
     group.add_argument('--max_dist', dest='max_dist', default=0, type=float, action='store', help='Max distortion (L∞)')
     group.add_argument('--l2_reg', dest='l2_reg', default=0, type=float, action='store', help='Distortion penalty (L2 regularization)')
     group.add_argument('--run_id', dest='run_id', default=None, type=int, action='store', help='Run ID if you need to resume (defaults to None which creates a new ID each time)')
@@ -73,7 +73,7 @@ def main():
     args = parser.parse_args()
 
     # 
-    supported_attacks = 'pgd@spec,pgd@wave,nes@cloning'.split(',')
+    supported_attacks = 'pgd@spec,pgd@wave,nes@cloning,pgd@vae'.split(',')
     if args.attack not in supported_attacks:
         raise ValueError('Unsupported attack vector: {args.attack}')
 
@@ -135,14 +135,14 @@ def main():
 
     logger.info('Checking data pipeline output (print every 100th batch)')
     # We check the output of the master voice optimization pipeline, i.e., spectrograms extracted from the training audio files and their associated user labels
-    train_data = data_pipeline_mv(x_train, y_train, args.sample_rate * args.n_seconds, args.sample_rate, args.batch, args.prefetch, output_type)
+    train_data = data_pipeline_mv(x_train, y_train, int(args.sample_rate * args.n_seconds), args.sample_rate, args.batch, args.prefetch, output_type)
 
     for index, x in enumerate(train_data):
         if index % 100 == 0:
             logger.debug(f'  {index} -> {x[0].shape}, {x[1].shape}')
 
     # Setup training and testing datasets
-    train_data = data_pipeline_mv(x_train, y_train, args.sample_rate * args.n_seconds, args.sample_rate, args.batch, args.prefetch, output_type)
+    train_data = data_pipeline_mv(x_train, y_train, int(args.sample_rate * args.n_seconds), args.sample_rate, args.batch, args.prefetch, output_type)
 
     # Create the testing gallery
     logger.info('Checking testing gallery')
@@ -161,7 +161,7 @@ def main():
     })
 
     # Run optimization
-    siamese_model.setup_attack(args.attack) # pgd@spec, nes@cloning, pgd@wave
+    siamese_model.setup_attack(args.attack, args.gm) # pgd@spec, nes@cloning, pgd@wave
     siamese_model.batch_optimize_by_path(args.seed_voice, train_data, test_gallery, settings=opt_settings)
 
 if __name__ == '__main__':

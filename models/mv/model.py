@@ -12,7 +12,7 @@ import os
 from datetime import datetime
 
 from models import cloning
-from models.mv.attacks import PGDSpectrumDistortion, PGDWaveformDistortion, NESVoiceCloning
+from models.mv.attacks import PGDSpectrumDistortion, PGDWaveformDistortion, NESVoiceCloning, PGDVariationalAutoencoder
 from models.verifier.model import Model
 from helpers.dataset import Dataset
 from helpers import plotting, audio
@@ -75,17 +75,23 @@ class SiameseModel(object):
 
         assert os.path.exists(self.dir_full) and os.path.exists(self.dir_full), 'Please check folder permission for seed and master voice version saving'
 
-    def save_params():
+    def save_params(self):
         with open(os.path.join(self.dir_full, 'params.txt'), 'w') as file:
-            file.write(json.dumps(self.params))
+            file.write(json.dumps(repr(self.params)))
 
-    def setup_attack(self, attack_type):
+    def setup_attack(self, attack_type, generative_model=None):
         if attack_type == 'nes@cloning':
             self.attack = NESVoiceCloning(self.siamese_model, text='The assistant is triggered by saying hey google', n=10, sigma=0.1, antithetic=True)
         elif attack_type == 'pgd@spec':
             self.attack = PGDSpectrumDistortion(self.siamese_model)
         elif attack_type == 'pgd@wave':
             self.attack = PGDWaveformDistortion(self.siamese_model, self.playback, self.noise_paths, self.noise_cache)
+        elif attack_type.startswith('pgd@vae'):
+            # 'voxceleb/version/z_dim'
+            dataset, version, z_dim = generative_model.split('/')
+            version = int(version)
+            z_dim = int(z_dim)
+            self.attack = PGDVariationalAutoencoder(self.siamese_model, dataset, version, z_dim)
         else:
             raise ValueError(f'Attack not implemented: {attack_type}')
 
@@ -230,8 +236,10 @@ class SiameseModel(object):
             # else:
 
             input_sv = audio.decode_audio(seed_voices[iter]).astype(np.float32)
+            
+            # TODO This should not be hardcoded! 2.58 ensures a square spectrogram (256 x 256)
             # Clip to max 3 seconds
-            max_length = 3 * 16000
+            max_length = int(2.58 * 16000)
             if input_sv.shape[0] > max_length:
                 logger.warning(f'Clipping speech to {max_length} samples')
                 input_sv = input_sv[:max_length]

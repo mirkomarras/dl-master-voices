@@ -8,6 +8,7 @@ import numpy as np
 import json
 import os
 
+from loguru import logger
 from helpers import plotting
 
 
@@ -162,6 +163,8 @@ class Autoencoder(tf.keras.Model):
                 self.decoder.load_weights(os.path.join(dirname, 'decoder.h5'))
         except Exception as e:
             print(f'ERROR Error loading discriminator: {e}')
+
+        logger.info(f'Loaded VAE model ({dirname})')
     
     def sample_z(self, n=1):
         return tf.random.normal([n, self.z_dim])
