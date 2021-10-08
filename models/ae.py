@@ -139,7 +139,7 @@ class Autoencoder(tf.keras.Model):
         
         from helpers import plotting
 
-        fig = plotting.imsc(tf.concat(X_vis, axis=0).numpy(), '', ncols=z_rep)
+        fig = plotting.images(tf.concat(X_vis, axis=0).numpy(), '', ncols=z_rep)
         fig.savefig(os.path.join(self.dirname(True), f'latent_{counter:04d}.jpg'), bbox_inches='tight', quality=80)
 
     def load(self, replace_models=False):
@@ -235,12 +235,12 @@ class Autoencoder(tf.keras.Model):
                 for g_z in G_z:
                     images.append(g_z.numpy())
             
-            fig = plotting.imsc(images, figwidth=4 * len(samples[0]), ncols=len(samples[0]))
+            fig = plotting.images(images, figwidth=4 * len(samples[0]), ncols=len(samples[0]))
                             
         else:
             samples = samples.numpy()
             if samples.ndim == 4:
-                fig = plotting.imsc(samples, figwidth=4 * len(samples), ncols=len(x))
+                fig = plotting.images(samples, figwidth=4 * len(samples), ncols=len(x))
             else:
                 fig = plotting.waveforms(samples, spectrums=True)
             
@@ -347,7 +347,7 @@ class VariationalAutoencoder(Autoencoder):
         
         from helpers import plotting
 
-        fig = plotting.imsc(tf.concat(X_vis, axis=0).numpy(), '', ncols=z_rep)
+        fig = plotting.images(tf.concat(X_vis, axis=0).numpy(), '', ncols=z_rep)
         fig.savefig(os.path.join(self.dirname(True), f'latent_{counter:04d}.jpg'), bbox_inches='tight', quality=80)
     
     # def sample_z(self, n=1):
@@ -460,12 +460,12 @@ class VariationalAutoencoder(Autoencoder):
                 for g_z in G_z:
                     images.append(g_z.numpy())
             
-            fig = plotting.imsc(images, figwidth=4 * len(samples[0]), ncols=len(samples[0]))
+            fig = plotting.images(images, figwidth=4 * len(samples[0]), ncols=len(samples[0]))
                             
         else:
             samples = samples.numpy()
             if samples.ndim == 4:
-                fig = plotting.imsc(samples, figwidth=4 * len(samples), ncols=len(x))
+                fig = plotting.images(samples, figwidth=4 * len(samples), ncols=len(x))
             else:
                 fig = plotting.waveforms(samples, spectrums=True)
             

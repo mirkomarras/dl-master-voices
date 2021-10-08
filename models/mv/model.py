@@ -423,7 +423,7 @@ class SiameseModel(object):
         n_bins = seed_spec.shape[0]
         assert n_bins in (256, 512), "Could not recognize the number of FFT bins"
         filename_fig = os.path.join(self.dir_full, 'spectrums_' + suffix + '.png')        
-        fig = plotting.imsc(
+        fig = plotting.images(
             (mv_spec_denormed, seed_spec_denormed, np.abs(mv_spec_denormed - seed_spec_denormed)), 
             ['master voice (IR_{}={:.2f}) []'.format(gender, ir_end), 'seed voice (IR_{}={:.2f}) []'.format(gender, ir_start), 'diff []'],
             cmap='jet', ncols=3)

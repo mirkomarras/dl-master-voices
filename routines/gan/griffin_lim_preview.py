@@ -47,14 +47,14 @@ def griffin_lim_gan(model, gender, version, n=32, patch=256, aspect=1, sample_ra
         # Clip the audio to remove noise
         sp = sp.clip(0)
 
-        f2 = plotting.imsc(sp)
+        f2 = plotting.images(sp)
         f2.savefig(os.path.join(gla_dir, 'test_audio' + (str(i)) + '.png'))
         
         # Inverting
         inv_signal = spectrum_to_signal(sp.T, int(2.57*16000))
 
         # Exporting
-        fig = plotting.imsc(sp, cmap='hsv')
+        fig = plotting.images(sp, cmap='hsv')
         sf.write(os.path.join(gla_dir, gender + "_" + (str(i)) + '.wav'), inv_signal, sample_rate)
         fig.savefig(os.path.join(gla_dir, gender + "_" + (str(i)) + '.png'))
 

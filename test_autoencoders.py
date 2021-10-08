@@ -30,12 +30,12 @@ tf.config.set_visible_devices([], 'GPU')
 
 # %%
 
-gan_ = ae.VariationalAutoencoder('voxceleb', z_dim=256, patch_size=256)
+gan_ = ae.VariationalAutoencoder('voxceleb', z_dim=2048, patch_size=256, version=5)
 
 # gan_ = ae.Autoencoder('voxceleb', z_dim=256, patch_size=256, version=0)
 
 print('GAN model directory: ' + gan_.dirname())
-# gan_.load()
+gan_.load()
 gan_.summarize_models()
 
 # %% Explore model structure
@@ -74,7 +74,7 @@ print(f'{dataset} dataset with {len(x_train)} samples [{train_data.element_spec.
 for x in train_data:
     print(x)
 
-plotting.imsc(x.numpy(), cmap='jet')
+plotting.images(x.numpy(), cmap='jet')
 
 # %%
 
@@ -88,13 +88,13 @@ plt.show(block=True)
 
 from helpers import plotting
 
-plotting.imsc(x.numpy(), cmap='jet')
+plotting.images(x.numpy(), cmap='jet')
 X = gan_.codec(x)
 
-plotting.imsc(x, cmap='jet')
-X = gan_.codec(x[np.newaxis, ..., np.newaxis])
+plotting.images(x, cmap='jet')
 
-plotting.imsc(X.numpy(), cmap='jet')
+X = gan_.codec(x[np.newaxis, ..., np.newaxis])
+plotting.images(X.numpy(), cmap='jet')
 
 # inv_signal = spectrum_to_signal(X.numpy().T, slice_len)
 
@@ -108,7 +108,7 @@ inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1] + 1) / 100.0 * sample_rat
 
 sounddevice.play(inv_signal, 16000)
 
-plotting.imsc(sp, cmap='jet')
+plotting.images(sp, cmap='jet')
 
 # %% 
 
@@ -140,5 +140,23 @@ z_ind[0, 12] = 0.5
 
 X = gan_.decode(z + z_ind)
 
-plotting.imsc(X.numpy(), cmap='jet')
+fig, axes = plotting.sub(4)
+
+plotting.image(x, cmap='jet', axes=axes[0])
+plotting.image(X.numpy(), cmap='jet', axes=axes[1])
+
+plotting.hist(z.numpy(), 30, 'a', axes=axes[2])
+
+
+# Play the recording
+sp = X.numpy().squeeze()
+
+sp = np.vstack((sp, np.zeros((1, sp.shape[1])), sp[:0:-1]))
+sp = sp.clip(0)
+
+inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1] + 1) / 100.0 * sample_rate), verbose=False)
+
+sounddevice.play(inv_signal, 16000)
+
+# %%
 

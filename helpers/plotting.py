@@ -9,11 +9,21 @@ import numpy as np
 import glob
 import os
 
-from helpers import audio
+from helpers import audio, utils
+
+from loguru import logger
 
 # Helper functions for plotting images in Python (wrapper over matplotlib)
 
-def thumbnails(images, n_cols=None):
+def get_figure(**kwargs):
+    import matplotlib.pyplot as plt
+    return plt.figure(**kwargs)
+
+
+def thumbnails(images, ncols=0, columnwise=False, cell_size=None, pad=0):
+    """
+    Return a numpy array with image thumbnails.
+    """
     
     if type(images) is np.ndarray:
         
@@ -22,7 +32,7 @@ def thumbnails(images, n_cols=None):
         img_size = images.shape[1:]
         
         if len(img_size) == 2:
-            img_size.append(1)
+            img_size += (1,)
                         
     elif type(images) is list or type(images) is tuple:
         
@@ -31,152 +41,276 @@ def thumbnails(images, n_cols=None):
         img_size = list(images[0].shape)
         
         if len(img_size) == 2:
-            img_size.append(1)
-        
-    images_x = n_cols or int(np.ceil(np.sqrt(n_images)))
+            img_size += (1,)
+    
+    ncols = ncols if ncols > 0 else n_images
+    images_x = ncols or int(np.ceil(np.sqrt(n_images)))
     images_y = int(np.ceil(n_images / images_x))
     size = (images_y, images_x)
-        
+
+    if cell_size is not None:
+        img_size = (cell_size, cell_size, img_size[-1])
+
     # Allocate space for the thumbnails
-    output = np.zeros((size[0] * img_size[0], size[1] * img_size[1], img_size[2]))
+    output = np.zeros((size[0] * (img_size[0] + 2*pad), size[1] * (img_size[1] + 2*pad), img_size[2]))
         
     for r in range(n_images):
         bx = int(r % images_x)
         by = int(np.floor(r / images_x))
-        current = images[r].squeeze()
+
+        if columnwise:
+            by = int(r % images_y)
+            bx = int(np.floor(r / images_y))
+
+        current = images[r]
+        
+        if current.ndim > 3:
+            current = current.squeeze()
+
         if current.shape[0] != img_size[0] or current.shape[1] != img_size[1]:
             current = resize(current, img_size[:-1], anti_aliasing=True)
+
         if len(current.shape) == 2:
             current = np.expand_dims(current, axis=2)
-        output[by*img_size[0]:(by+1)*img_size[0], bx*img_size[1]:(bx+1)*img_size[1], :] = current
+
+        if pad:
+            if current.ndim == 2:
+                np_pad = ((pad, pad), (pad, pad))
+            elif current.ndim == 3:
+                np_pad = ((pad, pad), (pad, pad), (0, 0))
+            else:
+                raise ValueError(f'Could not pad the current cell: {current.shape}')
+
+            current = np.pad(current, np_pad)
+
+        output[by*(img_size[0]+2*pad):(by+1)*(img_size[0]+2*pad), bx*(img_size[1]+2*pad):(bx+1)*(img_size[1]+2*pad), :] = current
         
     return output
     
 
-def imarray(image, n_images, fetch_hook, titles, figwidth=16, cmap='gray', ncols=None):
+def _imarray(img, n_images, fetch_hook, titles, figwidth=4, cmap='gray', ncols=0, fig=None, rowlabels=None, global_vrange=None):
     """
-    Function for plotting arrays of images. Not intended to be used directly. See 'imsc' for typical use cases.
+    Function for plotting arrays of images. Not intended to be used directly. See 'images' for typical use cases.
     """
-    
     if n_images > 128:
         raise RuntimeError('The number of subplots exceeds reasonable limits ({})!'.format(n_images))                            
-            
-    subplot_x = ncols or int(np.ceil(np.sqrt(n_images)))
-    subplot_y = int(np.ceil(n_images / subplot_x))            
+    
+    if ncols == 0:
+        ncols = int(np.ceil(np.sqrt(n_images)))
+    elif ncols < 0:
+        ncols = n_images // abs(ncols)
+
+    subplot_x = ncols
+    subplot_y = int(np.ceil(n_images / subplot_x))
+
+    if rowlabels is not None and len(rowlabels) != subplot_y:
+        raise ValueError('The number of rows does not match the provided labels!')
             
     if titles is not None and type(titles) is str:
         titles = [titles for x in range(n_images)]
         
     if titles is not None and len(titles) != n_images:
-        raise RuntimeError('Provided titles ({}) do not match the number of images ({})!'.format(len(titles), n_images))
+        raise ValueError('Provided titles ({}) do not match the number of images ({})!'.format(len(titles), n_images))
 
-    fig = plot.figure(figsize=(figwidth, figwidth * (subplot_y / subplot_x)))
-    plot.ioff()
-            
+    fig = fig or get_figure(figsize=(figwidth * subplot_x, figwidth * subplot_y))
+
     for n in range(n_images):
         ax = fig.add_subplot(subplot_y, subplot_x, n + 1)
-        quickshow(fetch_hook(image, n), titles[n] if titles is not None else None, axes=ax, cmap=cmap)
+
+        if isinstance(global_vrange, bool) and global_vrange:
+            vrange = np.max([np.max(np.abs(x)) for x in img])
+            vrange = (-vrange, vrange)
+        elif isinstance(global_vrange, bool) and not global_vrange:
+            vrange = np.max(np.abs(fetch_hook(img, n)))
+            vrange = (-vrange, vrange)
+        elif isinstance(global_vrange, tuple):
+            vrange = global_vrange
+        else:
+            vrange = None
+
+        image(fetch_hook(img, n), titles[n] if titles is not None else None, axes=ax, cmap=cmap, vrange=vrange)
+        if rowlabels is not None and n % subplot_x == 0:
+            ax.set_ylabel(rowlabels[n // subplot_x])
 
     return fig
     
 
-def imsc(image, titles=None, figwidth=16, cmap='gray', ncols=None):
+def images(imgs, titles=None, figwidth=4, cmap='gray', ncols=0, fig=None, rowlabels=None, global_vrange=None):
     """
-    Universal function for plotting various structures holding series of images. Not thoroughly tested, but should work with:
+    Plot a series of images (in various structures). Not thoroughly tested, but should work with:
+
     - np.ndarray of size (h,w,3) or (h,w)
     - lists or tuples of np.ndarray of size (h,w,3) or (h,w)    
     - np.ndarray of size (h,w,channels) -> channels shown separately
     - np.ndarray of size (1, h, w, channels)
     - np.ndarray of size (N, h, w, 3) and (N, h, w, 1)
     
-    :param image: input image structure (see details above)
+    CAUTION: This function creates new figures without a canvas manager - this prevents memory leaks but makes it more
+    difficult to plot figures in interactive notebooks. In case of trouble, you can supply a target figure created by
+    a managed matplotlib interface - use fig=plt.figure().
+
+    :param imgs: input image structure (see details above)
     :param titles: a single string or a list of strings matching the number of images in the structure
-    :param figwidth: width of the figure
+    :param figwidth: width of a single image in the figure
     :param cmap: color map
+    :param ncols: number of columns or: 0 for sqrt(#images) cols; use negative to set the number of rows
+    :param fig: specify the target figure for plotting
+    :param global_vrange: display all images with the same intensity range
     """
         
-    if type(image) is list or type(image) is tuple:
+    if type(imgs) is list or type(imgs) is tuple:
         
-        n_images = len(image)
+        n_images = len(imgs)
         
         def fetch_example(image, n):
             return image[n]        
                     
-        return imarray(image, n_images, fetch_example, titles, figwidth, cmap, ncols)
+        return _imarray(imgs, n_images, fetch_example, titles, figwidth, cmap, ncols, fig, rowlabels, global_vrange)
             
-    if type(image) in [np.ndarray]:
+    elif type(imgs) in [np.ndarray]:
         
-        if image.ndim == 2 or (image.ndim == 3 and image.shape[-1] == 3):
+        if imgs.ndim == 2 or (imgs.ndim == 3 and imgs.shape[-1] == 3):
             
-            fig = plot.figure(tight_layout=True, figsize=(figwidth, figwidth))
-            plot.ioff()
-            quickshow(image, titles, axes=fig.gca(), cmap=cmap)
+            fig = fig or get_figure(tight_layout=True, figsize=(figwidth, figwidth))
+            image(imgs, titles, axes=fig.gca(), cmap=cmap)
             
             return fig
 
-        elif image.ndim == 3 and image.shape[-1] != 3:
+        elif imgs.ndim == 3 and imgs.shape[-1] != 3:
                         
-            def fetch_example(image, n):
-                return image[:, :, n]
+            def fetch_example(im, n):
+                return im[..., n]
             
-            n_images = image.shape[-1]
+            n_images = imgs.shape[-1]
 
             if n_images > 100:
-                image = np.moveaxis(image, 0, -1)
-                n_images = image.shape[-1]
+                imgs = np.moveaxis(imgs, 0, -1)
+                n_images = imgs.shape[-1]
                                         
-        elif image.ndim == 4 and (image.shape[-1] == 3 or image.shape[-1] == 1):
+        elif imgs.ndim == 4 and (imgs.shape[-1] == 3 or imgs.shape[-1] == 1):
             
-            n_images = image.shape[0]
+            n_images = imgs.shape[0]
             
-            def fetch_example(image, n):
-                return image[n, :, :, :]
+            def fetch_example(im, n):
+                return im[n]
             
-        elif image.ndim == 4 and image.shape[0] == 1:
+        elif imgs.ndim == 4 and imgs.shape[0] == 1:
 
-            n_images = image.shape[-1]
+            n_images = imgs.shape[-1]
             
-            def fetch_example(image, n):
-                return image[:, :, :, n]             
+            def fetch_example(im, n):
+                return im[..., n]
 
         else:
-            raise ValueError('Unsupported array dimensions {}!'.format(image.shape))
+            raise ValueError('Unsupported array dimensions {}!'.format(imgs.shape))
             
-        return imarray(image, n_images, fetch_example, titles, figwidth, cmap, ncols)
+        return _imarray(imgs, n_images, fetch_example, titles, figwidth, cmap, ncols, fig, rowlabels, global_vrange)
             
     else:
-        raise ValueError('Unsupported array type {}!'.format(type(image)))
+        raise ValueError('Unsupported array type {}!'.format(type(imgs)))
                 
     return fig
 
 
-def quickshow(x, label=None, *, axes=None, cmap='gray'):
+def image(x, label=None, *, axes=None, cmap='gray', vrange=None):
     """
-    Simple function for plotting a single image. Adds the title and hides axes' ticks. The '{}' substring 
-    in the title will be replaced with '(height x width) -> [min intensity - max intensity]'.
+    Plot a single image, hide ticks & add a formatted title with patterns replaced as follows:
+    - '()' -> '(height x width)'
+    - '[]' -> '[min - max]'
+    - '{}' -> '(height x width) / [min - max]'
+    - '<>' -> 'avg ± std'
     """
     
     label = label if label is not None else '{}'
     
     x = x.squeeze()
     
-    if any(ptn in label for ptn in ['{}', '()', '[]']):
+    if any(ptn in label for ptn in ['{}', '()', '[]', '<>']):
         label = label.replace('{}', '() / []')
         label = label.replace('()', '({}x{})'.format(*x.shape[0:2]))
         label = label.replace('[]', '[{:.2f} - {:.2f}]'.format(np.min(x), np.max(x)))
+        label = label.replace('<>', '{:.2f} ± {:.2f}'.format(np.mean(x), np.std(x)))
         
     if axes is None:
-        plt.imshow(x, cmap=cmap)
-        if len(label) > 0:
-            plt.title(label)
-        plt.xticks([])
-        plt.yticks([])
-    else:
+        fig = get_figure()
+        axes = fig.gca()
+
+    if vrange is None:
         axes.imshow(x, cmap=cmap)
-        if len(label) > 0:
-            axes.set_title(label)
-        axes.set_xticks([])
-        axes.set_yticks([])        
+    elif isinstance(vrange, tuple) and len(vrange) == 2:
+        axes.imshow(x, cmap=cmap, vmin=vrange[0], vmax=vrange[1])
+    elif isinstance(vrange, bool) and vrange:
+        axes.imshow(x, cmap=cmap, vmin=np.min(x), vmax=np.max(x))
+    elif isinstance(vrange, bool) and not vrange:
+        axes.imshow(x, cmap=cmap, vmin=-np.max(np.abs(x)), vmax=np.max(np.abs(x)))
+    else:
+        raise ValueError('Invalid vrange - supported types: None, 2-elem tuple & boolean')
+
+    if len(label) > 0:
+        axes.set_title(label)
+    axes.set_xticks([])
+    axes.set_yticks([])
+
+    if 'fig' in locals():
+        return fig
+
+
+def sub(n_plots, figwidth=6, figheight=None, ncols=-1, fig=None, transpose=False, gridspec=None, sharex=False, sharey=False):
+    """
+    Create a figure and split it into subplots. Provides more consistent behavior than matplotlib. Key features:
+    - the returned axes are always a list
+    - automatically choose number of rows/columns based on the total number of plots
+    - the extra subplots will be turned off
+    - axes traversal order can be changed (column/row-wise)
+
+    :param n_plots:
+    :param figwidth:
+    :param figheight:
+    :param ncols:
+    :param fig:
+    :param transpose:
+    :return:
+    """
+
+    if ncols == 0:
+        ncols = int(np.ceil(np.sqrt(n_plots)))
+    elif ncols < 0:
+        ncols = n_plots // abs(ncols)
+
+    figheight = figheight or figwidth
+
+    subplot_x = ncols or int(np.ceil(np.sqrt(n_plots)))
+    subplot_y = int(np.ceil(n_plots / subplot_x))
+
+    if transpose:
+        subplot_x, subplot_y = subplot_y, subplot_x
+
+    fig = fig or get_figure(tight_layout=True, figsize=(figwidth * subplot_x, subplot_y * (figheight or figwidth * (subplot_y / subplot_x))))
+    axes = fig.subplots(nrows=subplot_y, ncols=subplot_x, gridspec_kw=gridspec, sharex=sharex, sharey=sharey)
+    axes_flat = []
+
+    if not hasattr(axes, '__iter__'):
+        axes = [axes]
+
+    for ax in axes:
+        
+        if hasattr(ax, '__iter__'):
+            for a in ax:
+                if len(axes_flat) < n_plots:
+                    axes_flat.append(a)
+                else:
+                    a.remove()
+        else:
+            if len(axes_flat) < n_plots:
+                axes_flat.append(ax)
+            else:
+                ax.remove()
+
+    if transpose:
+        from itertools import product
+        axes_flat = [axes_flat[j * subplot_x + i] for i, j in product(range(subplot_x), range(subplot_y))]
+    
+    return fig, axes_flat
 
 
 def waveforms(wav, spectrums=True, sampling=16000):
@@ -512,3 +646,93 @@ def multiple_presentation_table(source_pop, target_pop, mv_sets, net, policy, le
     df.columns = ['#Pres = {}'.format(i+1) for i in df.columns]
 
     return df
+
+def hist(samples, bins=20, labels='', xlabel=None, guides=0, axes=None, alpha=0.4, scale=False, colors=None, guide=None, kde=False):
+    if axes is None:
+        fig = get_figure()
+        axes = fig.gca()
+
+    if isinstance(samples, np.ndarray) and utils.is_vector(samples):
+        samples = [samples]
+        labels = [labels]
+        
+    if utils.is_number(bins):
+        s_min = np.min([np.min(s) for s in samples])
+        s_max = np.max([np.max(s) for s in samples])
+        
+        if s_min == s_max:
+            delta = 10 ** (np.log10(s_max) - 1)
+            s_min -= delta
+            s_max += delta
+            
+        cc = np.linspace(s_min, s_max, bins)
+        
+    else:
+        cc = bins
+        s_min = np.min(cc)
+        s_max = np.max(cc)
+        
+    if len(np.unique(cc)) != len(cc):
+        logger.warning(f'Duplicated histogram bins detected: {len(cc)} bins in [{s_min:.2f}, {s_min:.2f}]')        
+        
+    h_bins = utils.bin_edges(cc)
+
+    h_max_global = 0
+
+    for si, spls in enumerate(samples):
+
+        p50 = np.percentile(spls, 50)
+        p99 = np.percentile(spls, 99)
+        p01 = np.percentile(spls, 1)
+
+        if labels is not None:
+            label = labels[si]
+            label = label.replace('()', f'{p50:.2f}')
+        else:
+            label = None
+
+        color = colors[si] if colors is not None else None
+
+        h1 = axes.hist(spls.ravel(), h_bins, color=color, alpha=alpha, density=True, label=label)
+
+        h_max = 1.05 * np.max(h1[0])
+        if h_max > h_max_global:
+            h_max_global = h_max
+        color = h1[-1][0].get_facecolor()
+
+        if kde:
+            try:
+                e_color = (color[0] * 0.75, color[1] * 0.75, color[2] * 0.75, 0.7)
+                d_bins = np.linspace(h_bins[0], h_bins[-1], 200)
+                kde_pos = sps.gaussian_kde(spls.ravel())
+                axes.plot(d_bins, kde_pos.pdf(d_bins), color=e_color, linewidth=2)
+            except np.linalg.LinAlgError as e:
+                logger.warning(f'Plotting error (KDE): {e}')
+
+        if guides & 1:
+            axes.plot([p01, p01], [0, h_max], ':', color=color)
+
+        if guides & 2:
+            axes.plot([p50, p50], [0, h_max], ':', color=color)
+
+        if guides & 4:
+            axes.plot([p99, p99], [0, h_max], ':', color=color)
+
+    axes.set_yticks([])
+
+    if labels is not None:
+        axes.legend()
+
+    if scale:
+        margin = (cc[-1] - cc[0]) / 100
+        axes.set_xlim([cc[0] - margin, cc[-1] + margin])
+        axes.set_ylim([0, h_max_global * 1.01])
+
+    if guide is not None:
+        axes.plot([guide * 1.01, guide * 1.01], [0, h_max_global], 'k:', alpha=0.5)
+
+    if xlabel is not None:
+        axes.set_xlabel(xlabel)
+
+    if 'fig' in locals():
+        return fig

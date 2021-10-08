@@ -30,7 +30,7 @@ def compare_inverted_spectrum(original_audio, full=False, sample_rate=16000):
     inv_signal = spectrum_to_signal(sp.T, len(original_audio))
 
     #EXPORTING
-    fig = plotting.imsc(sp, cmap='hsv')
+    fig = plotting.images(sp, cmap='hsv')
     sf.write('./tests/inverted_' + ('full_' if full else 'half_') + 'audio.wav', inv_signal, sample_rate)
     fig.savefig('./tests/inverted_' + ('full_' if full else 'half_') + 'audio.png')
 

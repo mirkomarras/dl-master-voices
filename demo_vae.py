@@ -258,9 +258,9 @@ plt.plot(ae.performance['mse'])
 plt.subplot(2, 1, 2)
 plt.hist(z.numpy().ravel(), 40)
 
-plotting.imsc(x[:16].numpy())
+plotting.images(x[:16].numpy())
 
-plotting.imsc(X[:16].numpy())
+plotting.images(X[:16].numpy())
 
 
 # %% Change latent vector
@@ -284,15 +284,15 @@ for z_id in range(10):
 
 from helpers import plotting
 
-# plotting.imsc(x[:16].numpy())
-# plotting.imsc(X.numpy(), '', ncols=z_rep)
+# plotting.images(x[:16].numpy())
+# plotting.images(X.numpy(), '', ncols=z_rep)
 
-fig = plotting.imsc(tf.concat(X_vis, axis=0).numpy(), '', ncols=z_rep)
+fig = plotting.images(tf.concat(X_vis, axis=0).numpy(), '', ncols=z_rep)
 
 # %% Can I sample?
 
 X = ae.decoder(5 * tf.random.normal(shape=(10, 2), dtype=tf.float32))
-plotting.imsc(X.numpy(), '', ncols=z_rep)
+plotting.images(X.numpy(), '', ncols=z_rep)
 
 # %% Visualize latent space
 
@@ -314,7 +314,7 @@ for z1 in np.linspace(-span, span, z_rep):
 
 # from helpers import plotting
 
-# plotting.imsc(x[:16].numpy())
-# plotting.imsc(X.numpy(), '', ncols=z_rep)
+# plotting.images(x[:16].numpy())
+# plotting.images(X.numpy(), '', ncols=z_rep)
 
-fig = plotting.imsc(tf.concat(X_vis, axis=0).numpy(), '', ncols=z_rep)
+fig = plotting.images(tf.concat(X_vis, axis=0).numpy(), '', ncols=z_rep)

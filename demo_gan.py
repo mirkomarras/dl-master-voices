@@ -228,12 +228,12 @@ class SensorInteractWindow(QtWidgets.QMainWindow):
         
         model = 'vae'
         dataset = 'voxceleb'
-        version = 0
+        version = 5
         dist = 'normal'
         patch = 256
         
         if model == 'vae':
-            self.gan = ae.VariationalAutoencoder(dataset, version=version, z_dim=256, patch_size=256)
+            self.gan = ae.VariationalAutoencoder(dataset, version=version, z_dim=2048, patch_size=256)
         
         if model == 'ae':
             self.gan = ae.Autoencoder(dataset, version=version, z_dim=256, patch_size=256)

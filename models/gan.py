@@ -344,12 +344,12 @@ class GAN(object):
                 for g_z in G_z:
                     images.append(g_z.numpy())
             
-            fig = plotting.imsc(images, figwidth=4 * len(samples[0]), ncols=len(samples[0]))
+            fig = plotting.images(images, figwidth=4 * len(samples[0]), ncols=len(samples[0]))
                             
         else:
             samples = samples.numpy()
             if samples.ndim == 4:
-                fig = plotting.imsc(samples, figwidth=4 * len(samples), ncols=len(samples))
+                fig = plotting.images(samples, figwidth=4 * len(samples), ncols=len(samples))
             else:
                 fig = plotting.waveforms(samples, spectrums=True)
             

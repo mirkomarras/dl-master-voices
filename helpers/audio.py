@@ -215,6 +215,7 @@ def get_np_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.
     return fft_norm, fft_mean, fft_std
 
 
+@tf.function
 def get_tf_spectrum(signal, sample_rate=16000, frame_size=0.025, frame_stride=0.01, num_fft=512, normalized=True):
     """
     Function to compute a tensorflow spectrum from signal
