@@ -12,7 +12,7 @@ import os
 
 from loguru import logger
 
-def decode_audio(fp, sample_rate=16000, max_length=4):
+def decode_audio(fp, sample_rate=16000, target_length=2.58):
     """
     Function to decode an audio file
     :param fp:              File path to the audio sample
@@ -28,8 +28,18 @@ def decode_audio(fp, sample_rate=16000, max_length=4):
     except:
         audio_sf, new_sample_rate = librosa.load(fp, sr=sample_rate, mono=True)
 
-    if audio_sf.shape[0] > max_length * sample_rate:
-        audio_sf = audio_sf[:max_length*sample_rate]
+    slice_length = int(target_length * sample_rate)
+
+    # Ensure audio of given length by: clipping
+    if audio_sf.shape[0] > slice_length:
+        start_sample = random.choice(range(len(audio_sf) - slice_length)) if len(audio_sf) - slice_length > 1 else 0
+        end_sample = start_sample + slice_length
+        audio_sf = audio_sf[start_sample:end_sample]
+    # padding
+    elif audio_sf.shape[0] < slice_length:
+        pad_end = np.random.randint(slice_length - len(audio_sf))
+        pad_start = (slice_length - len(audio_sf)) - pad_end
+        audio_sf = np.pad(audio_sf, (pad_start, pad_end), 'constant')
 
     return audio_sf
 
