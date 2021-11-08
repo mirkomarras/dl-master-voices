@@ -3,6 +3,8 @@
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
+from tensorflow import keras
+from tensorflow.python.keras.layers.core import Lambda
 from tqdm import tqdm
 import numpy as np
 import json
@@ -209,6 +211,11 @@ class Autoencoder(tf.keras.Model):
                 # for example in ds:
                 for step, batch_data in enumerate(ds):
                     x = batch_data
+                    
+                    # augmentation: random time shift
+                    roll_size = tf.random.uniform((), 0, 128, dtype=tf.int32)
+                    x = tf.roll(x, roll_size, 2)
+
                     loss = self.training_step(x, opt)
                     loss_m.update_state(loss)
 
@@ -228,9 +235,15 @@ class Autoencoder(tf.keras.Model):
         if len(x) > 16:
             x = x[:16]
 
+        if x.shape[0] > 16:
+            x = x[:16, ...]
+
         # tf.keras.backend.set_learning_phase(0)
         samples = self.codec(x)
         samples = tf.concat((x, samples), axis=0)
+        samples = tf.squeeze(samples)
+
+        # print(f'Plotting {len(samples)} images {samples.shape}')
         
         if isinstance(samples, list):
             images = []
@@ -238,14 +251,14 @@ class Autoencoder(tf.keras.Model):
                 for g_z in G_z:
                     images.append(g_z.numpy())
             
-            fig = plotting.images(images, figwidth=4 * len(samples[0]), ncols=len(samples[0]))
+            fig = plotting.images(images, figwidth=4, ncols=len(samples[0]), cmap='jet')
                             
         else:
             samples = samples.numpy()
-            if samples.ndim == 4:
-                fig = plotting.images(samples, figwidth=4 * len(samples), ncols=len(x))
-            else:
+            if samples.ndim < 3:
                 fig = plotting.waveforms(samples, spectrums=True)
+            else:
+                fig = plotting.images(samples, figwidth=4, ncols=len(x), cmap='jet')
             
         if save:
             filename = os.path.join(self.dirname(make=True), str('preview_{:04d}.jpg'.format(epoch)))
@@ -312,6 +325,7 @@ class VariationalAutoencoder(Autoencoder):
 
         self.encoder = tf.keras.Sequential([
             tf.keras.Input((self.patch_size, self.patch_size, 1)),
+            # tf.keras.layers.Lambda(lambda x: tf.math.log(0.1 + x)),
             tf.keras.layers.Conv2D(z_depth // 4, 3, activation=tf.nn.leaky_relu, strides=(2,2), padding='same'),
             tf.keras.layers.Conv2D(z_depth // 2, 3, activation=tf.nn.leaky_relu, strides=(2,2), padding='same'),
             tf.keras.layers.Conv2D(z_depth, 3, activation=tf.nn.leaky_relu, strides=(2,2), padding='same'),
@@ -326,7 +340,8 @@ class VariationalAutoencoder(Autoencoder):
             tf.keras.layers.Conv2DTranspose(z_depth // 2, 3, strides=2, activation=tf.nn.leaky_relu, padding='same'),
             tf.keras.layers.Conv2DTranspose(z_depth // 4, 3, strides=2, activation=tf.nn.leaky_relu, padding='same'),
             tf.keras.layers.Conv2DTranspose(z_depth // 4, 3, strides=2, activation=tf.nn.leaky_relu, padding='same'),
-            tf.keras.layers.Conv2D(1, 3, strides=1, padding='same')
+            tf.keras.layers.Conv2D(1, 3, strides=1, activation='relu', padding='same'),
+            # tf.keras.layers.Lambda(lambda x: tf.math.exp(x) - 0.1),
         ])
 
     @property
@@ -447,40 +462,6 @@ class VariationalAutoencoder(Autoencoder):
                     self.show_progress(True)
                     # self.preview_latent(x[0:1], np.std(self.encode(x), axis=0))
                     self.save(True, False)
-
-    def preview(self, x, save=False, epoch=0):
-
-        if len(x) > 16:
-            x = x[:16]
-
-        # tf.keras.backend.set_learning_phase(0)
-        samples = self.codec(x)
-        samples = tf.concat((x, samples), axis=0)
-        
-        if isinstance(samples, list):
-            images = []
-            for G_z in samples:
-                for g_z in G_z:
-                    images.append(g_z.numpy())
-            
-            fig = plotting.images(images, figwidth=4 * len(samples[0]), ncols=len(samples[0]))
-                            
-        else:
-            samples = samples.numpy()
-            if samples.ndim == 4:
-                fig = plotting.images(samples, figwidth=4 * len(samples), ncols=len(x))
-            else:
-                fig = plotting.waveforms(samples, spectrums=True)
-            
-        if save:
-            filename = os.path.join(self.dirname(make=True), str('preview_{:04d}.jpg'.format(epoch)))
-            plt.savefig(filename, bbox_inches='tight', quality=80)
-            plt.close()
-            return filename
-        
-        else:
-            return fig
-
 
     def show_progress(self, save=False):
         # fig, axes = plt.subplots(1, 1, figsize=(20, 3))

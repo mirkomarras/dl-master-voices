@@ -17,7 +17,7 @@ from helpers import plotting
 from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender
 from helpers.datapipeline import data_pipeline_generator_gan, data_pipeline_gan
 
-from helpers.audio import decode_audio, get_np_spectrum, denormalize_frames, spectrum_to_signal
+from helpers.audio import decode_audio, get_np_spectrum, denormalize_frames, spectrum_to_signal, get_tf_spectrum
 
 from models import gan, ae
 
@@ -30,7 +30,7 @@ tf.config.set_visible_devices([], 'GPU')
 
 # %%
 
-gan_ = ae.VariationalAutoencoder('voxceleb', z_dim=2048, patch_size=256, version=5)
+gan_ = ae.VariationalAutoencoder('voxceleb', z_dim=512, patch_size=256, version=0)
 
 # gan_ = ae.Autoencoder('voxceleb', z_dim=256, patch_size=256, version=0)
 
@@ -91,12 +91,20 @@ from helpers import plotting
 plotting.images(x.numpy(), cmap='jet')
 X = gan_.codec(x)
 
-plotting.images(x, cmap='jet')
+# plotting.images(x.numpy(), cmap='jet')
 
-X = gan_.codec(x[np.newaxis, ..., np.newaxis])
-plotting.images(X.numpy(), cmap='jet')
+# X = gan_.codec(x[np.newaxis, ..., np.newaxis])
+X = gan_.codec(x)
+# plotting.images(X.numpy(), cmap='jet')
 
 # inv_signal = spectrum_to_signal(X.numpy().T, slice_len)
+
+fig, axes = plotting.sub(2)
+
+plotting.image(x.numpy(), cmap='jet', axes=axes[0])
+plotting.image(X.numpy(), cmap='jet', axes=axes[1])
+
+# Invert the spectrogram
 
 sp = X.numpy().squeeze()
 
@@ -108,11 +116,13 @@ inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1] + 1) / 100.0 * sample_rat
 
 sounddevice.play(inv_signal, 16000)
 
-plotting.images(sp, cmap='jet')
+# plotting.images(sp, cmap='jet')
 
 # %% 
 
-aux_signal = decode_audio(x_train[2])[:slice_len-100]
+# aux_signal = decode_audio(x_train[2])[:slice_len-100]
+
+aux_signal = decode_audio('./data/vs_mv_seed/female/002.wav', 16000)[:slice_len-100]
 
 # x, input_avg, input_std = get_np_spectrum(aux_signal.ravel(), normalized=False)
 x = get_np_spectrum(aux_signal.ravel(), normalized=False)
@@ -132,17 +142,33 @@ sounddevice.play(inv_signal, 16000)
 
 # %% Distort latent space
 
-m, lv = gan_.encode(x[np.newaxis, ..., np.newaxis])
+dirname = './data/digits/train/'
+filenames = os.listdir(dirname)
+
+filename = filenames[35]
+
+# dirname, filename = './data/vs_mv_seed/female', '001.wav'
+
+aux_signal = decode_audio(os.path.join(dirname, filename), target_length=2.58) # [:slice_len-100]
+
+# x, input_avg, input_std = get_np_spectrum(aux_signal.ravel(), normalized=False)
+# x = get_np_spectrum(aux_signal.ravel(), normalized=False)
+x = get_tf_spectrum(aux_signal.reshape((1, -1)), normalized=False)
+
+# m, lv = gan_.encode(x[np.newaxis, ..., np.newaxis])
+m, lv = gan_.encode(x)
 z = gan_.reparameterize(m, lv)
 
-z_ind = np.zeros(z.shape)
-z_ind[0, 12] = 0.5
+# z_ind = np.zeros(z.shape)
+# z_ind[0, 12] = 0.5
 
-X = gan_.decode(z + z_ind)
+# X = gan_.decode(z + z_ind)
+
+X = gan_.decode(z)
 
 fig, axes = plotting.sub(4)
 
-plotting.image(x, cmap='jet', axes=axes[0])
+plotting.image(x.numpy(), cmap='jet', axes=axes[0])
 plotting.image(X.numpy(), cmap='jet', axes=axes[1])
 
 plotting.hist(z.numpy(), 30, 'a', axes=axes[2])
@@ -156,7 +182,17 @@ sp = sp.clip(0)
 
 inv_signal = spectrum_to_signal(sp.T, int((sp.shape[1] + 1) / 100.0 * sample_rate), verbose=False)
 
+# sounddevice.play(aux_signal, 16000)
+
 sounddevice.play(inv_signal, 16000)
 
 # %%
 
+rs = tf.random.uniform((), 0, 128, dtype=tf.int32)
+plotting.image(tf.roll(x, rs, 2).numpy(), cmap='jet')
+
+# %%
+
+plotting.image(np.log(0.1 + x.numpy()), cmap='jet')
+
+plotting.image(x.numpy(), cmap='jet')

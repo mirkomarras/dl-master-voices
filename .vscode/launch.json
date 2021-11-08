@@ -12,16 +12,38 @@
             "console": "integratedTerminal",
             "args": [
                 "--netv", "vggvox/v000",
-                "--seed", "./data/vs_mv_seed/female",
+                "--seed", "./data/vs_mv_seed/female/001.wav",
                 "--audio_dir", "data/voxceleb2/dev",
                 "--gender", "female",
                 "--gradient", "normed",
-                "--learning_rate", "1",
+                "--learning_rate", "0.1",
                 "--train_pop", "data/vs_mv_pairs/mv_train_population_interspeech_1000u_50s.csv",
                 "--test_pop", "data/vs_mv_pairs/mv_test_population_interspeech_1000u_10s.csv",
-                "--batch", "16",
-                "--attack", "pgd@spec",
+                "--batch", "4",
+                "--attack", "pgd@vae",
+                "--gm", "voxceleb/0/1024",
                 "--n_epochs", "1",
+                "--memory-growth"
+            ],
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0",
+                "TF_CPP_MIN_LOG_LEVEL": "3",
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "GM training",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/routines/gan/train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "-m", "vae", 
+                "-d", "voxceleb", 
+                "-z", "512",
+                "-b", "128", 
+                "-n", "32768", 
+                "-e", "5000", 
                 "--memory-growth"
             ],
             "env": {
