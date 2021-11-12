@@ -33,7 +33,7 @@ def main():
 
     # Parameters for verifier
     group = parser.add_argument_group('Basics')
-    group.add_argument('--netv', dest='netv', default='vggvox/v003', type=str, action='store', help='Speaker verification model, e.g., xvector/v000')
+    group.add_argument('--netv', dest='netv', default='vggvox/v000', type=str, action='store', help='Speaker verification model, e.g., xvector/v000')
     group.add_argument('--attack', dest='attack', default='pgd@spec', type=str, action='store', help='Attack type: pgd@spec, pgd@wave, nes@cloning')
     group.add_argument('--seed', dest='seed_voice', default='data/vs_mv_seed/female/ori_00.wav', type=str, action='store', help='Path to the seed sample(s)')
     group.add_argument('--gender', dest='mv_gender', default='female', type=str, choices=['neutral', 'male', 'female'], action='store', help='Geneder against which master voices will be optimized')
@@ -73,7 +73,7 @@ def main():
     args = parser.parse_args()
 
     # 
-    supported_attacks = 'pgd@spec,pgd@wave,nes@cloning,pgd@vae'.split(',')
+    supported_attacks = 'pgd@spec,pgd@wave,nes@cloning,pgd@vae,nes@wave'.split(',')
     if args.attack not in supported_attacks:
         raise ValueError('Unsupported attack vector: {args.attack}')
 

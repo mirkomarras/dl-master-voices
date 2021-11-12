@@ -23,6 +23,7 @@ def main():
     parser.add_argument('-p', '--population', dest='population_tag', default='debug', type=str, action='store', help='Population tag, e.g. "debug"')
     parser.add_argument('-s', '--split', dest='split', default='train/20/20,test/20/10', type=str, action='store', help='Comma-separated list of populations in the form popname/nusers/nuttrs')
     parser.add_argument('-d', '--dirname', dest='dirname', default='data/voxceleb2/dev/', type=str, action='store', help='Path to the voxceleb dataset')
+    parser.add_argument('-m', '--meta', dest='meta', default='data/vs_mv_pairs/meta_data_vox12_all.csv', type=str, action='store', help='Path to meta data file')
 
     settings = parser.parse_args()
 
@@ -31,7 +32,8 @@ def main():
         pop_instance = pop_info.split('/')
         population_definitions[pop_instance[0]] = {'nusers': int(pop_instance[1]), 'nuttrs': int(pop_instance[2])}
 
-    generate_enrolled_samples(population_definitions, settings.population_tag, audio_folder=settings.dirname)
+    generate_enrolled_samples(population_definitions, settings.population_tag, audio_meta=settings.meta,
+    audio_folder=settings.dirname)
 
 if __name__ == '__main__':
     main()

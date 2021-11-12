@@ -14,6 +14,7 @@ import os
 from loguru import logger
 
 from helpers import audio
+from rtvc.synthesizer.utils.cleaners import lowercase
 
 
 class Dataset(object):
@@ -118,13 +119,13 @@ def generate_enrolled_samples(prepr, ptag='debug', audio_meta='data/vs_mv_pairs/
     :param audio_folder: directory where the audio files are stored
     :return: None - it saves a file for each pop name in the form 'data/mv_vs_pairs/mv_{pop name}_population_{ntag}_{nusers}u_{nuttrs}s.csv'.
     '''
-    npz_file = 'data/vs_mv_pairs/data_mv_vox2_all.npz' # We soon remove this
-
     # Retrieve gender data
-    data_set_df = pd.read_csv(audio_meta, delimiter=' ')
+    data_set_df = pd.read_csv(audio_meta, delimiter=',')
     gender_map = {k:v for k, v in zip(data_set_df['id'].values, data_set_df['gender'].values)}
+    print(data_set_df)
+    print(gender_map)
 
-    # Shiffle users
+    # Shuffle users
     users = os.listdir(audio_folder)
     random.shuffle(users)
 
@@ -136,6 +137,7 @@ def generate_enrolled_samples(prepr, ptag='debug', audio_meta='data/vs_mv_pairs/
         logger.info('# Population of type {}'.format(pt))
 
         if ptag == 'interspeech':
+            npz_file = 'data/vs_mv_pairs/data_mv_vox2_all.npz' # We soon remove this
             subpopulation = set(get_mv_analysis_users(npz_file, type=pt)) & users
         else:
             subpopulation = users
@@ -144,10 +146,11 @@ def generate_enrolled_samples(prepr, ptag='debug', audio_meta='data/vs_mv_pairs/
         users = users - set(selected_users)
 
         x, y, g = [], [], []
+        letters_lowercase = ''.join(chr(x) for x in range(97,123))
         for u in tqdm(selected_users):
             files = [str(f).replace(audio_folder + '/', '') for f in Path(audio_folder, u).glob('**/*.wav')][:pr['nuttrs']]
             x += files
-            y += [int(u[2:]) for _ in files]
+            y += [int(u.strip(letters_lowercase)) for _ in files]
             g += [gender_map[u] for _ in files]
 
         n_males = int(len([x for x in g if x == "m"]) / pr['nuttrs'])
@@ -213,7 +216,7 @@ def filter_by_gender(paths, labels, meta_file, gender='neutral'):
     """
 
     logger.info('Filter data sets by gender', gender)
-    data_set_df = pd.read_csv(meta_file, delimiter=' ')
+    data_set_df = pd.read_csv(meta_file, delimiter=',')
     gender_map = {k:v for k, v in zip(data_set_df['id'].values, data_set_df['gender'].values)}
 
     filtered_paths = []
@@ -222,7 +225,8 @@ def filter_by_gender(paths, labels, meta_file, gender='neutral'):
     if gender == 'male' or gender == 'female':
 
         for path, label in zip(paths, labels):
-            if gender_map[path.split(os.path.sep)[-3]] == gender[0]:
+            # TODO This needed to be changed - may break things for voxceleb!
+            if gender_map[path.split(os.path.sep)[2]] == gender[0]:
                 filtered_paths.append(path)
                 filtered_labels.append(label)
 

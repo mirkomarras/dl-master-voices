@@ -12,7 +12,7 @@ import os
 from datetime import datetime
 
 from models import cloning
-from models.mv.attacks import PGDSpectrumDistortion, PGDWaveformDistortion, NESVoiceCloning, PGDVariationalAutoencoder
+from models.mv.attacks import PGDSpectrumDistortion, PGDWaveformDistortion, NESVoiceCloning, PGDVariationalAutoencoder, NESWaveform
 from models.verifier.model import Model
 from helpers.dataset import Dataset
 from helpers import plotting, audio
@@ -82,6 +82,8 @@ class SiameseModel(object):
     def setup_attack(self, attack_type, generative_model=None):
         if attack_type == 'nes@cloning':
             self.attack = NESVoiceCloning(self.siamese_model, text='The assistant is triggered by saying hey google', n=10, sigma=0.1, antithetic=True)
+        elif attack_type == 'nes@wave':
+            self.attack = NESWaveform(self.siamese_model)
         elif attack_type == 'pgd@spec':
             self.attack = PGDSpectrumDistortion(self.siamese_model)
         elif attack_type == 'pgd@wave':

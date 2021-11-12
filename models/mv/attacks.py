@@ -2,7 +2,22 @@ import numpy as np
 from numpy.core.function_base import _add_docstring
 import tensorflow as tf
 from helpers import audio
-from models import cloning, ae
+from models import ae  # cloning
+
+from rtvc import rtvc_api
+
+
+def _nes(input, f, n=10, sigma=0.1, antithetic=True):
+    grad = tf.convert_to_tensor(np.zeros_like(input))
+
+    for _ in range(n):
+        d = tf.random.normal(input.shape)
+        grad += d * tf.reduce_mean(f(input + d * sigma))
+        if antithetic:
+            grad -= d * tf.reduce_mean(f(input - d * sigma))
+        
+    grad /= sigma * n * (antithetic + 1) 
+    return grad
 
 
 class Attack(object):
@@ -215,30 +230,21 @@ class PGDVariationalAutoencoder(Attack):
 
 class NESVoiceCloning(object):
 
-    def __init__(self, siamese_model, text='Hello Google', n=30, sigma=0.1, antithetic=True):
+    def __init__(self, siamese_model, text='Hello Google', n=10, sigma=0.01, antithetic=True):
         super().__init__()
         self.siamese_model = siamese_model
         self.n = n
         self.sigma = sigma
         self.antithetic = antithetic
         self.text = text
+        rtvc_api.load_models('rtvc')
 
     def setup(self, seed_sample):
-        embedding = cloning.init_embedding(seed_sample)
+        embedding = rtvc_api.get_embedding(seed_sample)
+        seed_sample = self.run(seed_sample, embedding)
+        # embedding = cloning.init_embedding(seed_sample)
         return seed_sample, embedding
 
-    @staticmethod
-    def _nes(input, f, n=10, sigma=0.1, antithetic=True):
-        grad = tf.convert_to_tensor(np.zeros_like(input))
-
-        for _ in range(n):
-            d = tf.random.normal(input.shape)
-            grad += d * tf.reduce_mean(f(input + d * sigma))
-            if antithetic:
-                grad -= d * tf.reduce_mean(f(input - d * sigma))
-            
-        grad /= sigma * n * (antithetic + 1) 
-        return grad
 
     def optimize(self, seed_sample, attack_vector, train_data, settings):
         epoch_similarities = []
@@ -257,7 +263,7 @@ class NESVoiceCloning(object):
                 return loss
 
             loss = f(attack_vector)
-            grad = self._nes(attack_vector, f, self.n, self.sigma, self.antithetic)
+            grad = _nes(attack_vector, f, self.n, self.sigma, self.antithetic)
             
             assert grad.numpy().size == 256, 'Gradient shape mismatch'
 
@@ -277,5 +283,74 @@ class NESVoiceCloning(object):
     def run(self, seed_sample, attack_vector):
         if not isinstance(attack_vector, np.ndarray):
             attack_vector = attack_vector.numpy()
-        input_mv = cloning.clone_voice(attack_vector, self.text)
+        input_mv = rtvc_api.vc(self.text, attack_vector)
+        
+        max_length = int(2.58 * 16000)
+
+        if len(input_mv) > max_length:
+            input_mv = input_mv[:max_length]
+
+        # input_mv = cloning.clone_voice(attack_vector, self.text)
+        return input_mv
+
+
+class NESWaveform(Attack):
+
+    def __init__(self, siamese_model, playback=False, ir_paths=None, ir_cache=None):
+        super().__init__()
+        self.siamese_model = siamese_model
+        self.playback = playback
+        self.ir_paths = ir_paths
+        self.ir_cache = ir_cache
+        self.n = 100
+        self.sigma = 0.01
+        self.antithetic = True
+
+    def setup(self, seed_sample):
+        attack_vector = np.zeros_like(seed_sample, dtype=np.float32)
+        attack_vector = tf.convert_to_tensor(attack_vector, dtype='float32')
+        return seed_sample, attack_vector
+
+    def optimize(self, seed_sample, attack_vector, train_data, settings):
+        epoch_similarities = []
+        for step, batch_data in enumerate(train_data):
+
+            def f(attack_vector):
+                tape.watch(attack_vector)
+                input_mv = self.run(seed_sample[tf.newaxis, ...], attack_vector)
+
+                if self.playback:
+                    input_mv = audio.get_play_n_rec_audio(input_mv[..., tf.newaxis], self.ir_paths, self.ir_cache)
+
+                # Convert to spectrogram
+                input_mv = audio.get_tf_spectrum(input_mv)
+                input_mv = tf.repeat(input_mv, len(batch_data[0]), axis=0)
+                loss = self.siamese_model([batch_data[0], input_mv])
+
+                return loss
+
+            with tf.GradientTape() as tape:
+                loss = f(attack_vector)
+            grads = _nes(attack_vector, f, self.n, self.sigma, self.antithetic)
+            # grads = tape.gradient(loss, attack_vector)            
+
+            if settings.gradient == 'pgd':
+                grads = tf.sign(grads)
+            elif settings.gradient == 'normed':
+                grads = grads / (1e-9 + tf.linalg.norm(grads))
+            elif settings.gradient is None:
+                pass
+            else:
+                raise ValueError('Unsupported gradient mode!')
+
+            attack_vector += settings.learning_rate * grads
+            if settings.max_attack_vector is not None and settings.max_attack_vector > 0:
+                attack_vector = tf.clip_by_value(attack_vector, -settings.max_attack_vector, settings.max_attack_vector)
+
+            epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
+
+        return attack_vector, epoch_similarities
+
+    def run(self, seed_sample, attack_vector):
+        input_mv = seed_sample + attack_vector
         return input_mv

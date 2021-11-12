@@ -12,17 +12,17 @@
             "console": "integratedTerminal",
             "args": [
                 "--netv", "vggvox/v000",
-                "--seed", "./data/vs_mv_seed/female/001.wav",
+                "--seed", "./data/vs_mv_seed/female/",
                 "--audio_dir", "data/voxceleb2/dev",
                 "--gender", "female",
-                "--gradient", "normed",
-                "--learning_rate", "0.1",
-                "--train_pop", "data/vs_mv_pairs/mv_train_population_interspeech_1000u_50s.csv",
-                "--test_pop", "data/vs_mv_pairs/mv_test_population_interspeech_1000u_10s.csv",
-                "--batch", "4",
-                "--attack", "pgd@vae",
+                "--gradient", "pgd",
+                "--learning_rate", "0.001",
+                "--train_pop", "data/vs_mv_pairs/mv_train_population_small_100u_20s.csv",
+                "--test_pop", "data/vs_mv_pairs/mv_test_population_small_100u_10s.csv",
+                "--batch", "16",
+                "--attack", "nes@wave",
                 "--gm", "voxceleb/0/1024",
-                "--n_epochs", "1",
+                "--n_epochs", "3",
                 "--memory-growth"
             ],
             "env": {
@@ -31,6 +31,34 @@
                 "PYTHONPATH": "${workspaceFolder}"
             }
         },
+        {
+            "name": "vctk-nes",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/routines/mv/optimize.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--audio_meta", "data/vs_mv_pairs/meta_data_vctk.csv",
+                "--netv", "vggvox/v000",
+                "--seed", "data/vs_mv_seed/female/001.wav",
+                "--audio_dir", "data/vctk",
+                "--gender", "female",
+                "--gradient", "pgd",
+                "--learning_rate", "0.001",
+                "--train_pop", "data/vs_mv_pairs/mv_train_population_vctk_50u_10s.csv",
+                "--test_pop", "data/vs_mv_pairs/mv_train_population_vctk_50u_10s.csv",
+                "--batch", "10",
+                "--attack", "nes@cloning",
+                "--gm", "voxceleb/0/1024",
+                "--n_epochs", "3",
+                "--memory-growth"
+            ],
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0",
+                "TF_CPP_MIN_LOG_LEVEL": "3",
+                "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/rtvc"
+            }
+        },        
         {
             "name": "GM training",
             "type": "python",
