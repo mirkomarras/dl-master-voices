@@ -12,6 +12,23 @@ import os
 
 from loguru import logger
 
+
+def ensure_length(wave, slice_length):
+
+    # Ensure audio of given length by: clipping
+    if wave.shape[0] > slice_length:
+        start_sample = random.choice(range(len(wave) - slice_length)) if len(wave) - slice_length > 1 else 0
+        end_sample = start_sample + slice_length
+        wave = wave[start_sample:end_sample]
+    # padding
+    elif wave.shape[0] < slice_length:
+        pad_end = np.random.randint(slice_length - len(wave))
+        pad_start = (slice_length - len(wave)) - pad_end
+        wave = np.pad(wave, (pad_start, pad_end), 'constant')
+
+    return wave
+
+
 def decode_audio(fp, sample_rate=16000, target_length=2.58):
     """
     Function to decode an audio file
@@ -28,20 +45,7 @@ def decode_audio(fp, sample_rate=16000, target_length=2.58):
     except:
         audio_sf, new_sample_rate = librosa.load(fp, sr=sample_rate, mono=True)
 
-    slice_length = int(target_length * sample_rate)
-
-    # Ensure audio of given length by: clipping
-    if audio_sf.shape[0] > slice_length:
-        start_sample = random.choice(range(len(audio_sf) - slice_length)) if len(audio_sf) - slice_length > 1 else 0
-        end_sample = start_sample + slice_length
-        audio_sf = audio_sf[start_sample:end_sample]
-    # padding
-    elif audio_sf.shape[0] < slice_length:
-        pad_end = np.random.randint(slice_length - len(audio_sf))
-        pad_start = (slice_length - len(audio_sf)) - pad_end
-        audio_sf = np.pad(audio_sf, (pad_start, pad_end), 'constant')
-
-    return audio_sf
+    return ensure_length(audio_sf, int(target_length * sample_rate))
 
 def load_noise_paths(noise_dir):
     """

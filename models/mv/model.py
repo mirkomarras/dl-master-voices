@@ -81,7 +81,7 @@ class SiameseModel(object):
 
     def setup_attack(self, attack_type, generative_model=None):
         if attack_type == 'nes@cloning':
-            self.attack = NESVoiceCloning(self.siamese_model, text='The assistant is triggered by saying hey google', n=10, sigma=0.1, antithetic=True)
+            self.attack = NESVoiceCloning(self.siamese_model, text='The assistant is triggered by saying hey google', n=20, sigma=0.025, antithetic=True)
         elif attack_type == 'nes@wave':
             self.attack = NESWaveform(self.siamese_model)
         elif attack_type == 'pgd@spec':
@@ -212,7 +212,7 @@ class SiameseModel(object):
         # The list x_mv_test_embs will include the embeddings corresponding to the audio files in x_mv_test
         # x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test = test_data
 
-        extractor = self.verifier.infer()
+        # extractor = self.verifier.infer()
 
         seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
         n_seed_voices = len(seed_voices) if self.gan is None else int(seed_voices)
@@ -245,7 +245,8 @@ class SiameseModel(object):
             if input_sv.shape[0] > max_length:
                 logger.warning(f'Clipping speech to {max_length} samples')
                 input_sv = input_sv[:max_length]
-            input_mv, performance = self.optimize(input_sv, train_data, test_gallery, settings)
+            
+            input_sv, input_mv, performance = self.optimize(input_sv, train_data, test_gallery, settings)
 
             gender = self.params.mv_gender[0] # Gender selector: 'm' or 'f'
             model_suffix = '' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]
@@ -350,7 +351,7 @@ class SiameseModel(object):
             logger.debug('(Epoch={:2d}) Imp@EER m={:.3f} f={:.3f} | Imp@FAR1 m={:.3f} f={:.3f} | opt time {:.1f} + val time {:.1f}'.format(
                 epoch, results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"], opt_time, val_time))
 
-        return self.attack.run(input_sv, perturbation), performance
+        return input_sv, self.attack.run(input_sv, perturbation), performance
 
     def save(self, seed_sample, attack_sample, performance_stats, filename='', population_name='default', iter=None): # input_avg, input_std, 
         """

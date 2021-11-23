@@ -283,15 +283,11 @@ class NESVoiceCloning(object):
     def run(self, seed_sample, attack_vector):
         if not isinstance(attack_vector, np.ndarray):
             attack_vector = attack_vector.numpy()
+        
         input_mv = rtvc_api.vc(self.text, attack_vector)
         
-        max_length = int(2.58 * 16000)
-
-        if len(input_mv) > max_length:
-            input_mv = input_mv[:max_length]
-
         # input_mv = cloning.clone_voice(attack_vector, self.text)
-        return input_mv
+        return audio.ensure_length(input_mv, int(2.58 * 16000))
 
 
 class NESWaveform(Attack):
