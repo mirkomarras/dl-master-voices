@@ -121,7 +121,7 @@ def generate_enrolled_samples(prepr, ptag='debug', audio_meta='data/vs_mv_pairs/
     '''
     # Retrieve gender data
     data_set_df = pd.read_csv(audio_meta, delimiter=',')
-    gender_map = {k:v for k, v in zip(data_set_df['id'].values, data_set_df['gender'].values)}
+    gender_map = {str(k): v for k, v in zip(data_set_df['id'].values, data_set_df['gender'].values)}
     print(data_set_df)
     print(gender_map)
 
@@ -217,7 +217,7 @@ def filter_by_gender(paths, labels, meta_file, gender='neutral'):
 
     logger.info('Filter data sets by gender', gender)
     data_set_df = pd.read_csv(meta_file, delimiter=',')
-    gender_map = {k:v for k, v in zip(data_set_df['id'].values, data_set_df['gender'].values)}
+    gender_map = {str(k): v for k, v in zip(data_set_df['id'].values, data_set_df['gender'].values)}
 
     filtered_paths = []
     filtered_labels = []
