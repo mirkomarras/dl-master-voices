@@ -34,7 +34,7 @@ def train_gan(model, dataset, length=2.58, batch=32, examples=0, resize=None, ep
         train_data = tf.data.Dataset.from_tensor_slices(x_train)
         train_data = train_data.padded_batch(batch, (32, 32, 1))
 
-    if dataset == 'celeb-a':
+    elif dataset == 'celeb-a':
         import imageio, skimage, tqdm
         data_dir = './data/celeb-a/'
         data_files = [os.path.join(data_dir, x) for x in os.listdir(data_dir)]
