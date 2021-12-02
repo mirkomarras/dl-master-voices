@@ -187,7 +187,8 @@ class Model(object):
             if len(os.listdir(os.path.join(self.dir, version_id))) > 0:
                 model_path = os.path.join(self.dir, version_id, 'model.h5')
                 logger.debug(model_path)
-                self.model = tf.keras.models.load_model(model_path, custom_objects={'VladPooling': VladPooling})
+                self.model.load_weights(model_path, skip_mismatch=True, by_name=True)
+                # self.model = tf.keras.models.load_model(model_path, custom_objects={'VladPooling': VladPooling})
                 self.history = []
                 if os.path.exists(os.path.join(self.dir, version_id, 'history.csv')):
                     self.history = pd.read_csv(os.path.join(self.dir, version_id, 'history.csv')).values.tolist()
