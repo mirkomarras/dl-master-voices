@@ -15,9 +15,21 @@ from loguru import logger
 
 # Helper functions for plotting images in Python (wrapper over matplotlib)
 
+__INTERACTIVE = False
+
+
+def set_interactive(status=False):
+    global __INTERACTIVE
+    __INTERACTIVE = status
+
+
 def get_figure(**kwargs):
-    import matplotlib.pyplot as plt
-    return plt.figure(**kwargs)
+    if __INTERACTIVE:
+        import matplotlib.pyplot as plt
+        return plt.figure(**kwargs)
+    else:
+        from matplotlib.figure import Figure
+        return Figure(**kwargs)
 
 
 def thumbnails(images, ncols=0, columnwise=False, cell_size=None, pad=0):

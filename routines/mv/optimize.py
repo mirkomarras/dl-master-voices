@@ -160,6 +160,20 @@ def main():
         'learning_rate': args.learning_rate
     })
 
+    # Sanity check for error rates
+    sanity_samples = ('data/vs_mv_seed/female/', 'data/vs_mv_seed/male/')
+    filenames = [os.path.join(sanity_samples[0], file) for file in os.listdir(sanity_samples[0]) if file.endswith('.wav')]
+    filenames += [os.path.join(sanity_samples[1], file) for file in os.listdir(sanity_samples[1]) if file.endswith('.wav')]
+    embeddings = sv.predict(np.array(filenames))
+
+    sim_matrix, imp_matrix, gnd_matrix = sv.test_error_rates(embeddings, test_gallery, policy='avg', level='far1')
+
+    imp_rates = imp_matrix.sum(axis=1) / 100
+
+    logger.info('SV using thresholds {sv._thresholds}')
+    logger.warning(f'Impersonation rate sanity check [avg,far1]: {100 * np.mean(imp_rates):.1f}%')
+    logger.debug(f'Gender breakown [m,f]: {np.mean(100 * gnd_matrix, 0).round(2)}')
+
     # Run optimization
     siamese_model.setup_attack(args.attack, args.gm) # pgd@spec, nes@cloning, pgd@wave
     siamese_model.batch_optimize_by_path(args.seed_voice, train_data, test_gallery, settings=opt_settings)

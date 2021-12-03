@@ -55,7 +55,7 @@ class VladPooling(tf.keras.layers.Layer):
         self.k_centers = k_centers
         self.g_centers = g_centers
         self.mode = mode
-        super(VladPooling, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def get_config(self):
         config = super().get_config().copy()
@@ -102,10 +102,23 @@ class Model(object):
     def __init__(self, name='', id=-1):
         '''
         An Automated Speaker Verification (ASV) model
+
+        # Typical way of setting up the model
+
+        Either:
+        | sv = xvector.XVector(id=0)
+        | sv = verifier.get_model(net)
+
+        sv.build(classes=0, mode='test')
+        sv.load()
+        sv.calibrate_thresholds()
+        sv.infer()
+
         :param name:        Name of the model
         :param id:          Model instance ID
         '''
 
+        # TODO Simplify model setup - current split into build+load+calibrate+infer is unnecessarily complicated
         self.name = name
         self.input_type = None
         self._inference_model = None
@@ -133,10 +146,15 @@ class Model(object):
         return self._inference_model
 
 
-    def build(self, classes=0, embs_size=512, embs_name='embs', loss='softmax', aggregation='avg', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
+    def build(self, classes=0, embs_name='embs', embs_size=512, loss='softmax', aggregation='avg', vlad_clusters=10, ghost_clusters=2, weight_decay=1e-3, mode='train'):
         '''
+        
+        Abstract method to build a speaker verification model. Should be implemented in child classes.
 
-        Method to build a speaker verification model that takes audio samples of shape (None, 1) and impulse flags (None, 3)
+        The model should take audio samples of shape (None, 1) as input and have an internal layer
+        <embs_name> that represents the speaker embedding. Most models are pre-trained on a speaker 
+        classification problem.
+
         :param classes:         Number of classes that this model should manage during training
         :param embs_size:       Size of the speaker embedding vector to be returned by the model
         :param embs_name:       Name of the layer from which embeddings are extracted
@@ -177,7 +195,7 @@ class Model(object):
         return os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))
 
 
-    def load(self):
+    def load(self, replace_model=False):
         """
         Load this model
         """
@@ -187,12 +205,19 @@ class Model(object):
             if len(os.listdir(os.path.join(self.dir, version_id))) > 0:
                 model_path = os.path.join(self.dir, version_id, 'model.h5')
                 logger.debug(model_path)
-                self.model.load_weights(model_path, skip_mismatch=True, by_name=True)
-                # self.model = tf.keras.models.load_model(model_path, custom_objects={'VladPooling': VladPooling})
+                if replace_model:
+                    self.model = tf.keras.models.load_model(model_path, custom_objects={'VladPooling': VladPooling})
+                else:
+                    self.model.load_weights(model_path, skip_mismatch=True, by_name=True)
                 self.history = []
                 if os.path.exists(os.path.join(self.dir, version_id, 'history.csv')):
                     self.history = pd.read_csv(os.path.join(self.dir, version_id, 'history.csv')).values.tolist()
-                logger.info('loaded checkpoint from {}'.format(os.path.join(self.dir, version_id)))
+                
+                if replace_model:
+                    logger.info('loaded model from {}'.format(os.path.join(self.dir, version_id)))
+                else:
+                    logger.info('loaded weights from {}'.format(os.path.join(self.dir, version_id)))
+
             else:
                 logger.warning('No pre-trained model for {} in {}'.format(self.name, os.path.join(self.dir, version_id)))
         else:
@@ -307,8 +332,9 @@ class Model(object):
 
 
     def test_error_rates(self, elements, gallery, policy='any', level='far1', playback=None):
+        # TODO Add parameter to control the number of enrolled samples to test
         assert self._thresholds is not None and self._inference_model is not None
-        logger.info('used thresholds {}'.format(self._thresholds))
+        # logger.info('used thresholds {}'.format(self._thresholds))
 
         # Expand the elements so that we can flexibly manage sequences of elements
         elements = elements if len(elements.shape) >= 2 else np.expand_dims(elements, axis=0)  # audio (None,) audios (None, n) ---> use prepare_batch

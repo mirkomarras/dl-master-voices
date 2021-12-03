@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Mastervoice",
+            "name": "mv",
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/routines/mv/optimize.py",
@@ -17,18 +17,18 @@
                 "--gender", "female",
                 "--gradient", "pgd",
                 "--learning_rate", "0.001",
-                "--train_pop", "data/vs_mv_pairs/mv_train_population_small_100u_20s.csv",
-                "--test_pop", "data/vs_mv_pairs/mv_test_population_small_100u_10s.csv",
+                "--train_pop", "data/vs_mv_pairs/mv_train_population_dev-test_100u_50s.csv",
+                "--test_pop", "data/vs_mv_pairs/mv_test_population_dev-test_100u_10s.csv",
                 "--batch", "16",
-                "--attack", "nes@wave",
+                "--attack", "pgd@wave",
                 "--gm", "voxceleb/0/1024",
-                "--n_epochs", "3",
+                "--n_epochs", "0",
                 "--memory-growth"
             ],
             "env": {
                 "CUDA_VISIBLE_DEVICES": "0",
                 "TF_CPP_MIN_LOG_LEVEL": "3",
-                "PYTHONPATH": "${workspaceFolder}"
+                "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/rtvc"
             }
         },
         {
