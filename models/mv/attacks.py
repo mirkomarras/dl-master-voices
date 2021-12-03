@@ -318,8 +318,12 @@ class NESWaveform(Attack):
                 if self.playback:
                     input_mv = audio.get_play_n_rec_audio(input_mv[..., tf.newaxis], self.ir_paths, self.ir_cache)
 
-                # Convert to spectrogram
-                input_mv = audio.get_tf_spectrum(input_mv)
+                # Convert to spectrogram / filterbanks
+                if batch_data[0].shape[-1] > 128:
+                    input_mv = audio.get_tf_spectrum(input_mv)                
+                else:
+                    input_mv = audio.get_tf_filterbanks(input_mv[..., tf.newaxis], n_filters=24)
+
                 input_mv = tf.repeat(input_mv, len(batch_data[0]), axis=0)
                 loss = self.siamese_model([batch_data[0], input_mv])
 

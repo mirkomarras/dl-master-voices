@@ -170,7 +170,7 @@ def main():
 
     imp_rates = imp_matrix.sum(axis=1) / 100
 
-    logger.info('SV using thresholds {sv._thresholds}')
+    logger.info(f'SV using thresholds {sv._thresholds}')
     logger.warning(f'Impersonation rate sanity check [avg,far1]: {100 * np.mean(imp_rates):.1f}%')
     logger.debug(f'Gender breakown [m,f]: {np.mean(100 * gnd_matrix, 0).round(2)}')
 

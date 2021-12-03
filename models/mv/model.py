@@ -493,19 +493,20 @@ class SiameseModel(object):
         if test_gallery is None:
             return {'m': np.array(0), 'f': np.array(0)}, {'m': np.array(0), 'f': np.array(0)}
 
-        input_spectrum = self.ensure_spectrogram(input_mv)
+        if self.verifier._uses_spectrum:
+            input_mv = self.ensure_spectrogram(input_mv)
 
         # TODO This should not be populated in the background - need a better way of passing the results around
         self.sims, self.imps, self.gnds = {}, {}, {}
 
         # tf.expand_dims(input_spectrum, axis=0)
-        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(input_spectrum, test_gallery, level='eer')
+        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(input_mv, test_gallery, level='eer')
         eer_results = {'m': np.mean(gnd_df[:, 0]), 'f': np.mean(gnd_df[:, 1])}
         self.sims['eer'] = sim_df
         self.imps['eer'] = imp_df
         self.gnds['eer'] = gnd_df
 
-        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(input_spectrum, test_gallery, level='far1')
+        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(input_mv, test_gallery, level='far1')
         far1_results = {'m': np.mean(gnd_df[:, 0]), 'f': np.mean(gnd_df[:, 1])}
         self.sims['far1'] = sim_df
         self.imps['far1'] = imp_df

@@ -123,6 +123,7 @@ class Model(object):
         self.input_type = None
         self._inference_model = None
         self._thresholds = None
+        self._uses_spectrum = True
 
         self.dir = os.path.join('.', 'data', 'vs_mv_models', self.name)
         if not os.path.exists(self.dir):
@@ -352,7 +353,8 @@ class Model(object):
         for element_idx, element in enumerate(elements):
             if hasattr(element, 'numpy'):
                 element = element.numpy()
-            element_emb = self.predict(element[tf.newaxis, ...], playback) if len(element.shape) > 1 else element
+            
+            element_emb = self.predict(element[tf.newaxis, ...], playback) if (len(element.shape) > 1 or element.size != self.embs_size) else element
             for user_idx, user_id in enumerate(gallery.user_ids[::n_samples_pp]): # For each user in the gallery, reuse if the gallery size increase
                 
                 if policy == 'any':
