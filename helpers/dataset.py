@@ -225,8 +225,12 @@ def filter_by_gender(paths, labels, meta_file, gender='neutral'):
     if gender == 'male' or gender == 'female':
 
         for path, label in zip(paths, labels):
-            # TODO This needed to be changed - may break things for voxceleb!
-            if gender_map[path.split(os.path.sep)[2]] == gender[0]:
+            # TODO This needed to be changed - ugly hack to support different datasets
+            if '/dev/' in path:
+                index = 3
+            else:
+                index = 2
+            if gender_map[path.split(os.path.sep)[index]] == gender[0]:
                 filtered_paths.append(path)
                 filtered_labels.append(label)
 
