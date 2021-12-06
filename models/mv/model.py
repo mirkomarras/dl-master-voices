@@ -445,15 +445,24 @@ class SiameseModel(object):
         filename_format = f'{net}_{population_name}_{{}}_any_{suffix}.npz'
 
         # TODO Remove me - added for temporary debugging
-        mv_spec_recomp = audio.get_tf_spectrum(mv_wave[tf.newaxis, ...])
-        results_ori = self.test(mv_spec[tf.newaxis, ..., tf.newaxis], self.test_gallery)
-        results_ref = self.test(seed_spec[tf.newaxis, ..., tf.newaxis], self.test_gallery)
-        results_recomp = self.test(mv_spec_recomp, self.test_gallery)
+        try:
+            results_ref = self.test(seed_spec[tf.newaxis, ..., tf.newaxis], self.test_gallery)
+            logger.warning(f'(Seed) Imp@EER {gender}={results_ref[0][gender]} | Imp@FAR1 {gender}={results_ref[1][gender]}')
+        except:
+            pass
 
-        # TODO Remove me - temporary sanity check
-        logger.warning(f'(Seed) Imp@EER {gender}={results_ref[0][gender]} | Imp@FAR1 {gender}={results_ref[1][gender]}')
-        logger.warning(f'(Optimized) Imp@EER {gender}={results_ori[0][gender]} | Imp@FAR1 {gender}={results_ori[1][gender]}')
-        logger.warning(f'(Inverted) Imp@EER {gender}={results_recomp[0][gender]} | Imp@FAR1 {gender}={results_recomp[1][gender]}')
+        try:
+            results_ori = self.test(mv_spec[tf.newaxis, ..., tf.newaxis], self.test_gallery)
+            logger.warning(f'(Optimized) Imp@EER {gender}={results_ori[0][gender]} | Imp@FAR1 {gender}={results_ori[1][gender]}')
+        except:
+            pass
+        
+        try:
+            mv_spec_recomp = audio.get_tf_spectrum(mv_wave[tf.newaxis, ...])
+            results_recomp = self.test(mv_spec_recomp, self.test_gallery)            
+            logger.warning(f'(Inverted) Imp@EER {gender}={results_recomp[0][gender]} | Imp@FAR1 {gender}={results_recomp[1][gender]}')
+        except:
+            pass
 
         performance_stats['imp_seed'] = [results_ref[0][gender], results_ref[1][gender]]
         performance_stats['imp_opt'] = [results_ori[0][gender], results_ori[1][gender]]
