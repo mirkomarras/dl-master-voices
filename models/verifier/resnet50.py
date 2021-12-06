@@ -28,8 +28,8 @@ class ResNet50(Model):
         return get_tf_spectrum(e, num_fft=512)
 
 
-    def build(self, classes=0, embs_size=512, embs_name='embs', loss='softmax', aggregation='gvlad', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
-        super().build(classes, embs_size, embs_name, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay, mode)
+    def build(self, classes=0, embs_name='embs', embs_size=512, loss='softmax', aggregation='gvlad', vlad_clusters=12, ghost_clusters=2, weight_decay=1e-3, mode='train'):
+        super().build(classes, embs_name, embs_size, loss, aggregation, vlad_clusters, ghost_clusters, weight_decay, mode)
         print('>', 'building', self.name, 'model on', classes, 'classes')
 
         input_layer = tf.keras.Input(shape=(256, None, 1,), name='Input_1')
