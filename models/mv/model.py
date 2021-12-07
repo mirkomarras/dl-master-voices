@@ -448,25 +448,29 @@ class SiameseModel(object):
         try:
             results_ref = self.test(seed_spec[tf.newaxis, ..., tf.newaxis], self.test_gallery)
             logger.warning(f'(Seed) Imp@EER {gender}={results_ref[0][gender]} | Imp@FAR1 {gender}={results_ref[1][gender]}')
+            performance_stats['imp_seed'] = [results_ref[0][gender], results_ref[1][gender]]
         except:
             pass
 
         try:
             results_ori = self.test(mv_spec[tf.newaxis, ..., tf.newaxis], self.test_gallery)
             logger.warning(f'(Optimized) Imp@EER {gender}={results_ori[0][gender]} | Imp@FAR1 {gender}={results_ori[1][gender]}')
+            performance_stats['imp_opt'] = [results_ori[0][gender], results_ori[1][gender]]
         except:
             pass
         
         try:
-            mv_spec_recomp = audio.get_tf_spectrum(mv_wave[tf.newaxis, ...])
-            results_recomp = self.test(mv_spec_recomp, self.test_gallery)            
+            # TODO Should probably use `compute_acoustic_representation`
+            if self.verifier._uses_spectrum:
+                mv_spec_recomp = audio.get_tf_spectrum(mv_wave[tf.newaxis, ...])
+            else:
+                mv_spec_recomp = audio.get_tf_filterbanks(mv_wave[tf.newaxis, ...,tf.newaxis])
+            
+            results_recomp = self.test(mv_spec_recomp, self.test_gallery)
+            performance_stats['imp_inv'] = [results_recomp[0][gender], results_recomp[1][gender]]
             logger.warning(f'(Inverted) Imp@EER {gender}={results_recomp[0][gender]} | Imp@FAR1 {gender}={results_recomp[1][gender]}')
         except:
-            pass
-
-        performance_stats['imp_seed'] = [results_ref[0][gender], results_ref[1][gender]]
-        performance_stats['imp_opt'] = [results_ori[0][gender], results_ori[1][gender]]
-        performance_stats['imp_inv'] = [results_recomp[0][gender], results_recomp[1][gender]]
+            logger.error(f'Failed to run impersonation assessment!')
 
         # During optimization, we keep track of impersonation performance only for the `any` policy?
         for thr in ('eer', 'far1'):
