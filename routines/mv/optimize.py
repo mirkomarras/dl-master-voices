@@ -168,7 +168,7 @@ def main():
 
     sim_matrix, imp_matrix, gnd_matrix = sv.test_error_rates(embeddings, test_gallery, policy='avg', level='far1')
 
-    imp_rates = imp_matrix.sum(axis=1) / 100
+    imp_rates = imp_matrix.sum(axis=1) / len(np.unique(test_gallery.user_ids))
 
     logger.info(f'SV using thresholds {sv._thresholds}')
     logger.warning(f'Impersonation rate sanity check [avg,far1]: {100 * np.mean(imp_rates):.1f}%')
