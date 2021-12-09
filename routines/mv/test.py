@@ -87,6 +87,13 @@ def main():
 
             results = {'sims': sims, 'imps': imps, 'gnds': gnds}
             filename_stats = os.path.join(mv_set, settings['pop'].split('/')[-1][:-4] + '-' + net.replace('/', '_') + '-' + str(policy) + '-' + str(level) + '.npz')
+
+            imp_rates = results['imps'].sum(axis=1) / len(np.unique(test_gallery.user_ids))
+
+            logger.info(f'SV using thresholds {sv._thresholds}')
+            logger.warning(f'Impersonation rates [avg,far1]: {100 * np.mean(imp_rates):.1f}%')
+            logger.debug(f'Gender breakown [m,f]: {np.mean(100 * results["gnds"], 0).round(2)}')
+
             logger.info('saving stats to {}'.format(filename_stats))
             np.savez(filename_stats, results=results)
 
