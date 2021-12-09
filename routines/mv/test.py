@@ -9,6 +9,7 @@ from loguru import logger
 import numpy as np
 import argparse
 
+import tensorflow as tf
 from helpers.dataset import Dataset
 from models import verifier
 
@@ -27,8 +28,10 @@ def main():
     parser.add_argument('--pop', dest='pop', default='data/vs_mv_pairs/mv_test_population_is2019_100u_10s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv training')
     parser.add_argument('--policy', dest='policy', default='any,avg', type=str, action='store', help='Policy of verification, eigher any or avg')
     parser.add_argument('--level', dest='level', default='eer,far1', type=str, action='store', help='Levelof security, either eer or far1')
+    parser.add_argument('--memory-growth', dest='memory_growth', action='store_true', help='Enable dynamic memory growth in Tensorflow')                       
 
-    settings = vars(parser.parse_args())
+    args = parser.parse_args()
+    settings = vars(args)
 
     assert settings['net'] is not '', 'Please specify model network for --net'
     assert settings['policy'] is not '', 'Please specify policy for --policy'
@@ -44,6 +47,10 @@ def main():
     # noise_paths = load_noise_paths(args.noise_dir)
     # print('Cache impulse response data')
     # noise_cache = cache_noise_data(noise_paths)
+
+    if args.memory_growth:
+        physical_devices = tf.config.list_physical_devices("GPU")
+        tf.config.experimental.set_memory_growth(physical_devices[0], True)
 
     # Create all the paths to the mv_set/version folders we want to test
     if settings['mv_set'] is None or len(settings['mv_set']) == 0:
