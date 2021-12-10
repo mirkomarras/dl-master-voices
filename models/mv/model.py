@@ -27,7 +27,7 @@ class SiameseModel(object):
        Class to represent Master Voice (MV) models with master voice training and testing functionalities
     """
 
-    def __init__(self, dir, params, playback=False, ir_dir=None, sample_rate=16000, run_id=None):
+    def __init__(self, dir, params, playback=False, ir_dir=None, sample_rate=16000, run_id=None, impulse_flags=[1,1,1]):
         """
         Method to initialize a master voice model that will save audio samples in 'data/vs_mv_data/{net}-{netv}_{gan}-{ganv}_{f|m}-{f|m}_{mv|sv}'
         :param sample_rate:     Sample rate of an audio sample to be processed
@@ -87,7 +87,7 @@ class SiameseModel(object):
         elif attack_type == 'pgd@spec':
             self.attack = PGDSpectrumDistortion(self.siamese_model)
         elif attack_type == 'pgd@wave':
-            self.attack = PGDWaveformDistortion(self.siamese_model, self.playback, self.noise_paths, self.noise_cache)
+            self.attack = PGDWaveformDistortion(self.siamese_model, self.playback, self.noise_paths, self.noise_cache, self.impulse_flags)
         elif attack_type.startswith('pgd@vae'):
             # 'voxceleb/version/z_dim'
             dataset, version, z_dim = generative_model.split('/')
@@ -212,8 +212,6 @@ class SiameseModel(object):
         # The list x_mv_test_embs will include the embeddings corresponding to the audio files in x_mv_test
         # x_mv_test, y_mv_test, male_x_mv_test, female_x_mv_test = test_data
 
-        # extractor = self.verifier.infer()
-
         seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
         n_seed_voices = len(seed_voices) if self.gan is None else int(seed_voices)
 
@@ -294,8 +292,8 @@ class SiameseModel(object):
         best_value_attempt = 0.0
 
         # input_sv = self.attack.prep(input_sv)
-        input_sv, perturbation = self.attack.setup(input_sv)
-        logger.debug(f'Configured optimization: parameter space {perturbation.shape}')
+        input_sv, attack_vector = self.attack.setup(input_sv)
+        logger.debug(f'Configured optimization: parameter space {attack_vector.shape}')
         # perturbation = np.zeros_like(input_sv, dtype=np.float32)
         # perturbation = tf.convert_to_tensor(perturbation, dtype='float32')
         input_mv = tf.convert_to_tensor(input_sv, dtype='float32')
@@ -305,24 +303,24 @@ class SiameseModel(object):
         results = self.test(input_mv, test_gallery)
         performance['mv_eer_results'].append(results[0])
         performance['mv_far1_results'].append(results[1])
-        performance['l2_norm'].append(tf.reduce_mean(tf.square(perturbation)).numpy().item())
-        performance['max_dist'].append(np.max(np.abs(perturbation)).item())
+        performance['l2_norm'].append(tf.reduce_mean(tf.square(attack_vector)).numpy().item())
+        performance['max_dist'].append(tf.reduce_max(tf.abs(attack_vector)).numpy().item())
 
         logger.debug('(Baseline) Imp@EER m={:.3f} f={:.3f} | Imp@FAR1 m={:.3f} f={:.3f}'.format(results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"]), end='\n')
 
-        for epoch in range(settings.n_epochs):  # For each optimization epoch
+        for step in range(settings.n_steps):  # For each optimization step
             t1 = datetime.now()
-            epoch_similarities = []
+            step_similarities = []
 
-            perturbation, epoch_similarities = self.attack.optimize(input_sv, perturbation, train_data, settings)
+            attack_vector, step_similarities = self.attack.attack_step(input_sv, attack_vector, train_data, settings)
 
-            epoch_loss = tf.reduce_mean(epoch_similarities).numpy().item()
+            epoch_loss = tf.reduce_mean(step_similarities).numpy().item()
 
             t2 = datetime.now()
             if test_gallery is not None:
                 
                 # TODO hard-coded for spectrogram optimization
-                input_mv = self.attack.run(input_sv, perturbation)
+                input_mv = self.attack.run(input_sv, attack_vector)
                 # input_mv = input_sv + perturbation
                 # input_mv = tf.clip_by_value(input_mv, 0, 10000)
 
@@ -331,27 +329,30 @@ class SiameseModel(object):
                 performance['mv_avg_similarity'].append(epoch_loss)
                 performance['mv_eer_results'].append(results[0])
                 performance['mv_far1_results'].append(results[1])
-                performance['l2_norm'].append(tf.reduce_mean(tf.square(perturbation)).numpy().item())
-                performance['max_dist'].append(np.max(np.abs(perturbation)).item())
+                performance['l2_norm'].append(tf.reduce_mean(tf.square(attack_vector)).numpy().item())
+                performance['max_dist'].append(tf.reduce_max(tf.abs(attack_vector)).numpy().item())
 
-                if (results[0]['m'] + results[0]['f']) > best_value_attempt:  # Check if the total impersonation rate after the current epoch is improved
-                    best_value_attempt = results[0]['m'] + results[0]['f']  # Update the best impersonation rate value
-                    remaining_attempts = settings.patience  # Resume remaining attempts to patience times
-                    # print(' - Best Score', end='')
-                else:
-                    remaining_attempts -= 1  # Reduce the remaining attempts to improve the impersonation rate
-                    # print(f' - Attempts ({remaining_attempts})', end='')
+                
+                if settings.epsilon is None or settings.epsilon == 0:
+                    print("Got here")
+                    if (results[0]['m'] + results[0]['f']) > best_value_attempt:  # Check if the total impersonation rate after the current step is improved
+                        best_value_attempt = results[0]['m'] + results[0]['f']  # Update the best impersonation rate value
+                        remaining_attempts = settings.patience  # Resume remaining attempts to patience times
+                        # print(' - Best Score', end='')
+                    else:
+                        remaining_attempts -= 1  # Reduce the remaining attempts to improve the impersonation rate
+                        # print(f' - Attempts ({remaining_attempts})', end='')
 
-                if remaining_attempts == 0:  # If there are no longer remaining attempts we start the optimization of the current voice
-                    break
+                    if remaining_attempts == 0:  # If there are no longer remaining attempts we start the optimization of the current voice
+                        break
 
             t3 = datetime.now()
             opt_time = (t2 - t1).total_seconds()
             val_time = (t3 - t2).total_seconds()
-            logger.debug('(Epoch={:2d}) Imp@EER m={:.3f} f={:.3f} | Imp@FAR1 m={:.3f} f={:.3f} | opt time {:.1f} + val time {:.1f}'.format(
-                epoch, results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"], opt_time, val_time))
+            logger.debug('(Step={:2d}) Imp@EER m={:.3f} f={:.3f} | Imp@FAR1 m={:.3f} f={:.3f} | opt time {:.1f} + val time {:.1f}'.format(
+                step, results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"], opt_time, val_time))
 
-        return input_sv, self.attack.run(input_sv, perturbation), performance
+        return self.attack.run(input_sv, attack_vector), performance
 
     def save(self, seed_sample, attack_sample, performance_stats, filename='', population_name='default', iter=None): # input_avg, input_std, 
         """

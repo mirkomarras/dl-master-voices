@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import sys
+
+sys.path.append('../helpers')
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
@@ -9,7 +12,7 @@ import argparse
 import sys
 import os
 
-from helpers.audio import load_noise_paths, cache_noise_data, play_n_rec, decode_audio
+from helpers.audio import load_noise_paths, cache_noise_data, get_play_n_rec_audio, decode_audio
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -54,7 +57,7 @@ def main():
     
     @tf.function
     def forward(signal, impulse_flags):
-      return play_n_rec((signal, impulse_flags), noises=noise_paths, cache=noise_cache, noise_strength='random')
+      return get_play_n_rec_audio(signal = signal, noises=noise_paths, cache=noise_cache, noise_strength='random') #, impulse_flags
     
     xf = forward(xt, xn).numpy()
     

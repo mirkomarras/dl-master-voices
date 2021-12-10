@@ -51,7 +51,7 @@ def main():
 
     group = parser.add_argument_group('Optimization Settings')
     # group.add_argument('--n_examples', dest='n_examples', default=100, type=int, action='store', help='Number of master voices sampled to be created (only if netg is set)')
-    group.add_argument('--n_epochs', dest='n_epochs', default=3, type=int, action='store', help='Number of epochs')
+    group.add_argument('--n_epochs','--n_steps', dest='n_steps', default=3, type=int, action='store', help='Number of optimization steps (epochs)')
     group.add_argument('--batch', dest='batch', default=64, type=int, action='store', help='Batch size for the optimization')
     group.add_argument('--prefetch', dest='prefetch', default=200, type=int, action='store', help='Number of samples to prefetch')
     group.add_argument('--learning_rate', dest='learning_rate', default=1e-2, type=float, action='store', help='Learning rate')
@@ -63,13 +63,17 @@ def main():
     group.add_argument('--n_seconds', dest='n_seconds', default=2.58, type=float, action='store', help='Length in seconds of an audio for master voice optimization')
     group.add_argument('--max_dist', dest='max_dist', default=0, type=float, action='store', help='Max distortion (L∞)')
     group.add_argument('--l2_reg', dest='l2_reg', default=0, type=float, action='store', help='Distortion penalty (L2 regularization)')
+    group.add_argument('--linf_reg', dest='linf_reg', default=0, type=float, action='store', help='Distortion penalty (L infinity regularization)')
+    group.add_argument('--lambda_reg', dest='lambda_reg', default=1, type=float, action='store', help='Regularization parameter')
+    group.add_argument('--epsilon', dest='epsilon', default=None, type=float, action='store', help='L infinity parameter')
+   
     group.add_argument('--run_id', dest='run_id', default=None, type=int, action='store', help='Run ID if you need to resume (defaults to None which creates a new ID each time)')
     group.add_argument('--memory-growth', dest='memory_growth', action='store_true', help='Enable dynamic memory growth in Tensorflow')                       
 
     group = parser.add_argument_group('Playback Simulation')
     group.add_argument('--play', dest='playback', default=False, action='store_true', help='Simulate playback at optimization time')
     group.add_argument('--ir_dir', dest='ir_dir', default='./data/vs_noise_data/', type=str, action='store', help='Path to the folder with impuse responses (room, micropone, speaker)')
-
+    group.add_argument('-impulse_flags','--impulse_flags', nargs='+', help='Impulse Flags for controlling playback', required=False)
     args = parser.parse_args()
 
     # 
@@ -93,7 +97,7 @@ def main():
     #     group_dict={a.dest:getattr(args,a.dest,None) for a in group._group_actions}
     #     arg_groups[group.title]=argparse.Namespace(**group_dict)
 
-    display_fields = {'netv', 'attack', 'seed_voice', 'mv_gender', 'n_epochs'}
+    display_fields = {'netv', 'attack', 'seed_voice', 'mv_gender', 'n_steps'}
 
     if len(tf.config.get_visible_devices("GPU")) == 0:
         logger.warning(f'No GPU? TF Devices: {tf.config.get_visible_devices()}')
@@ -115,7 +119,7 @@ def main():
     dir_name = utils.sanitize_path(f'{args.netv}_{args.attack}_{args.mv_gender[0]}'.replace('/', '_'))
 
     # We initialize the siamese model that will be used to batch_optimize_by_path master voices
-    siamese_model = SiameseModel(dir=os.path.join('data', 'vs_mv_data', dir_name), params=args, playback=args.playback, ir_dir=args.ir_dir, sample_rate=args.sample_rate, run_id=args.run_id)
+    siamese_model = SiameseModel(dir=os.path.join('data', 'vs_mv_data', dir_name), params=args, playback=args.playback, ir_dir=args.ir_dir, sample_rate=args.sample_rate, run_id=args.run_id, impulse_flags=args.impulse_flags)
     logger.info('Siamese network initialized')
 
     logger.info('Setting verifier')
@@ -154,10 +158,13 @@ def main():
     opt_settings = siamese_model.defaults()
     opt_settings.update({
         'gradient': args.gradient,
-        'n_epochs': args.n_epochs,
+        'n_steps': args.n_steps,
         'max_attack_vector': args.max_dist,
         'l2_regularization': args.l2_reg,
-        'learning_rate': args.learning_rate
+        'learning_rate': args.learning_rate, 
+        'linf_regularization': args.linf_reg, 
+        'lambda_reg': args.lambda_reg, 
+        'epsilon': args.epsilon
     })
 
     # Sanity check for error rates
