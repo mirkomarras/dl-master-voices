@@ -37,9 +37,10 @@ def main():
     group.add_argument('--attack', dest='attack', default='pgd@spec', type=str, action='store', help='Attack type: pgd@spec, pgd@wave, nes@cloning')
     group.add_argument('--seed', dest='seed_voice', default='data/vs_mv_seed/female/ori_00.wav', type=str, action='store', help='Path to the seed sample(s)')
     group.add_argument('--gender', dest='mv_gender', default='female', type=str, choices=['neutral', 'male', 'female'], action='store', help='Geneder against which master voices will be optimized')
-
+    group.add_argument('--checkpoint', dest='version', default='', type=str, action='store', help='Version from which the training will continue')
+    
     # Parameters for generative adversarial model or of the seed voice (if netg is specified, the master voices will be created by sampling spectrums from the GAN; otherwise, you need to specify a seed voice to batch_optimize_by_path as a master voice)
-    group.add_argument('--gm', dest='gm', default=None, type=str, action='store', help='Generative model, e.g., ms-gan/v000')
+    # group.add_argument('--netg', dest='netg', default=None, type=str, action='store', help='Generative adversarial model, e.g., ms-gan/v000')
     # group.add_argument('--netg_gender', dest='netg_gender', default='neutral', type=str, choices=['neutral', 'male', 'female'], action='store', help='Training gender of the generative adversarial model')
 
     # Parameters for master voice optimization
@@ -51,7 +52,7 @@ def main():
 
     group = parser.add_argument_group('Optimization Settings')
     # group.add_argument('--n_examples', dest='n_examples', default=100, type=int, action='store', help='Number of master voices sampled to be created (only if netg is set)')
-    group.add_argument('--n_epochs', dest='n_epochs', default=3, type=int, action='store', help='Number of epochs')
+    group.add_argument('--n_epochs','--n_steps', dest='n_steps', default=3, type=int, action='store', help='Number of optimization steps (epochs)')
     group.add_argument('--batch', dest='batch', default=64, type=int, action='store', help='Batch size for the optimization')
     group.add_argument('--prefetch', dest='prefetch', default=200, type=int, action='store', help='Number of samples to prefetch')
     group.add_argument('--learning_rate', dest='learning_rate', default=1e-2, type=float, action='store', help='Learning rate')
@@ -60,20 +61,24 @@ def main():
     group = parser.add_argument_group('Misc')
     group.add_argument('--n_templates', dest='n_templates', default=10, type=int, action='store', help='Number of enrolment templates per user (used for testing impersonation)')
     group.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Audio sampling rate')
-    group.add_argument('--n_seconds', dest='n_seconds', default=2.58, type=float, action='store', help='Length in seconds of an audio for master voice optimization')
+    group.add_argument('--n_seconds', dest='n_seconds', default=3, type=int, action='store', help='Length in seconds of an audio for master voice optimization')
     group.add_argument('--max_dist', dest='max_dist', default=0, type=float, action='store', help='Max distortion (L∞)')
     group.add_argument('--l2_reg', dest='l2_reg', default=0, type=float, action='store', help='Distortion penalty (L2 regularization)')
+    group.add_argument('--linf_reg', dest='linf_reg', default=0, type=float, action='store', help='Distortion penalty (L infinity regularization)')
+    group.add_argument('--lambda_reg', dest='lambda_reg', default=1, type=float, action='store', help='Regularization parameter')
+    group.add_argument('--epsilon', dest='epsilon', default=None, type=float, action='store', help='L infinity parameter')
+   
     group.add_argument('--run_id', dest='run_id', default=None, type=int, action='store', help='Run ID if you need to resume (defaults to None which creates a new ID each time)')
     group.add_argument('--memory-growth', dest='memory_growth', action='store_true', help='Enable dynamic memory growth in Tensorflow')                       
 
     group = parser.add_argument_group('Playback Simulation')
     group.add_argument('--play', dest='playback', default=False, action='store_true', help='Simulate playback at optimization time')
     group.add_argument('--ir_dir', dest='ir_dir', default='./data/vs_noise_data/', type=str, action='store', help='Path to the folder with impuse responses (room, micropone, speaker)')
-
+    group.add_argument('-impulse_flags','--impulse_flags', nargs='+', help='Impulse Flags for controlling playback', required=False)
     args = parser.parse_args()
 
     # 
-    supported_attacks = 'pgd@spec,pgd@wave,nes@cloning,pgd@vae'.split(',')
+    supported_attacks = 'pgd@spec,pgd@wave,nes@cloning'.split(',')
     if args.attack not in supported_attacks:
         raise ValueError('Unsupported attack vector: {args.attack}')
 
@@ -93,7 +98,7 @@ def main():
     #     group_dict={a.dest:getattr(args,a.dest,None) for a in group._group_actions}
     #     arg_groups[group.title]=argparse.Namespace(**group_dict)
 
-    display_fields = {'netv', 'attack', 'seed_voice', 'mv_gender', 'n_epochs'}
+    display_fields = {'netv', 'attack', 'seed_voice', 'mv_gender', 'n_steps'}
 
     if len(tf.config.get_visible_devices("GPU")) == 0:
         logger.warning(f'No GPU? TF Devices: {tf.config.get_visible_devices()}')
@@ -115,12 +120,14 @@ def main():
     dir_name = utils.sanitize_path(f'{args.netv}_{args.attack}_{args.mv_gender[0]}'.replace('/', '_'))
 
     # We initialize the siamese model that will be used to batch_optimize_by_path master voices
-    siamese_model = SiameseModel(dir=os.path.join('data', 'vs_mv_data', dir_name), params=args, playback=args.playback, ir_dir=args.ir_dir, sample_rate=args.sample_rate, run_id=args.run_id)
+    siamese_model = SiameseModel(dir=os.path.join('data', 'vs_mv_data', dir_name), params=args, playback=args.playback, ir_dir=args.ir_dir, sample_rate=args.sample_rate, run_id=args.run_id, impulse_flags=args.impulse_flags)
     logger.info('Siamese network initialized')
 
     logger.info('Setting verifier')
     # We initialize, build, and load a pre-trained speaker verification model; this model will be duplicated in order to create the siamese model
     sv = verifier.get_model(args.netv)
+    
+
     siamese_model.set_verifier(sv)
 
     # if args.netg is not None:
@@ -135,14 +142,14 @@ def main():
 
     logger.info('Checking data pipeline output (print every 100th batch)')
     # We check the output of the master voice optimization pipeline, i.e., spectrograms extracted from the training audio files and their associated user labels
-    train_data = data_pipeline_mv(x_train, y_train, int(args.sample_rate * args.n_seconds), args.sample_rate, args.batch, args.prefetch, output_type)
+    train_data = data_pipeline_mv(x_train, y_train, args.sample_rate * args.n_seconds, args.sample_rate, args.batch, args.prefetch, output_type)
 
     for index, x in enumerate(train_data):
         if index % 100 == 0:
             logger.debug(f'  {index} -> {x[0].shape}, {x[1].shape}')
 
     # Setup training and testing datasets
-    train_data = data_pipeline_mv(x_train, y_train, int(args.sample_rate * args.n_seconds), args.sample_rate, args.batch, args.prefetch, output_type)
+    train_data = data_pipeline_mv(x_train, y_train, args.sample_rate * args.n_seconds, args.sample_rate, args.batch, args.prefetch, output_type)
 
     # Create the testing gallery
     logger.info('Checking testing gallery')
@@ -154,14 +161,17 @@ def main():
     opt_settings = siamese_model.defaults()
     opt_settings.update({
         'gradient': args.gradient,
-        'n_epochs': args.n_epochs,
+        'n_steps': args.n_steps,
         'max_attack_vector': args.max_dist,
         'l2_regularization': args.l2_reg,
-        'learning_rate': args.learning_rate
+        'learning_rate': args.learning_rate, 
+        'linf_regularization': args.linf_reg, 
+        'lambda_reg': args.lambda_reg, 
+        'epsilon': args.epsilon
     })
 
     # Run optimization
-    siamese_model.setup_attack(args.attack, args.gm) # pgd@spec, nes@cloning, pgd@wave
+    siamese_model.setup_attack(args.attack) # pgd@spec, nes@cloning, pgd@wave
     siamese_model.batch_optimize_by_path(args.seed_voice, train_data, test_gallery, settings=opt_settings)
 
 if __name__ == '__main__':

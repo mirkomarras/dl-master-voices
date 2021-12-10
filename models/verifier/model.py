@@ -12,6 +12,7 @@ import numpy as np
 import json
 import os
 
+from helpers.audio import load_noise_paths, cache_noise_data, get_play_n_rec_audio
 from helpers.audio import get_tf_spectrum, get_tf_filterbanks, decode_audio
 from helpers.dataset import Dataset
 
@@ -233,13 +234,41 @@ class Model(object):
         assert len(elements) > 0
 
         if len(elements.shape) == 1:
-            if playback is not None:
-                elements = [playback.simulate(e) for e in elements]
-            elements = [decode_audio(e) for e in elements]
+            if playback == 1:
+                speaker_flag = 0 
+                room_flag = 0 
+                microphone_flag = 0 
+                sample_rate = 16000
+
+                noise_paths = load_noise_paths('./data/vs_noise_data')
+                noise_cache = cache_noise_data(noise_paths, sample_rate=sample_rate)
+                impulse_flags = [speaker_flag, room_flag, microphone_flag]
+                xn = np.array(impulse_flags, dtype=np.float32).reshape(1, -1)
+                print(xn)
+                @tf.function
+                def forward(signal, impulse_flags):
+                  return get_play_n_rec_audio(signal = signal, noises=noise_paths, cache=noise_cache, noise_strength='random') #, impulse_flags
+                
+                # xf = forward(xt, xn).numpy()
+                elements = [forward(decode_audio(e).reshape((1, -1, 1)).astype(np.float32), xn).numpy() for e in elements]
+                elements = [np.squeeze(e) for e in elements]
+                
+                # elements = [playback.simulate(e) for e in elements]
+            else:
+                elements = [decode_audio(e) for e in elements]
+        
+        # elements = tf.concat(elements)
+        # print(elements.shape)
+
+        
+        # elements = [tf.roll(e, 16000, axis=0) for e in elements]
+
 
         if len(elements[0].shape) == 1:
             elements = [self.compute_acoustic_representation(np.expand_dims(np.array(e), axis=(0, 2))) for e in elements]
+        
 
+        
         return elements
 
 

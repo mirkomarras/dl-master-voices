@@ -12,11 +12,11 @@ import os
 from datetime import datetime
 
 from models import cloning
-from models.mv.attacks import PGDSpectrumDistortion, PGDWaveformDistortion, NESVoiceCloning, PGDVariationalAutoencoder
+from models.mv.attacks import PGDSpectrumDistortion, PGDWaveformDistortion, NESVoiceCloning
 from models.verifier.model import Model
 from helpers.dataset import Dataset
 from helpers import plotting, audio
-
+from helpers import audio
 from loguru import logger
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
@@ -27,7 +27,7 @@ class SiameseModel(object):
        Class to represent Master Voice (MV) models with master voice training and testing functionalities
     """
 
-    def __init__(self, dir, params, playback=False, ir_dir=None, sample_rate=16000, run_id=None):
+    def __init__(self, dir, params, playback=False, ir_dir=None, sample_rate=16000, run_id=None, impulse_flags=[1,1,1]):
         """
         Method to initialize a master voice model that will save audio samples in 'data/vs_mv_data/{net}-{netv}_{gan}-{ganv}_{f|m}-{f|m}_{mv|sv}'
         :param sample_rate:     Sample rate of an audio sample to be processed
@@ -40,6 +40,7 @@ class SiameseModel(object):
         self.sample_rate = sample_rate
         self.dir = dir
         self.params = params
+        self.impulse_flags = impulse_flags
 
         self.playback = playback
         if self.playback:
@@ -71,27 +72,23 @@ class SiameseModel(object):
         else:
             logger.debug(f'Output dir exists: {self.dir_full}')
 
-        self.save_params()
+        # self.save_params()
 
         assert os.path.exists(self.dir_full) and os.path.exists(self.dir_full), 'Please check folder permission for seed and master voice version saving'
 
     def save_params(self):
         with open(os.path.join(self.dir_full, 'params.txt'), 'w') as file:
-            file.write(json.dumps(repr(self.params)))
+            print(self.params)
+            # magic(self.params)
+            file.write(json.dumps(self.params))
 
-    def setup_attack(self, attack_type, generative_model=None):
+    def setup_attack(self, attack_type):
         if attack_type == 'nes@cloning':
             self.attack = NESVoiceCloning(self.siamese_model, text='The assistant is triggered by saying hey google', n=10, sigma=0.1, antithetic=True)
         elif attack_type == 'pgd@spec':
             self.attack = PGDSpectrumDistortion(self.siamese_model)
         elif attack_type == 'pgd@wave':
-            self.attack = PGDWaveformDistortion(self.siamese_model, self.playback, self.noise_paths, self.noise_cache)
-        elif attack_type.startswith('pgd@vae'):
-            # 'voxceleb/version/z_dim'
-            dataset, version, z_dim = generative_model.split('/')
-            version = int(version)
-            z_dim = int(z_dim)
-            self.attack = PGDVariationalAutoencoder(self.siamese_model, dataset, version, z_dim)
+            self.attack = PGDWaveformDistortion(self.siamese_model, self.playback, self.noise_paths, self.noise_cache, self.impulse_flags)
         else:
             raise ValueError(f'Attack not implemented: {attack_type}')
 
@@ -191,7 +188,7 @@ class SiameseModel(object):
         })
 
 
-    def batch_optimize_by_path(self, seed_voice, train_data, test_gallery, settings=None):
+    def batch_optimize_by_path(self, seed_voice, train_data, test_gallery, checkpoint_version, settings=None):
         """
         Batch master voice optimization from seed utterances given by file/dir names.
 
@@ -212,8 +209,20 @@ class SiameseModel(object):
 
         extractor = self.verifier.infer()
 
-        seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
+        if(checkpoint_version is not None): 
+            seed_voices = []
+            for voice in sorted(os.listdir(seed_voice)):
+                if(voice not in checkpoint_dir): 
+                    seed_voices.append(os.path.join(seed_voice, voice))
+
+            # seed_voices = [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
+
+        else: 
+
+            seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
         n_seed_voices = len(seed_voices) if self.gan is None else int(seed_voices)
+
+
 
         # Find the last computed sample
         existing_files = [x for x in os.listdir(self.dir_full) if x.startswith('opt_progress')]
@@ -236,10 +245,8 @@ class SiameseModel(object):
             # else:
 
             input_sv = audio.decode_audio(seed_voices[iter]).astype(np.float32)
-            
-            # TODO This should not be hardcoded! 2.58 ensures a square spectrogram (256 x 256)
             # Clip to max 3 seconds
-            max_length = int(2.58 * 16000)
+            max_length = 3 * 16000
             if input_sv.shape[0] > max_length:
                 logger.warning(f'Clipping speech to {max_length} samples')
                 input_sv = input_sv[:max_length]
@@ -264,6 +271,8 @@ class SiameseModel(object):
             stats['sv_far1_results'].append(performance['mv_far1_results'][0][gender].item())
             stats['l2_norm'].append(performance['l2_norm'][-1])
             stats['max_dist'].append(performance['max_dist'][-1])
+
+
 
             # Summarize all
             with open(os.path.join(self.dir_full, 'stats.json'), 'w') as f:
@@ -291,8 +300,8 @@ class SiameseModel(object):
         best_value_attempt = 0.0
 
         # input_sv = self.attack.prep(input_sv)
-        input_sv, perturbation = self.attack.setup(input_sv)
-        logger.debug(f'Configured optimization: parameter space {perturbation.shape}')
+        input_sv, attack_vector = self.attack.setup(input_sv)
+        logger.debug(f'Configured optimization: parameter space {attack_vector.shape}')
         # perturbation = np.zeros_like(input_sv, dtype=np.float32)
         # perturbation = tf.convert_to_tensor(perturbation, dtype='float32')
         input_mv = tf.convert_to_tensor(input_sv, dtype='float32')
@@ -302,24 +311,24 @@ class SiameseModel(object):
         results = self.test(input_mv, test_gallery)
         performance['mv_eer_results'].append(results[0])
         performance['mv_far1_results'].append(results[1])
-        performance['l2_norm'].append(tf.reduce_mean(tf.square(perturbation)).numpy().item())
-        performance['max_dist'].append(np.max(np.abs(perturbation)).item())
+        performance['l2_norm'].append(tf.reduce_mean(tf.square(attack_vector)).numpy().item())
+        performance['max_dist'].append(tf.reduce_max(tf.abs(attack_vector)).numpy().item())
 
         logger.debug('(Baseline) Imp@EER m={:.3f} f={:.3f} | Imp@FAR1 m={:.3f} f={:.3f}'.format(results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"]), end='\n')
 
-        for epoch in range(settings.n_epochs):  # For each optimization epoch
+        for step in range(settings.n_steps):  # For each optimization step
             t1 = datetime.now()
-            epoch_similarities = []
+            step_similarities = []
 
-            perturbation, epoch_similarities = self.attack.optimize(input_sv, perturbation, train_data, settings)
+            attack_vector, step_similarities = self.attack.attack_step(input_sv, attack_vector, train_data, settings)
 
-            epoch_loss = tf.reduce_mean(epoch_similarities).numpy().item()
+            epoch_loss = tf.reduce_mean(step_similarities).numpy().item()
 
             t2 = datetime.now()
             if test_gallery is not None:
                 
                 # TODO hard-coded for spectrogram optimization
-                input_mv = self.attack.run(input_sv, perturbation)
+                input_mv = self.attack.run(input_sv, attack_vector)
                 # input_mv = input_sv + perturbation
                 # input_mv = tf.clip_by_value(input_mv, 0, 10000)
 
@@ -328,27 +337,31 @@ class SiameseModel(object):
                 performance['mv_avg_similarity'].append(epoch_loss)
                 performance['mv_eer_results'].append(results[0])
                 performance['mv_far1_results'].append(results[1])
-                performance['l2_norm'].append(tf.reduce_mean(tf.square(perturbation)).numpy().item())
-                performance['max_dist'].append(np.max(np.abs(perturbation)).item())
+                performance['l2_norm'].append(tf.reduce_mean(tf.square(attack_vector)).numpy().item())
+                performance['max_dist'].append(tf.reduce_max(tf.abs(attack_vector)).numpy().item())
 
-                if (results[0]['m'] + results[0]['f']) > best_value_attempt:  # Check if the total impersonation rate after the current epoch is improved
-                    best_value_attempt = results[0]['m'] + results[0]['f']  # Update the best impersonation rate value
-                    remaining_attempts = settings.patience  # Resume remaining attempts to patience times
-                    # print(' - Best Score', end='')
-                else:
-                    remaining_attempts -= 1  # Reduce the remaining attempts to improve the impersonation rate
-                    # print(f' - Attempts ({remaining_attempts})', end='')
+                print("EPSILON VALUE: ", settings.epsilon)
+                
+                if settings.epsilon is None or settings.epsilon == 0:
+                    print("Got here")
+                    if (results[0]['m'] + results[0]['f']) > best_value_attempt:  # Check if the total impersonation rate after the current step is improved
+                        best_value_attempt = results[0]['m'] + results[0]['f']  # Update the best impersonation rate value
+                        remaining_attempts = settings.patience  # Resume remaining attempts to patience times
+                        # print(' - Best Score', end='')
+                    else:
+                        remaining_attempts -= 1  # Reduce the remaining attempts to improve the impersonation rate
+                        # print(f' - Attempts ({remaining_attempts})', end='')
 
-                if remaining_attempts == 0:  # If there are no longer remaining attempts we start the optimization of the current voice
-                    break
+                    if remaining_attempts == 0:  # If there are no longer remaining attempts we start the optimization of the current voice
+                        break
 
             t3 = datetime.now()
             opt_time = (t2 - t1).total_seconds()
             val_time = (t3 - t2).total_seconds()
-            logger.debug('(Epoch={:2d}) Imp@EER m={:.3f} f={:.3f} | Imp@FAR1 m={:.3f} f={:.3f} | opt time {:.1f} + val time {:.1f}'.format(
-                epoch, results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"], opt_time, val_time))
+            logger.debug('(Step={:2d}) Imp@EER m={:.3f} f={:.3f} | Imp@FAR1 m={:.3f} f={:.3f} | opt time {:.1f} + val time {:.1f}'.format(
+                step, results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"], opt_time, val_time))
 
-        return self.attack.run(input_sv, perturbation), performance
+        return self.attack.run(input_sv, attack_vector), performance
 
     def save(self, seed_sample, attack_sample, performance_stats, filename='', population_name='default', iter=None): # input_avg, input_std, 
         """
@@ -392,7 +405,9 @@ class SiameseModel(object):
         sf.write(os.path.join(self.dir_full, 'sv', suffix + '.wav'), seed_wave, self.sample_rate)
         np.save(os.path.join(self.dir_full, 'mv', suffix), mv_spec)
         sf.write(os.path.join(self.dir_full, 'mv', suffix + '.wav'), mv_wave, self.sample_rate)
-
+        mv_wave = audio.decode_audio(os.path.join(self.dir_full, 'mv', suffix + '.wav'), sample_rate=self.sample_rate)
+        print(os.path.join(self.dir_full, 'mv', suffix + '.wav'))
+        print("MV saved and read")
         # # We save the current audio associated to the master voice latent vector / spectrogram
         # if self.gan is not None:
         #     sp = self.gan.get_generator()(np.expand_dims(input_mv, axis=0))[-1].numpy()
@@ -431,7 +446,7 @@ class SiameseModel(object):
         n_bins = seed_spec.shape[0]
         assert n_bins in (256, 512), "Could not recognize the number of FFT bins"
         filename_fig = os.path.join(self.dir_full, 'spectrums_' + suffix + '.png')        
-        fig = plotting.images(
+        fig = plotting.imsc(
             (mv_spec_denormed, seed_spec_denormed, np.abs(mv_spec_denormed - seed_spec_denormed)), 
             ['master voice (IR_{}={:.2f}) []'.format(gender, ir_end), 'seed voice (IR_{}={:.2f}) []'.format(gender, ir_start), 'diff []'],
             cmap='jet', ncols=3)

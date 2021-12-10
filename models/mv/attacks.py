@@ -2,7 +2,7 @@ import numpy as np
 from numpy.core.function_base import _add_docstring
 import tensorflow as tf
 from helpers import audio
-from models import cloning, ae
+from models import cloning
 
 
 class Attack(object):
@@ -20,7 +20,7 @@ class Attack(object):
         """
         raise NotImplementedError()
 
-    def optimize(self, seed_sample, attack_vector, train_data, settings):
+    def attack_step(self, seed_sample, attack_vector, train_data, settings):
         """
         Optimize the attack vector for a given seed sample and a training population.
         """
@@ -35,21 +35,26 @@ class Attack(object):
 
 class PGDWaveformDistortion(Attack):
 
-    def __init__(self, siamese_model, playback=False, ir_paths=None, ir_cache=None):
+    def __init__(self, siamese_model, playback=False, ir_paths=None, ir_cache=None, impulse_flags=[1,1,1]):
         super().__init__()
         self.siamese_model = siamese_model
         self.playback = playback
         self.ir_paths = ir_paths
         self.ir_cache = ir_cache
+        self.impulse_flags = impulse_flags
 
     def setup(self, seed_sample):
         attack_vector = np.zeros_like(seed_sample, dtype=np.float32)
         attack_vector = tf.convert_to_tensor(attack_vector, dtype='float32')
         return seed_sample, attack_vector
 
-    def optimize(self, seed_sample, attack_vector, train_data, settings):
+    def attack_step(self, seed_sample, attack_vector, target_pop, settings):
         epoch_similarities = []
-        for step, batch_data in enumerate(train_data):
+        temp_vector = tf.zeros(attack_vector.shape)
+        
+        pop_length = len(list(target_pop))
+
+        for step, batch_data in enumerate(target_pop):
 
             with tf.GradientTape() as tape:
 
@@ -58,7 +63,7 @@ class PGDWaveformDistortion(Attack):
 
                 # Playback simulation
                 if self.playback:
-                    input_mv = audio.get_play_n_rec_audio(input_mv[..., tf.newaxis], self.ir_paths, self.ir_cache)
+                    input_mv = audio.get_play_n_rec_audio(input_mv[..., tf.newaxis], self.ir_paths, self.ir_cache, impulse_flags=self.impulse_flags)
 
                 # Convert to spectrogram
                 input_mv = audio.get_tf_spectrum(input_mv)
@@ -74,17 +79,29 @@ class PGDWaveformDistortion(Attack):
                 grads = tf.sign(grads)
             elif settings.gradient == 'normed':
                 grads = grads / (1e-9 + tf.linalg.norm(grads))
-            elif settings.gradient is None:
+            elif settings.gradient is None or settings.gradient == 'none':
                 pass
             else:
                 raise ValueError('Unsupported gradient mode!')
 
-            attack_vector += settings.learning_rate * grads
+            # attack_vector += settings.learning_rate * grads
+            if settings.epsilon is None or settings.epsilon==0:
+
+                attack_vector += settings.learning_rate * grads
+                # attack_vector += settings.epsilon*tf.math.sign(grad)/settings.step_size
+            # else:
+            #     temp_vector += grads
+
+            if settings.epsilon is not None and settings.epsilon!=0:
+                attack_vector = attack_vector + settings.epsilon*tf.math.sign(grads)/(settings.n_steps*pop_length)
+        
+            
             if settings.max_attack_vector is not None and settings.max_attack_vector > 0:
                 attack_vector = tf.clip_by_value(attack_vector, -settings.max_attack_vector, settings.max_attack_vector)
 
             epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
 
+        
         return attack_vector, epoch_similarities
 
     def run(self, seed_sample, attack_vector):
@@ -104,9 +121,12 @@ class PGDSpectrumDistortion(Attack):
         attack_vector = tf.convert_to_tensor(attack_vector, dtype='float32')
         return input_spec, attack_vector
 
-    def optimize(self, seed_sample, attack_vector, train_data, settings):
+    def attack_step(self, seed_sample, attack_vector, target_pop, settings):
         epoch_similarities = []
-        for step, batch_data in enumerate(train_data):
+        temp_vector = tf.zeros(attack_vector.shape)
+        pop_length = len(target_pop)
+
+        for step, batch_data in enumerate(target_pop):
 
             with tf.GradientTape() as tape:
 
@@ -119,6 +139,9 @@ class PGDSpectrumDistortion(Attack):
 
                 if settings.l2_regularization > 0:
                     loss = loss - tf.reduce_mean(tf.square(attack_vector))
+
+                # elif settings.linf_regularization > 0: 
+                # 	loss = loss - tf.reduce_max(tf.math.abs(attack_vector))
 
             grads = tape.gradient(loss, attack_vector_repeated)
 
@@ -138,80 +161,26 @@ class PGDSpectrumDistortion(Attack):
                 else:
                     raise ValueError('Unsupported gradient mode!')
 
-                attack_vector += settings.learning_rate * grad
+                if(settings.epsilon==0):
+
+                    attack_vector += settings.learning_rate * grad
+                # attack_vector += settings.epsilon*tf.math.sign(grad)/settings.step_size
+                else:
+                    temp_vector += grad
+
                 if settings.max_attack_vector is not None and settings.max_attack_vector > 0:
                     attack_vector = tf.clip_by_value(attack_vector, -settings.max_attack_vector, settings.max_attack_vector)
 
             epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
 
+        if(settings.epsilon!=None):
+            attack_vector = attack_vector + settings.epsilon*tf.math.sign(temp_vector)/settings.n_steps
+        
         return attack_vector, epoch_similarities
 
     def run(self, seed_sample, attack_vector):
         return seed_sample + attack_vector
 
-
-class PGDVariationalAutoencoder(Attack):
-
-    def __init__(self, siamese_model, dataset, version, z_dim):
-        super().__init__()
-        self.siamese_model = siamese_model
-        self.gm = ae.VariationalAutoencoder(dataset, version=version, z_dim=z_dim, patch_size=256)
-        self.gm.load()
-
-    def setup(self, seed_sample):
-        input_spec = audio.get_tf_spectrum(seed_sample[tf.newaxis, ...], normalized=False)
-        m, lv = self.gm.encode(input_spec)
-        attack_vector = self.gm.reparameterize(m, lv)
-        # attack_vector = np.zeros_like(input_spec, dtype=np.float32)
-        # attack_vector = tf.convert_to_tensor(attack_vector, dtype='float32')
-        return input_spec, attack_vector
-
-    def optimize(self, seed_sample, attack_vector, train_data, settings):
-        epoch_similarities = []
-        for step, batch_data in enumerate(train_data):
-
-            with tf.GradientTape() as tape:
-
-                tape.watch(attack_vector)
-
-                input_mv = self.gm.decode(attack_vector)
-                input_mv = tf.repeat(input_mv, len(batch_data[0]), axis=0)
-
-                # input_mv = tf.clip_by_value(input_mv, 0, 10000)
-                loss = self.siamese_model([batch_data[0], input_mv])
-
-                if settings.l2_regularization > 0:
-                    loss = loss - tf.reduce_mean(tf.square(attack_vector))
-
-            grads = tape.gradient(loss, attack_vector)
-
-            # Find viable speakers worth pursuing (e.g,. closer than a certain distance)
-            # idxs = tf.where(tf.reshape(loss, (-1,)) > settings.min_sim)
-            # grads = tf.gather(grads, tf.reshape(idxs, (-1,)))
-
-            if len(grads) > 0:
-                grad = tf.reduce_mean(grads, axis=0)
-
-                if settings.gradient == 'pgd':
-                    grad = tf.sign(grad)
-                elif settings.gradient == 'normed':
-                    grad = grad / (1e-9 + tf.linalg.norm(grad))
-                elif settings.gradient is None or settings.gradient == 'none':
-                    pass
-                else:
-                    raise ValueError('Unsupported gradient mode!')
-
-                attack_vector += settings.learning_rate * grad
-
-                if settings.max_attack_vector is not None and settings.max_attack_vector > 0:
-                    attack_vector = tf.clip_by_value(attack_vector, -settings.max_attack_vector, settings.max_attack_vector)
-
-            epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
-
-        return attack_vector, epoch_similarities
-
-    def run(self, seed_sample, attack_vector):
-        return self.gm.decode(attack_vector)
 
 class NESVoiceCloning(object):
 
@@ -240,9 +209,9 @@ class NESVoiceCloning(object):
         grad /= sigma * n * (antithetic + 1) 
         return grad
 
-    def optimize(self, seed_sample, attack_vector, train_data, settings):
+    def attack_step(self, seed_sample, attack_vector, target_pop, settings):
         epoch_similarities = []
-        for step, batch_data in enumerate(train_data):
+        for step, batch_data in enumerate(target_pop):
 
             def f(attack_vector):
                 input_mv = self.run(seed_sample, attack_vector)
@@ -271,6 +240,8 @@ class NESVoiceCloning(object):
             attack_vector += settings.learning_rate * grad
             # TODO [Check] Do we need to project back onto the embedding manifold?
             epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
+
+
 
         return attack_vector, epoch_similarities
 
