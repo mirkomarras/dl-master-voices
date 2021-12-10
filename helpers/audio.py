@@ -345,7 +345,8 @@ def get_play_n_rec_audio(signal, noises, cache, noise_strength='random', impulse
     room = np.array(cache[random.choice(noises['room'])], dtype=np.float32)
     microphone = np.array(cache[random.choice(noises['microphone'])], dtype=np.float32)
 
-    if(int(impulse_flags[0])==1):
+    # TODO impulse flags are boolean, no need to convert and equate to 1
+    if int(impulse_flags[0]) == 1:
 
         output = tf.nn.conv1d(tf.pad(signal, [[0, 0], [0, tf.shape(speaker)[0]], [0, 0]], 'constant'), speaker, 1, padding="VALID")
     else: 
@@ -354,14 +355,15 @@ def get_play_n_rec_audio(signal, noises, cache, noise_strength='random', impulse
     if(noise_strength!=None):
 
         if noise_strength == 'random':
-            noise_strength = tf.clip_by_value(tf.random.normal((1,), 0, 0.00001), 0, 10)
+            noise_strength = tf.pow(tf.random.normal((1000,), 0, 0.025), 2)
 
         noise_tensor = tf.random.normal(tf.shape(output), mean=0, stddev=noise_strength, dtype=tf.float32)
         output = tf.add(output, noise_tensor)
-    if(int(impulse_flags[1])==1):
+    
+    if int(impulse_flags[1]) == 1:
 
         output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(room)[0]], [0, 0]], 'constant'), room, 1, padding="VALID")
-    if(int(impulse_flags[2])==1):
+    if int(impulse_flags[2]) == 1:
 
         output = tf.nn.conv1d(tf.pad(output, [[0, 0], [0, tf.shape(microphone)[0]], [0, 0]], 'constant'), microphone, 1, padding='VALID', name='input_a')
 
