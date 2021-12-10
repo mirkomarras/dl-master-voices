@@ -188,7 +188,7 @@ class SiameseModel(object):
         })
 
 
-    def batch_optimize_by_path(self, seed_voice, train_data, test_gallery, checkpoint_version, settings=None):
+    def batch_optimize_by_path(self, seed_voice, train_data, test_gallery, settings=None):
         """
         Batch master voice optimization from seed utterances given by file/dir names.
 
@@ -209,17 +209,7 @@ class SiameseModel(object):
 
         extractor = self.verifier.infer()
 
-        if(checkpoint_version is not None): 
-            seed_voices = []
-            for voice in sorted(os.listdir(seed_voice)):
-                if(voice not in checkpoint_dir): 
-                    seed_voices.append(os.path.join(seed_voice, voice))
-
-            # seed_voices = [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
-
-        else: 
-
-            seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
+        seed_voices = [seed_voice] if not os.path.isdir(seed_voice) else [os.path.join(seed_voice, voice) for voice in sorted(os.listdir(seed_voice))]
         n_seed_voices = len(seed_voices) if self.gan is None else int(seed_voices)
 
 
@@ -340,7 +330,6 @@ class SiameseModel(object):
                 performance['l2_norm'].append(tf.reduce_mean(tf.square(attack_vector)).numpy().item())
                 performance['max_dist'].append(tf.reduce_max(tf.abs(attack_vector)).numpy().item())
 
-                print("EPSILON VALUE: ", settings.epsilon)
                 
                 if settings.epsilon is None or settings.epsilon == 0:
                     print("Got here")
