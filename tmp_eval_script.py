@@ -9,6 +9,13 @@ import tensorflow as tf
 
 from models.verifier import xvector, vggvox, resnet50
 
+# %%
+
+physical_devices = tf.config.list_physical_devices("GPU")
+tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
+# %%
+
 # sv = xvector.XVector(id=0)
 sv = vggvox.VggVox(id=0)
 # sv = resnet50.ResNet50(id=0)
@@ -41,11 +48,12 @@ from matplotlib import pyplot as plt
 
 from helpers.dataset import Dataset
 
-
+sv._inference_model.get_layer(name='embs').activation = None
+sv._inference_model.compile()
 
 # gallery = Dataset('data/vs_mv_pairs/mv_test_population_libri_100u_10s.csv')
 # gallery = Dataset('data/vs_mv_pairs/mv_test_population_interspeech_1000u_1s.csv')
-gallery = Dataset('data/vs_mv_pairs/mv_test_population_dev-test_100u_10s.csv')
+gallery = Dataset('data/vs_mv_pairs/mv_test_population_small_100u_10s.csv')
 gallery.precomputed_embeddings(sv)
     
 mv_set = 'data/vs_mv_seed/female/'
@@ -61,7 +69,7 @@ embeddings = sv.predict(np.array(filenames))
 
 sim_matrix, imp_matrix, gnd_matrix = sv.test_error_rates(embeddings, gallery, policy='avg', level='far1')
 
-imp_rates = imp_matrix.sum(axis=1) / 100
+imp_rates = imp_matrix.sum(axis=1) / len(np.unique(gallery.user_ids))
 
 print(np.mean(imp_rates))
 
@@ -94,10 +102,47 @@ plt.hist(gnd_matrix[:,1], 30)
 
 # sv.model.get_layer(name='embs').output
 sv._inference_model.get_layer(name='embs').activation = None
+sv._inference_model.compile()
 
 embeddings = sv.predict(np.array(filenames))
 
 plt.hist(embeddings.numpy().ravel(), 100)
-plt.ylim([0, 1000])
+# plt.ylim([0, 1000])
+plt.yscale('log')
 plt.title(f'{sv.model.name} embeddings (100 seed female voices)')
 
+# %%
+
+plt.hist(sv._inference_model.layers[-1].kernel.value().numpy().ravel(), 100)
+plt.yscale('log')
+
+# %%
+
+plt.imshow(embeddings)
+
+# %%
+from helpers import audio
+
+w =  audio.decode_audio(filenames[0]).reshape((1,-1))
+S = audio.get_tf_spectrum(w)
+f = sv._inference_model(S).numpy()
+f = sv._inference_model.predict(S)
+# f = sv.predict(S)
+
+plt.hist(f.ravel(), 30)
+# plt.yscale('log')
+
+# %%
+
+e = rtvc_api.get_embedding(filenames[0])
+plt.hist(e.ravel(), 30)
+
+embeddings = np.concatenate([rtvc_api.get_embedding(fn)[..., np.newaxis] for fn in filenames], axis=1)
+
+plt.figure(figsize=(10,4))
+plt.subplot(2,2,1)
+plt.imshow(embeddings.T)
+plt.title('Speaker embeddings for 90 speech samples')
+plt.subplot(2,2,2)
+plt.hist(embeddings.ravel(), 30)
+plt.title('Distribution of speaker embeddings')
