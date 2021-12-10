@@ -37,7 +37,6 @@ def main():
     group.add_argument('--attack', dest='attack', default='pgd@spec', type=str, action='store', help='Attack type: pgd@spec, pgd@wave, nes@cloning')
     group.add_argument('--seed', dest='seed_voice', default='data/vs_mv_seed/female/ori_00.wav', type=str, action='store', help='Path to the seed sample(s)')
     group.add_argument('--gender', dest='mv_gender', default='female', type=str, choices=['neutral', 'male', 'female'], action='store', help='Geneder against which master voices will be optimized')
-    group.add_argument('--checkpoint', dest='version', default='', type=str, action='store', help='Version from which the training will continue')
     
     # Parameters for generative adversarial model or of the seed voice (if netg is specified, the master voices will be created by sampling spectrums from the GAN; otherwise, you need to specify a seed voice to batch_optimize_by_path as a master voice)
     # group.add_argument('--netg', dest='netg', default=None, type=str, action='store', help='Generative adversarial model, e.g., ms-gan/v000')

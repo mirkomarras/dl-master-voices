@@ -70,7 +70,6 @@ def main():
         # Create the test gallery
         test_gallery = Dataset(settings['pop'])
         test_gallery.precomputed_embeddings(sv)
-        # print("SEEMS LIKE I AM PAST THIS AS WELL")
         if(int(playback)==1):
             iterations = settings['n_random']
         else: 
@@ -85,7 +84,6 @@ def main():
 
                 logger.info('testing setup net={} policy={} level={} mv_set={}:'.format(net, policy, level, mv_set))
                 
-                # print(filenames)
                 if(settings['train_analysis']):
 
 
@@ -93,7 +91,6 @@ def main():
                 else: 
                     filenames = [os.path.join(mv_set, file) for file in os.listdir(mv_set) if file.endswith('.wav')]
                 
-                # print("Filenames", filenames)
 
                 logger.info('retrieve master voice filenames {}'.format(len(filenames)))
 
