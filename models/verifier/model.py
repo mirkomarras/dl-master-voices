@@ -260,6 +260,9 @@ class Model(object):
     def prepare_input(self, elements, playback):
         assert len(elements) > 0
 
+        if isinstance(elements, str):
+            elements = decode_audio(elements).reshape((1, -1))
+
         if len(elements.shape) == 1:
             if playback == 1:
                 speaker_flag = 0 
@@ -284,17 +287,8 @@ class Model(object):
             else:
                 elements = [decode_audio(e) for e in elements]
         
-        # elements = tf.concat(elements)
-        # print(elements.shape)
-
-        
-        # elements = [tf.roll(e, 16000, axis=0) for e in elements]
-
-
         if len(elements[0].shape) == 1:
-            elements = [self.compute_acoustic_representation(np.expand_dims(np.array(e), axis=(0, 2))) for e in elements]
-        
-
+            elements = [self.compute_acoustic_representation(tf.reshape(tf.convert_to_tensor(e), (1, -1, 1))).numpy() for e in elements]
         
         return elements
 

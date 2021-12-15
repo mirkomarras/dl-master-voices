@@ -49,27 +49,25 @@ class Dataset(object):
             return
 
         self.embeddings = sv.predict(self.population)
-
+        logger.info(f'Computed speaker embeddings: shape={self.embeddings.shape}')
         self.save_embeddings()
 
 
     def get_filename(self): # data/vs_mv_data/20200576-1456_mv_train_population_debug_100u_10s.csv  -> remove time, use debug/something label
-        dirname = os.path.join('data/vs_mv_data', self.pop_file, 'embeddings')
+        dirname = os.path.join('data/cache', self.pop_file, 'embeddings')
         if not os.path.exists(dirname):
             os.makedirs(dirname)
         return os.path.join(dirname, self.embedding_type  + '.npz')
 
     def save_embeddings(self):
-        filename = self.get_filename()
-
-        logger.info(self.embeddings.numpy().shape)
+        filename = self.get_filename()        
         np.savez(filename, self.embeddings.numpy())
-        logger.info('Embeddings saved for {}'.format(filename))
+        logger.info('Embeddings saved to {}'.format(filename))
 
     def load_embeddings(self):
         filename = self.get_filename()
         self.embeddings = np.load(filename)['arr_0']
-        logger.info('Embeddings loaded for {}'.format(filename))
+        logger.info('Embeddings loaded from {}'.format(filename))
 
 
 def get_mv_analysis_users(mv_analysis_path, type='all'):

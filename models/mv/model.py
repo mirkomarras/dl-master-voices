@@ -40,6 +40,7 @@ class SiameseModel(object):
         self.sample_rate = sample_rate
         self.dir = dir
         self.params = params
+        self.impulse_flags = impulse_flags
 
         self.playback = playback
         if self.playback:
@@ -83,7 +84,7 @@ class SiameseModel(object):
         if attack_type == 'nes@cloning':
             self.attack = NESVoiceCloning(self.siamese_model, text='The assistant is triggered by saying hey google', n=20, sigma=0.025, antithetic=True)
         elif attack_type == 'nes@wave':
-            self.attack = NESWaveform(self.siamese_model)
+            self.attack = NESWaveform(self.siamese_model, self.playback, self.noise_paths, self.noise_cache, self.impulse_flags, n=20, sigma=0.01)
         elif attack_type == 'pgd@spec':
             self.attack = PGDSpectrumDistortion(self.siamese_model)
         elif attack_type == 'pgd@wave':
@@ -183,13 +184,12 @@ class SiameseModel(object):
                 self._specs.update(specs)
 
         return AttrDict({
-            'gradient': 'normed',
-            'l2_regularization': 0,
-            'learning_rate': 1e-1,
-            'n_epochs': 5,
-            'patience': 3,
-            'max_attack_vector': 0,
-            'min_sim': 0
+            'gradient': 'pgd',
+            'n_steps': 5,
+            'epsilon': 0.01,
+            'step_size_override': None,
+            'l2_regularization': False,
+            'clip_av': 0,
         })
 
 
@@ -285,17 +285,19 @@ class SiameseModel(object):
 
         settings = settings or self.defaults()
 
-        metrics = ('mv_eer_results', 'mv_far1_results', 'mv_avg_similarity', 'l2_norm', 'max_dist')
+        metrics = ('mv_eer_results', 'mv_far1_results', 'mv_avg_similarity', 'l2_norm', 'mean_abs','max_dist')
         performance = {m: [] for m in metrics}
 
         remaining_attempts = settings.patience
         best_value_attempt = 0.0
 
-        # input_sv = self.attack.prep(input_sv)
+        # Make sure the sample has the batch dimension
+        if input_sv.shape[0] != 0:
+            input_sv = tf.reshape(input_sv, (1, -1))
+
+        # Setup optimization space
         input_sv, attack_vector = self.attack.setup(input_sv)
         logger.debug(f'Configured optimization: parameter space {attack_vector.shape}')
-        # perturbation = np.zeros_like(input_sv, dtype=np.float32)
-        # perturbation = tf.convert_to_tensor(perturbation, dtype='float32')
         input_mv = tf.convert_to_tensor(input_sv, dtype='float32')
         input_sv = tf.convert_to_tensor(input_sv, dtype='float32')
 
@@ -304,19 +306,18 @@ class SiameseModel(object):
         performance['mv_eer_results'].append(results[0])
         performance['mv_far1_results'].append(results[1])
         performance['l2_norm'].append(tf.reduce_mean(tf.square(attack_vector)).numpy().item())
+        performance['mean_abs'].append(tf.reduce_mean(tf.abs(attack_vector)).numpy().item())
         performance['max_dist'].append(tf.reduce_max(tf.abs(attack_vector)).numpy().item())
 
-        logger.debug('(Baseline) Imp@EER m={:.3f} f={:.3f} | Imp@FAR1 m={:.3f} f={:.3f}'.format(results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"]), end='\n')
+        logger.debug('(Baseline) IR@eer m={:.3f} f={:.3f} | IR@far1 m={:.3f} f={:.3f}'.format(results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"]), end='\n')
 
-        for step in range(settings.n_steps):  # For each optimization step
-            t1 = datetime.now()
-            step_similarities = []
+        for step in range(np.abs(settings.n_steps)):  # For each optimization step
 
-            attack_vector, step_similarities = self.attack.attack_step(input_sv, attack_vector, train_data, settings)
-
-            epoch_loss = tf.reduce_mean(step_similarities).numpy().item()
-
+            t1 = datetime.now()            
+            attack_vector, epoch_loss = self.attack.attack_step(input_sv, attack_vector, train_data, settings)
+            epoch_loss = epoch_loss.numpy().item()
             t2 = datetime.now()
+
             if test_gallery is not None:
                 
                 # TODO hard-coded for spectrogram optimization
@@ -330,11 +331,12 @@ class SiameseModel(object):
                 performance['mv_eer_results'].append(results[0])
                 performance['mv_far1_results'].append(results[1])
                 performance['l2_norm'].append(tf.reduce_mean(tf.square(attack_vector)).numpy().item())
+                performance['mean_abs'].append(tf.reduce_mean(tf.abs(attack_vector)).numpy().item())
                 performance['max_dist'].append(tf.reduce_max(tf.abs(attack_vector)).numpy().item())
 
-                
-                if settings.epsilon is None or settings.epsilon == 0:
-                    print("Got here")
+                # If the number of steps is negative, be on the lookout to stop early
+                if settings.n_steps < 0:
+
                     if (results[0]['m'] + results[0]['f']) > best_value_attempt:  # Check if the total impersonation rate after the current step is improved
                         best_value_attempt = results[0]['m'] + results[0]['f']  # Update the best impersonation rate value
                         remaining_attempts = settings.patience  # Resume remaining attempts to patience times
@@ -349,10 +351,12 @@ class SiameseModel(object):
             t3 = datetime.now()
             opt_time = (t2 - t1).total_seconds()
             val_time = (t3 - t2).total_seconds()
-            logger.debug('(Step={:2d}) Imp@EER m={:.3f} f={:.3f} | Imp@FAR1 m={:.3f} f={:.3f} | opt time {:.1f} + val time {:.1f}'.format(
-                step, results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"], opt_time, val_time))
+            _exp = performance['mean_abs'][-1]
+            _max = performance['max_dist'][-1]
+            logger.debug('(Step {:3d}) IR@eer m={:.3f} f={:.3f} | IR@far1 m={:.3f} f={:.3f} | opt time {:.1f} + val time {:.1f} | E|v|={:.4f} max|v|={:.4f} '.format(
+                step, results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"], opt_time, val_time, _exp, _max))
 
-        return self.attack.run(input_sv, attack_vector), performance
+        return input_sv, self.attack.run(input_sv, attack_vector), performance
 
     def save(self, seed_sample, attack_sample, performance_stats, filename='', population_name='default', iter=None): # input_avg, input_std, 
         """
@@ -559,7 +563,7 @@ class SiameseModel(object):
         if hasattr(sample, 'ndim'):
             if sample.ndim == 1:
                 return sample.ravel()
-            elif sample.ndim == 2 and np.max(sample.shape) < 1025:
+            elif sample.ndim == 2 and np.max(sample.shape) > 1025:
                 return sample.ravel()
             elif sample.ndim >= 2:
 

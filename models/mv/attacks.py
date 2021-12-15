@@ -7,7 +7,7 @@ from models import ae  # cloning
 from rtvc import rtvc_api
 
 
-def _nes(input, f, n=10, sigma=0.1, antithetic=True):
+def _nes(input, f, n=10, sigma=0.1, antithetic=True):    
     grad = tf.convert_to_tensor(np.zeros_like(input))
 
     for _ in range(n):
@@ -22,7 +22,7 @@ def _nes(input, f, n=10, sigma=0.1, antithetic=True):
 
 class Attack(object):
     """
-    Implements an attack strategy.
+    Abstract class defining the interface for implementing attacks.
     """
 
     def setup(self, seed_sample):
@@ -35,9 +35,9 @@ class Attack(object):
         """
         raise NotImplementedError()
 
-    def attack_step(self, seed_sample, attack_vector, train_data, settings):
+    def attack_step(self, seed_sample, attack_vector, population, settings):
         """
-        Optimize the attack vector for a given seed sample and a training population.
+        Run one step (pass over the population) of the attack.
         """
         raise NotImplementedError()
 
@@ -50,9 +50,10 @@ class Attack(object):
 
 class PGDWaveformDistortion(Attack):
 
-    def __init__(self, siamese_model, playback=False, ir_paths=None, ir_cache=None, impulse_flags=[1,1,1]):
+    def __init__(self, siamese_model, playback=False, ir_paths=None, ir_cache=None, impulse_flags=[1,1,1], sgd=True):
         super().__init__()
         self.siamese_model = siamese_model
+        self.sgd = sgd
         self.playback = playback
         self.ir_paths = ir_paths
         self.ir_cache = ir_cache
@@ -63,18 +64,18 @@ class PGDWaveformDistortion(Attack):
         attack_vector = tf.convert_to_tensor(attack_vector, dtype='float32')
         return seed_sample, attack_vector
 
-    def attack_step(self, seed_sample, attack_vector, target_pop, settings):
+    def attack_step(self, seed_sample, attack_vector, population, settings):
         epoch_similarities = []
-        temp_vector = tf.zeros(attack_vector.shape)
+        grads_agg = tf.zeros(attack_vector.shape)
         
-        pop_length = len(list(target_pop))
+        n_batches = len(list(population))
 
-        for step, batch_data in enumerate(target_pop):
+        for step, batch_data in enumerate(population):
 
             with tf.GradientTape() as tape:
 
                 tape.watch(attack_vector)
-                input_mv = self.run(seed_sample[tf.newaxis, ...], attack_vector)
+                input_mv = self.run(seed_sample, attack_vector)
 
                 # Playback simulation
                 if self.playback:
@@ -86,9 +87,12 @@ class PGDWaveformDistortion(Attack):
                 loss = self.siamese_model([batch_data[0], input_mv])
 
                 if settings.l2_regularization > 0:
-                    loss = loss - tf.reduce_mean(tf.square(attack_vector))
+                    loss = loss - settings.l2_regularization * tf.reduce_mean(tf.square(attack_vector))
+
+            epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
 
             grads = tape.gradient(loss, attack_vector)
+            grads_agg += grads
 
             if settings.gradient == 'pgd':
                 grads = tf.sign(grads)
@@ -99,27 +103,31 @@ class PGDWaveformDistortion(Attack):
             else:
                 raise ValueError('Unsupported gradient mode!')
 
-            # attack_vector += settings.learning_rate * grads
-            if settings.epsilon is None or settings.epsilon==0:
+            if not self.sgd:
+                continue
 
-                attack_vector += settings.learning_rate * grads
-                # attack_vector += settings.epsilon*tf.math.sign(grad)/settings.step_size
-            # else:
-            #     temp_vector += grads
+            # Update the attack vector after every batch:
+            if settings.step_size_override:
+                # Override step size if requested
+                attack_vector += settings.step_size_override * grads
+            elif settings.epsilon:
+                # Otherwise, adjust the step size based on the distortion budget and the number of steps
+                attack_vector = attack_vector + grads * settings.epsilon / (settings.n_steps * n_batches)
+            else:
+                raise ValueError('Unspecified step size!')
 
-            if settings.epsilon is not None and settings.epsilon!=0:
-                attack_vector = attack_vector + settings.epsilon*tf.math.sign(grads)/(settings.n_steps*pop_length)
+            # Optionally clip the attack vector 
+            if settings.clip_av:
+                attack_vector = tf.clip_by_value(attack_vector, -settings.clip_av, settings.clip_av)            
         
-            
-            if settings.max_attack_vector is not None and settings.max_attack_vector > 0:
-                attack_vector = tf.clip_by_value(attack_vector, -settings.max_attack_vector, settings.max_attack_vector)
+        if not self.sgd:
+            attack_vector = attack_vector + settings.epsilon * tf.sign(grads_agg) /settings.n_steps
 
-            epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
-
-        return attack_vector, epoch_similarities
+        return attack_vector, tf.reduce_mean(epoch_similarities)
 
     def run(self, seed_sample, attack_vector):
         input_mv = seed_sample + attack_vector
+        input_mv = tf.clip_by_value(input_mv, -1, 1)
         return input_mv
 
 
@@ -135,12 +143,11 @@ class PGDSpectrumDistortion(Attack):
         attack_vector = tf.convert_to_tensor(attack_vector, dtype='float32')
         return input_spec, attack_vector
 
-    def attack_step(self, seed_sample, attack_vector, target_pop, settings):
+    def attack_step(self, seed_sample, attack_vector, population, settings):
         epoch_similarities = []
-        temp_vector = tf.zeros(attack_vector.shape)
-        pop_length = len(target_pop)
+        n_batches = len(list(population))
 
-        for step, batch_data in enumerate(target_pop):
+        for step, batch_data in enumerate(population):
 
             with tf.GradientTape() as tape:
 
@@ -155,38 +162,34 @@ class PGDSpectrumDistortion(Attack):
                     loss = loss - tf.reduce_mean(tf.square(attack_vector))
 
             grads = tape.gradient(loss, attack_vector_repeated)
+            grad = tf.reduce_mean(grads, axis=0)
 
-            # Find viable speakers worth pursuing (e.g,. closer than a certain distance)
-            # idxs = tf.where(tf.reshape(loss, (-1,)) > settings.min_sim)
-            # grads = tf.gather(grads, tf.reshape(idxs, (-1,)))
+            if settings.gradient == 'pgd':
+                grad = tf.sign(grad)
+            elif settings.gradient == 'normed':
+                grad = grad / (1e-9 + tf.linalg.norm(grad))
+            elif settings.gradient is None or settings.gradient == 'none':
+                pass
+            else:
+                raise ValueError('Unsupported gradient mode!')
 
-            if len(grads) > 0:
-                grad = tf.reduce_mean(grads, axis=0)
+            # Update the attack vector after every batch:
+            if settings.step_size_override:
+                # Override step size if requested
+                attack_vector += settings.step_size_override * grads
+            elif settings.epsilon:
+                # Otherwise, adjust the step size based on the distortion budget and the number of steps
+                attack_vector = attack_vector + grads * settings.epsilon / (settings.n_steps * n_batches)
+            else:
+                raise ValueError('Unspecified step size!')
 
-                if settings.gradient == 'pgd':
-                    grad = tf.sign(grad)
-                elif settings.gradient == 'normed':
-                    grad = grad / (1e-9 + tf.linalg.norm(grad))
-                elif settings.gradient is None or settings.gradient == 'none':
-                    pass
-                else:
-                    raise ValueError('Unsupported gradient mode!')
-
-                if(settings.epsilon==0):
-                    attack_vector += settings.learning_rate * grad
-                # attack_vector += settings.epsilon*tf.math.sign(grad)/settings.step_size
-                else:
-                    temp_vector += grad
-
-                if settings.max_attack_vector is not None and settings.max_attack_vector > 0:
-                    attack_vector = tf.clip_by_value(attack_vector, -settings.max_attack_vector, settings.max_attack_vector)
+            # Optionally clip the attack vector 
+            if settings.clip_av:
+                attack_vector = tf.clip_by_value(attack_vector, -settings.clip_av, settings.clip_av)
 
             epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
-
-        if(settings.epsilon!=None):
-            attack_vector = attack_vector + settings.epsilon*tf.math.sign(temp_vector)/settings.n_steps
         
-        return attack_vector, epoch_similarities
+        return attack_vector, tf.reduce_mean(epoch_similarities)
 
     def run(self, seed_sample, attack_vector):
         return seed_sample + attack_vector
@@ -272,17 +275,21 @@ class NESVoiceCloning(object):
         # embedding = cloning.init_embedding(seed_sample)
         return seed_sample, embedding
 
-    def attack_step(self, seed_sample, attack_vector, target_pop, settings):
+    def attack_step(self, seed_sample, attack_vector, population, settings):
         epoch_similarities = []
-        for step, batch_data in enumerate(target_pop):
+        n_batches = len(list(population))
+
+        for step, batch_data in enumerate(population):
 
             def f(attack_vector):
                 input_mv = self.run(seed_sample, attack_vector)
+                
                 # if the received sample is too short, pad with zeros
                 min_lenght = 16000 * 2.57
                 if len(input_mv) < min_lenght:
                     pad_neeed = int(min_lenght - len(input_mv))
                     input_mv = tf.pad(input_mv, [[0, pad_neeed]], 'CONSTANT')
+
                 input_mv = audio.get_tf_spectrum(input_mv[tf.newaxis, ...])
                 input_mv = tf.repeat(input_mv, len(batch_data[0]), axis=0)
                 loss = self.siamese_model([batch_data[0], input_mv])
@@ -301,6 +308,21 @@ class NESVoiceCloning(object):
                 raise ValueError('Unsupported gradient mode!')
 
             attack_vector += settings.learning_rate * grad
+
+            # Update the attack vector after every batch:
+            if settings.step_size_override:
+                # Override step size if requested
+                attack_vector += settings.step_size_override * grad
+            elif settings.epsilon:
+                # Otherwise, adjust the step size based on the distortion budget and the number of steps
+                attack_vector = attack_vector + grad * settings.epsilon / (settings.n_steps * n_batches)
+            else:
+                raise ValueError('Unspecified step size!')
+
+            # Optionally clip the attack vector 
+            if settings.clip_av:
+                attack_vector = tf.clip_by_value(attack_vector, -settings.clip_av, settings.clip_av)
+
             # TODO [Check] Do we need to project back onto the embedding manifold?
             epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
 
@@ -310,22 +332,23 @@ class NESVoiceCloning(object):
         if not isinstance(attack_vector, np.ndarray):
             attack_vector = attack_vector.numpy()
         
+        attack_vector = tf.clip_by_value(attack_vector, 0, 1)
         input_mv = rtvc_api.vc(self.text, attack_vector)
         
-        # input_mv = cloning.clone_voice(attack_vector, self.text)
         return audio.ensure_length(input_mv, int(2.58 * 16000))
 
 
 class NESWaveform(Attack):
 
-    def __init__(self, siamese_model, playback=False, ir_paths=None, ir_cache=None):
+    def __init__(self, siamese_model, playback=False, ir_paths=None, ir_cache=None, impulse_flags=(1,1,1), n=20, sigma=0.01):
         super().__init__()
         self.siamese_model = siamese_model
         self.playback = playback
         self.ir_paths = ir_paths
         self.ir_cache = ir_cache
-        self.n = 100
-        self.sigma = 0.01
+        self.impulse_flags = impulse_flags
+        self.n = n
+        self.sigma = sigma
         self.antithetic = True
 
     def setup(self, seed_sample):
@@ -333,16 +356,18 @@ class NESWaveform(Attack):
         attack_vector = tf.convert_to_tensor(attack_vector, dtype='float32')
         return seed_sample, attack_vector
 
-    def attack_step(self, seed_sample, attack_vector, target_pop, settings):
+    def attack_step(self, seed_sample, attack_vector, population, settings):
         epoch_similarities = []
-        for step, batch_data in enumerate(target_pop):
+        n_batches = len(list(population))
+
+        for step, batch_data in enumerate(population):
 
             def f(attack_vector):
                 tape.watch(attack_vector)
                 input_mv = self.run(seed_sample[tf.newaxis, ...], attack_vector)
 
                 if self.playback:
-                    input_mv = audio.get_play_n_rec_audio(input_mv[..., tf.newaxis], self.ir_paths, self.ir_cache)
+                    input_mv = audio.get_play_n_rec_audio(input_mv[..., tf.newaxis], self.ir_paths, self.ir_cache, impulse_flags=self.impulse_flags)
 
                 # Convert to spectrogram / filterbanks
                 if batch_data[0].shape[-1] > 128:
@@ -353,8 +378,12 @@ class NESWaveform(Attack):
                 input_mv = tf.repeat(input_mv, len(batch_data[0]), axis=0)
                 loss = self.siamese_model([batch_data[0], input_mv])
 
+                if settings.l2_regularization > 0:
+                    loss = loss - settings.l2_regularization * tf.reduce_mean(tf.square(attack_vector))
+
                 return loss
 
+            # Compute the loss and the gradient
             with tf.GradientTape() as tape:
                 loss = f(attack_vector)
             grads = _nes(attack_vector, f, self.n, self.sigma, self.antithetic)
@@ -369,14 +398,25 @@ class NESWaveform(Attack):
             else:
                 raise ValueError('Unsupported gradient mode!')
 
-            attack_vector += settings.learning_rate * grads
-            if settings.max_attack_vector is not None and settings.max_attack_vector > 0:
-                attack_vector = tf.clip_by_value(attack_vector, -settings.max_attack_vector, settings.max_attack_vector)
+            # Update the attack vector after every batch:
+            if settings.step_size_override:
+                # Override step size if requested
+                attack_vector += settings.step_size_override * grads
+            elif settings.epsilon:
+                # Otherwise, adjust the step size based on the distortion budget and the number of steps
+                attack_vector = attack_vector + grads * settings.epsilon / (settings.n_steps * n_batches)
+            else:
+                raise ValueError('Unspecified step size!')
+
+            # Optionally clip the attack vector 
+            if settings.clip_av:
+                attack_vector = tf.clip_by_value(attack_vector, -settings.clip_av, settings.clip_av)
 
             epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
 
-        return attack_vector, epoch_similarities
+        return attack_vector, tf.reduce_mean(epoch_similarities)
 
     def run(self, seed_sample, attack_vector):
         input_mv = seed_sample + attack_vector
+        input_mv = tf.clip_by_value(input_mv, -1, 1)
         return input_mv
