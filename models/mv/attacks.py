@@ -66,9 +66,8 @@ class PGDWaveformDistortion(Attack):
 
     def attack_step(self, seed_sample, attack_vector, population, settings):
         epoch_similarities = []
-        grads_agg = tf.zeros(attack_vector.shape)
-        
-        n_batches = len(list(population))
+        grads_agg = tf.zeros(attack_vector.shape)        
+        # n_batches = len(list(population))
 
         for step, batch_data in enumerate(population):
 
@@ -358,7 +357,7 @@ class NESWaveform(Attack):
 
     def attack_step(self, seed_sample, attack_vector, population, settings):
         epoch_similarities = []
-        n_batches = len(list(population))
+        # n_batches = len(list(population))
 
         for step, batch_data in enumerate(population):
 

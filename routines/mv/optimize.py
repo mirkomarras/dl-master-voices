@@ -69,7 +69,8 @@ def main():
     group.add_argument('--prefetch', dest='prefetch', default=200, type=int, action='store', help='Number of samples to prefetch')
    
     group.add_argument('--run_id', dest='run_id', default=None, type=int, action='store', help='Run ID if you need to resume (defaults to None which creates a new ID each time)')
-    group.add_argument('--memory-growth', dest='memory_growth', action='store_true', help='Enable dynamic memory growth in Tensorflow')                       
+    group.add_argument('--memory-growth', dest='memory_growth', action='store_true', help='Enable dynamic memory growth in Tensorflow')
+    group.add_argument('--benchmark', dest='benchmark', action='store_true', help='Enable to run a quick benchmark of the speaker verifier')
 
     group = parser.add_argument_group('Playback Simulation')
     group.add_argument('--play', dest='playback', default=False, action='store_true', help='Simulate playback at optimization time')
@@ -99,20 +100,12 @@ def main():
         args.audio_dir = data_config['dir']
         args.audio_meta = data_config['meta']
 
-    # Parameter summary to print at the beginning of the script
-
-    # arg_groups={}
-
-    # for group in parser._action_groups:
-    #     group_dict={a.dest:getattr(args,a.dest,None) for a in group._group_actions}
-    #     arg_groups[group.title]=argparse.Namespace(**group_dict)
-
     display_fields = {'netv', 'attack', 'seed_voice', 'mv_gender', 'n_steps', 'epsilon', 'step_size_override', 'clip_av'}
 
     if len(tf.config.get_visible_devices("GPU")) == 0:
-        logger.warning(f'No GPU? TF Devices: {tf.config.get_visible_devices()}')
+        logger.warning(f'[TF {tf.__version__}] No GPU? TF Devices: {tf.config.get_visible_devices()}')
     else:
-        logger.info(f'GPU Found: {tf.config.get_visible_devices("GPU")}')
+        logger.info(f'[TF {tf.__version__}] GPU Found: {tf.config.get_visible_devices("GPU")}')
 
     logger.info('Parameters summary:')
     for key, value in vars(args).items():
@@ -181,20 +174,23 @@ def main():
     if opt_settings.step_size_override:
         logger.warning(f'Optimization configured to use `step_size_override` ({opt_settings.step_size_override})!')
 
-    logger.info(f'Running baseline error evaluation [SV thresholds={sv._thresholds}]')
+    if args.benchmark:
+        logger.info(f'Running baseline error evaluation [SV thresholds={sv._thresholds}]')
 
-    # Sanity check for error rates
-    sanity_samples = ('data/vs_mv_seed/female/', 'data/vs_mv_seed/male/')
-    filenames = [os.path.join(sanity_samples[0], file) for file in os.listdir(sanity_samples[0]) if file.endswith('.wav')]
-    filenames += [os.path.join(sanity_samples[1], file) for file in os.listdir(sanity_samples[1]) if file.endswith('.wav')]
-    embeddings = sv.predict(np.array(filenames))
+        # Sanity check for error rates
+        sanity_samples = ('data/vs_mv_seed/female/', 'data/vs_mv_seed/male/')
+        filenames = [os.path.join(sanity_samples[0], file) for file in os.listdir(sanity_samples[0]) if file.endswith('.wav')]
+        filenames += [os.path.join(sanity_samples[1], file) for file in os.listdir(sanity_samples[1]) if file.endswith('.wav')]
+        embeddings = sv.predict(np.array(filenames))
 
-    sim_matrix, imp_matrix, gnd_matrix = sv.test_error_rates(embeddings, test_gallery, policy='avg', level='far1')
+        sim_matrix, imp_matrix, gnd_matrix = sv.test_error_rates(embeddings, test_gallery, policy='avg', level='far1')
 
-    imp_rates = imp_matrix.sum(axis=1) / len(np.unique(test_gallery.user_ids))
-    
-    logger.warning(f'Impersonation rate sanity check [avg,far1]: {100 * np.mean(imp_rates):.1f}%')
-    logger.debug(f'Gender breakown [m,f]: {np.mean(100 * gnd_matrix, 0).round(2)}')
+        imp_rates = imp_matrix.sum(axis=1) / len(np.unique(test_gallery.user_ids))
+        
+        logger.warning(f'Impersonation rate sanity check [avg,far1]: {100 * np.mean(imp_rates):.1f}%')
+        logger.debug(f'Gender breakown [m,f]: {np.mean(100 * gnd_matrix, 0).round(2)}')
+    else:
+        logger.warning(f'Skipping impersonation rate benchmark... (use --benchmark to enable)')
 
     # Run optimization
     siamese_model.setup_attack(args.attack, args.gm) # pgd@spec, nes@cloning, pgd@wave
