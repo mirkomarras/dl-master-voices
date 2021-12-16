@@ -154,13 +154,11 @@ def main():
     logger.info('Checking data pipeline output (print every 100th batch)')
     # We check the output of the master voice optimization pipeline, i.e., spectrograms extracted from the training audio files and their associated user labels
     train_data = data_pipeline_mv(x_train, y_train, int(args.sample_rate * args.n_seconds), args.sample_rate, args.batch, args.prefetch, output_type)
+    train_data = train_data.cache()
 
     for index, x in enumerate(train_data):
         if index % 100 == 0:
             logger.debug(f'  {index} -> {x[0].shape}, {x[1].shape}')
-
-    # Setup training and testing datasets
-    train_data = data_pipeline_mv(x_train, y_train, int(args.sample_rate * args.n_seconds), args.sample_rate, args.batch, args.prefetch, output_type)
 
     # Create the testing gallery
     logger.info('Setting up enrolled population & generating speaker embeddings...')
