@@ -307,8 +307,6 @@ class NESVoiceCloning(object):
             else:
                 raise ValueError('Unsupported gradient mode!')
 
-            attack_vector += settings.learning_rate * grad
-
             # Update the attack vector after every batch:
             if settings.step_size_override:
                 # Override step size if requested
