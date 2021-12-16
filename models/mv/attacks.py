@@ -137,7 +137,7 @@ class PGDSpectrumDistortion(Attack):
         self.siamese_model = siamese_model
 
     def setup(self, seed_sample):
-        input_spec = audio.get_tf_spectrum(seed_sample[tf.newaxis, ...])
+        input_spec = audio.get_tf_spectrum(seed_sample)
         attack_vector = np.zeros_like(input_spec, dtype=np.float32)
         attack_vector = tf.convert_to_tensor(attack_vector, dtype='float32')
         return input_spec, attack_vector
@@ -161,12 +161,12 @@ class PGDSpectrumDistortion(Attack):
                     loss = loss - tf.reduce_mean(tf.square(attack_vector))
 
             grads = tape.gradient(loss, attack_vector_repeated)
-            grad = tf.reduce_mean(grads, axis=0)
+            grads = tf.reduce_mean(grads, axis=0)
 
             if settings.gradient == 'pgd':
-                grad = tf.sign(grad)
+                grads = tf.sign(grads)
             elif settings.gradient == 'normed':
-                grad = grad / (1e-9 + tf.linalg.norm(grad))
+                grads = grads / (1e-9 + tf.linalg.norm(grads))
             elif settings.gradient is None or settings.gradient == 'none':
                 pass
             else:
@@ -385,9 +385,9 @@ class NESWaveform(Attack):
             # Compute the loss and the gradient
             with tf.GradientTape() as tape:
                 loss = f(attack_vector)
-                
+
             if settings.nes_n is not None and settings.nes_sigma is not None:
-                grads = _nes(attack_vector, f, settings.n, settings.sigma, True)
+                grads = _nes(attack_vector, f, settings.nes_n, settings.nes_sigma, True)
             else:
                 grads = _nes(attack_vector, f, self.n, self.sigma, self.antithetic)
             # grads = tape.gradient(loss, attack_vector)            

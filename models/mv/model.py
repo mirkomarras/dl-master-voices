@@ -244,7 +244,12 @@ class SiameseModel(object):
                 logger.warning(f'Clipping speech to {max_length} samples')
                 input_sv = input_sv[:max_length]
             
-            input_sv, input_mv, performance = self.optimize(input_sv, train_data, test_gallery, settings)
+            # The input_sv is returned to support generative models & cloning
+            input_sv_setup, input_mv, performance = self.optimize(input_sv, train_data, test_gallery, settings)
+
+            # If the returned seed is a spectrogram, ignore - otherwise take the waveform
+            if len(input_sv_setup.shape) < 3:
+                input_sv = input_sv_setup
 
             gender = self.params.mv_gender[0] # Gender selector: 'm' or 'f'
             model_suffix = '' if self.gan is not None else seed_voices[iter].split('/')[-1].split('.')[0]

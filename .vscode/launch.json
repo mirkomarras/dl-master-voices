@@ -11,16 +11,16 @@
             "program": "${workspaceFolder}/routines/mv/optimize.py",
             "console": "integratedTerminal",
             "args": [
-                "--dataset", "interspeech",
+                "--dataset", "interspeech10",
                 "--netv", "vggvox/v000",
                 "--seed", "./data/vs_mv_seed/female/001.wav",
                 "--attack", "pgd@wave",
                 "--gender", "female",
                 "--gradient", "pgd",
-                "--n_steps", "10",
+                "--n_steps", "5",
                 "--epsilon", "0.01",
                 "--clip_av", "0.01",
-                "--batch", "32",
+                "--batch", "16",
                 "--memory-growth"
             ],
             "env": {
@@ -78,6 +78,31 @@
                 "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/rtvc"
             }
         },        
+        {
+            "name": "mv-pgd-spectrum",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/routines/mv/optimize.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataset", "interspeech",
+                "--netv", "vggvox/v000",
+                "--seed", "./data/vs_mv_seed/female/",
+                "--attack", "pgd@spec",
+                "--gender", "female",
+                "--gradient", "pgd",
+                "--n_steps", "5",
+                "--epsilon", "0.05",
+                "--clip_av", "0.05",
+                "--batch", "16",
+                "--memory-growth"
+            ],
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0",
+                "TF_CPP_MIN_LOG_LEVEL": "3",
+                "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/rtvc"
+            }
+        },
         {
             "name": "mv-rtvc-vctk",
             "type": "python",
