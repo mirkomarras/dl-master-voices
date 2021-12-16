@@ -58,11 +58,8 @@ def main():
     group.add_argument('--n_steps', dest='n_steps', default=3, type=int, action='store', help='Number of optimization steps (passes over the population)')
     group.add_argument('--epsilon', dest='epsilon', default=0.01, type=float, action='store', help='Allowed distortion budget (L_inf)')
     group.add_argument('--step_size', dest='step_size_override', default=None, type=float, action='store', help='Manually override step size')
-
-    group.add_argument('--max_dist', dest='max_dist', default=0, type=float, action='store', help='Max distortion (L∞)')
     group.add_argument('--l2_reg', dest='l2_reg', default=0, type=float, action='store', help='Distortion penalty (L2 regularization)')
     group.add_argument('--clip_av', dest='clip_av', default=0, type=float, action='store', help='Distortion limit (L_inf constraint) ')
-    group.add_argument('--lambda_reg', dest='lambda_reg', default=1, type=float, action='store', help='Regularization parameter')
     group.add_argument('--batch', dest='batch', default=16, type=int, action='store', help='Batch size for the optimization')
 
     group = parser.add_argument_group('Misc')
@@ -110,7 +107,7 @@ def main():
     #     group_dict={a.dest:getattr(args,a.dest,None) for a in group._group_actions}
     #     arg_groups[group.title]=argparse.Namespace(**group_dict)
 
-    display_fields = {'netv', 'attack', 'seed_voice', 'mv_gender', 'n_steps'}
+    display_fields = {'netv', 'attack', 'seed_voice', 'mv_gender', 'n_steps', 'epsilon', 'step_size_override', 'clip_av'}
 
     if len(tf.config.get_visible_devices("GPU")) == 0:
         logger.warning(f'No GPU? TF Devices: {tf.config.get_visible_devices()}')
@@ -120,7 +117,7 @@ def main():
     logger.info('Parameters summary:')
     for key, value in vars(args).items():
         if key in display_fields:
-            logger.info('  {:>15s}: {}'.format(key, value))
+            logger.info('  {:>20s}: {}'.format(key, value))
 
     train_set = pd.read_csv(args.train_pop)
     x_train, y_train = train_set['filename'], train_set['user_id']

@@ -84,7 +84,7 @@ class SiameseModel(object):
         if attack_type == 'nes@cloning':
             self.attack = NESVoiceCloning(self.siamese_model, text='The assistant is triggered by saying hey google', n=20, sigma=0.025, antithetic=True)
         elif attack_type == 'nes@wave':
-            self.attack = NESWaveform(self.siamese_model, self.playback, self.noise_paths, self.noise_cache, self.impulse_flags, n=20, sigma=0.01)
+            self.attack = NESWaveform(self.siamese_model, self.playback, self.noise_paths, self.noise_cache, self.impulse_flags, n=50, sigma=0.005)
         elif attack_type == 'pgd@spec':
             self.attack = PGDSpectrumDistortion(self.siamese_model)
         elif attack_type == 'pgd@wave':
@@ -452,14 +452,14 @@ class SiameseModel(object):
         # TODO Remove me - added for temporary debugging
         try:
             results_ref = self.test(seed_spec[tf.newaxis, ..., tf.newaxis], self.test_gallery)
-            logger.warning(f'(Seed) Imp@EER {gender}={results_ref[0][gender]} | Imp@FAR1 {gender}={results_ref[1][gender]}')
+            logger.warning(f'(Seed) Imp@EER {gender}={results_ref[0][gender]:.3f} | Imp@FAR1 {gender}={results_ref[1][gender]:.3f}')
             performance_stats['imp_seed'] = [results_ref[0][gender], results_ref[1][gender]]
         except:
             pass
 
         try:
             results_ori = self.test(mv_spec[tf.newaxis, ..., tf.newaxis], self.test_gallery)
-            logger.warning(f'(Optimized) Imp@EER {gender}={results_ori[0][gender]} | Imp@FAR1 {gender}={results_ori[1][gender]}')
+            logger.warning(f'(Optimized) Imp@EER {gender}={results_ori[0][gender]:.3f} | Imp@FAR1 {gender}={results_ori[1][gender]:.3f}')
             performance_stats['imp_opt'] = [results_ori[0][gender], results_ori[1][gender]]
         except:
             pass
@@ -473,7 +473,7 @@ class SiameseModel(object):
             
             results_recomp = self.test(mv_spec_recomp, self.test_gallery)
             performance_stats['imp_inv'] = [results_recomp[0][gender], results_recomp[1][gender]]
-            logger.warning(f'(Inverted) Imp@EER {gender}={results_recomp[0][gender]} | Imp@FAR1 {gender}={results_recomp[1][gender]}')
+            logger.warning(f'(Inverted) Imp@EER {gender}={results_recomp[0][gender]:.3f} | Imp@FAR1 {gender}={results_recomp[1][gender]:.3f}')
         except:
             logger.error(f'Failed to run impersonation assessment!')
 
