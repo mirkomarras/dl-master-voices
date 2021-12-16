@@ -364,13 +364,13 @@ class NESWaveform(Attack):
 
             def f(attack_vector):
                 tape.watch(attack_vector)
-                input_mv = self.run(seed_sample[tf.newaxis, ...], attack_vector)
+                input_mv = self.run(seed_sample, attack_vector)
 
                 if self.playback:
                     input_mv = audio.get_play_n_rec_audio(input_mv[..., tf.newaxis], self.ir_paths, self.ir_cache, impulse_flags=self.impulse_flags)
 
                 # Convert to spectrogram / filterbanks
-                if batch_data[0].shape[-1] > 128:
+                if batch_data[0].shape[2] > 128:
                     input_mv = audio.get_tf_spectrum(input_mv)                
                 else:
                     input_mv = audio.get_tf_filterbanks(input_mv[..., tf.newaxis], n_filters=24)
