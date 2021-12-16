@@ -10,6 +10,8 @@ import warnings
 import sys
 import os
 import tensorflow as tf
+import json
+from collections import defaultdict
 
 from helpers.dataset import get_mv_analysis_users, load_data_set, filter_by_gender, load_mv_data, Dataset
 from helpers.datapipeline import data_pipeline_mv
@@ -46,6 +48,7 @@ def main():
     group = parser.add_argument_group('Population')
     group.add_argument('--audio_dir', dest='audio_dir', default='./data/voxceleb2/dev', type=str, action='store', help='Path to the folder where master voice training audios are stored')
     group.add_argument('--audio_meta', dest='audio_meta', default='./data/vs_mv_pairs/meta_data_vox12_all.csv', type=str, action='store', help='Path to the CSV file with id-gender metadata of master voice training audios')
+    group.add_argument('--dataset', dest='dataset', default='dev-test', type=str, action='store', help='JSON file with population settings (quick setup)')
     group.add_argument('--train_pop', dest='train_pop', default='./data/vs_mv_pairs/mv_train_population_debug_20u_20s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv training')
     group.add_argument('--test_pop', dest='test_pop', default='./data/vs_mv_pairs/mv_test_population_debug_20u_10s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv testing')
 
@@ -89,6 +92,15 @@ def main():
     if args.memory_growth:
         physical_devices = tf.config.list_physical_devices("GPU")
         tf.config.experimental.set_memory_growth(physical_devices[0], True)
+
+    if args.dataset:
+        with open('config/datasets.json') as f:
+            data_config = defaultdict()
+            data_config.update(json.load(f)[args.dataset])
+        args.train_pop = data_config['train']
+        args.test_pop = data_config['test']
+        args.audio_dir = data_config['dir']
+        args.audio_meta = data_config['meta']
 
     # Parameter summary to print at the beginning of the script
 

@@ -1,0 +1,31 @@
+{
+    "interspeech": {
+        "meta": "data/vs_mv_pairs/meta_data_vox12_all.csv",
+        "dir": "data/voxceleb2/dev",
+        "train": "data/vs_mv_pairs/mv_train_population_interspeech_1000u_10s.csv",
+        "test": "data/vs_mv_pairs/mv_test_population_interspeech_1000u_10s.csv"
+    },
+    "interspeech50": {
+        "meta": "data/vs_mv_pairs/meta_data_vox12_all.csv",
+        "dir": "data/voxceleb2/dev",
+        "train": "data/vs_mv_pairs/mv_train_population_interspeech_1000u_50s.csv",
+        "test": "data/vs_mv_pairs/mv_test_population_interspeech_1000u_10s.csv"
+    },
+    "dev": {
+        "meta": "data/vs_mv_pairs/meta_data_vox12_all.csv",
+        "dir": "data/voxceleb2/dev",
+        "train": "data/vs_mv_pairs/mv_train_population_dev_100u_10s.csv",
+        "test": "data/vs_mv_pairs/mv_test_population_dev_100u_10s.csv"
+    },
+    "libri": {
+        "meta": "data/vs_mv_pairs/meta_data_librispeech.csv",
+        "train": "data/vs_mv_pairs/mv_train_population_libri_100u_10s.csv",
+        "test": "data/vs_mv_pairs/mv_test_population_libri_100u_10s.csv"
+    },
+    "vctk": {
+        "meta": "data/vs_mv_pairs/meta_data_vctk.csv",
+        "dir": "data/vctk",
+        "train": "data/vs_mv_pairs/mv_train_population_vctk_50u_10s.csv",
+        "test": "data/vs_mv_pairs/mv_test_population_vctk_50u_10s.csv"
+    }
+}
