@@ -269,9 +269,10 @@ class NESVoiceCloning(object):
         rtvc_api.load_models('rtvc')
 
     def setup(self, seed_sample):
-        embedding = rtvc_api.get_embedding(seed_sample)
+        if not isinstance(seed_sample, np.ndarray):
+            seed_sample = seed_sample.numpy()
+        embedding = rtvc_api.get_embedding(seed_sample.ravel())
         seed_sample = self.run(seed_sample, embedding)
-        # embedding = cloning.init_embedding(seed_sample)
         return seed_sample, embedding
 
     def attack_step(self, seed_sample, attack_vector, population, settings):
@@ -331,7 +332,7 @@ class NESVoiceCloning(object):
         if not isinstance(attack_vector, np.ndarray):
             attack_vector = attack_vector.numpy()
         
-        attack_vector = tf.clip_by_value(attack_vector, 0, 1)
+        attack_vector = np.clip(attack_vector, 0, 1)
         input_mv = rtvc_api.vc(self.text, attack_vector)
         
         return audio.ensure_length(input_mv, int(2.58 * 16000))

@@ -19,6 +19,7 @@
     },
     "libri": {
         "meta": "data/vs_mv_pairs/meta_data_librispeech.csv",
+        "dir": "data/librispeech",
         "train": "data/vs_mv_pairs/mv_train_population_libri_100u_10s.csv",
         "test": "data/vs_mv_pairs/mv_test_population_libri_100u_10s.csv"
     },
