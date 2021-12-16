@@ -11,14 +11,15 @@
             "program": "${workspaceFolder}/routines/mv/optimize.py",
             "console": "integratedTerminal",
             "args": [
-                "--dataset", "dev",
+                "--dataset", "interspeech",
                 "--netv", "vggvox/v000",
-                "--seed", "./data/vs_mv_seed/female/",
+                "--seed", "./data/vs_mv_seed/female/001.wav",
                 "--attack", "pgd@wave",
                 "--gender", "female",
                 "--gradient", "pgd",
-                "--n_steps", "3",
+                "--n_steps", "10",
                 "--epsilon", "0.01",
+                "--clip_av", "0.01",
                 "--batch", "32",
                 "--memory-growth"
             ],
@@ -37,13 +38,14 @@
             "args": [
                 "--dataset", "dev",
                 "--netv", "vggvox/v000",
-                "--seed", "./data/vs_mv_seed/female/",
+                "--seed", "./data/vs_mv_seed/female/001.wav",
                 "--attack", "nes@wave",
                 "--gender", "female",
                 "--gradient", "pgd",
-                "--n_steps", "1",
+                "--n_steps", "5",
                 "--epsilon", "0.01",
-                "--batch", "32",
+                "--clip_av", "0.01",
+                "--batch", "16",
                 "--memory-growth"
             ],
             "env": {

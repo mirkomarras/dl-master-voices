@@ -112,7 +112,7 @@ class PGDWaveformDistortion(Attack):
                 attack_vector += settings.step_size_override * grads
             elif settings.epsilon:
                 # Otherwise, adjust the step size based on the distortion budget and the number of steps
-                attack_vector = attack_vector + grads * settings.epsilon / (settings.n_steps * n_batches)
+                attack_vector = attack_vector + grads * settings.epsilon / (settings.n_steps)
             else:
                 raise ValueError('Unspecified step size!')
 
@@ -404,7 +404,7 @@ class NESWaveform(Attack):
                 attack_vector += settings.step_size_override * grads
             elif settings.epsilon:
                 # Otherwise, adjust the step size based on the distortion budget and the number of steps
-                attack_vector = attack_vector + grads * settings.epsilon / (settings.n_steps * n_batches)
+                attack_vector = attack_vector + grads * settings.epsilon / (settings.n_steps)
             else:
                 raise ValueError('Unspecified step size!')
 
