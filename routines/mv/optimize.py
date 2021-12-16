@@ -63,6 +63,10 @@ def main():
     group.add_argument('--batch', dest='batch', default=16, type=int, action='store', help='Batch size for the optimization')
 
     group = parser.add_argument_group('Misc')
+    group.add_argument('--nes_n', dest='nes_n', default=100, type=int, action='store', help='Number of function evaluations')
+    group.add_argument('--nes_sigma', dest='nes_sigma', default=0.01, type=float, action='store', help='Search step size')
+
+    group = parser.add_argument_group('Misc')
     group.add_argument('--n_templates', dest='n_templates', default=10, type=int, action='store', help='Number of enrolment templates per user (used for testing impersonation)')
     group.add_argument('--sample_rate', dest='sample_rate', default=16000, type=int, action='store', help='Audio sampling rate')
     group.add_argument('--n_seconds', dest='n_seconds', default=2.58, type=float, action='store', help='Length in seconds of an audio for master voice optimization')
@@ -168,7 +172,9 @@ def main():
         'step_size_override': args.step_size_override, 
         'l2_regularization': args.l2_reg,
         'clip_av': args.clip_av,
-        'patience': 3
+        'patience': 3,
+        'nes_n': args.nes_n,
+        'nes_sigma': args.nes_sigma,
     })
 
     if opt_settings.step_size_override:

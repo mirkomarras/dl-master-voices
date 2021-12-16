@@ -144,7 +144,7 @@ class PGDSpectrumDistortion(Attack):
 
     def attack_step(self, seed_sample, attack_vector, population, settings):
         epoch_similarities = []
-        n_batches = len(list(population))
+        # n_batches = len(list(population))
 
         for step, batch_data in enumerate(population):
 
@@ -178,7 +178,7 @@ class PGDSpectrumDistortion(Attack):
                 attack_vector += settings.step_size_override * grads
             elif settings.epsilon:
                 # Otherwise, adjust the step size based on the distortion budget and the number of steps
-                attack_vector = attack_vector + grads * settings.epsilon / (settings.n_steps * n_batches)
+                attack_vector = attack_vector + grads * settings.epsilon / (settings.n_steps)
             else:
                 raise ValueError('Unspecified step size!')
 
@@ -385,7 +385,11 @@ class NESWaveform(Attack):
             # Compute the loss and the gradient
             with tf.GradientTape() as tape:
                 loss = f(attack_vector)
-            grads = _nes(attack_vector, f, self.n, self.sigma, self.antithetic)
+                
+            if settings.nes_n is not None and settings.nes_sigma is not None:
+                grads = _nes(attack_vector, f, settings.n, settings.sigma, True)
+            else:
+                grads = _nes(attack_vector, f, self.n, self.sigma, self.antithetic)
             # grads = tape.gradient(loss, attack_vector)            
 
             if settings.gradient == 'pgd':
