@@ -307,8 +307,6 @@ class NESVoiceCloning(object):
             else:
                 raise ValueError('Unsupported gradient mode!')
 
-            attack_vector += settings.learning_rate * grad
-
             # Update the attack vector after every batch:
             if settings.step_size_override:
                 # Override step size if requested
@@ -326,7 +324,7 @@ class NESVoiceCloning(object):
             # TODO [Check] Do we need to project back onto the embedding manifold?
             epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
 
-        return attack_vector, epoch_similarities
+        return attack_vector, tf.reduce_mean(epoch_similarities)
 
     def run(self, seed_sample, attack_vector):
         if not isinstance(attack_vector, np.ndarray):
