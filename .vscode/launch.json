@@ -11,16 +11,15 @@
             "program": "${workspaceFolder}/routines/mv/optimize.py",
             "console": "integratedTerminal",
             "args": [
-                "--dataset", "interspeech10",
+                "--dataset", "interspeech",
                 "--netv", "vggvox/v000",
                 "--seed", "./data/vs_mv_seed/female/001.wav",
                 "--attack", "pgd@wave",
                 "--gender", "female",
-                "--gradient", "pgd",
-                "--n_steps", "5",
-                "--epsilon", "0.01",
-                "--clip_av", "0.01",
-                "--batch", "16",
+                "--gradient", "normed",
+                "--n_steps", "10",
+                "--step_size", "0.0001",
+                "--batch", "64",
                 "--memory-growth"
             ],
             "env": {
