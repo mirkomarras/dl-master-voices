@@ -3,7 +3,6 @@
 
 import json
 import loguru
-from numpy.core.fromnumeric import reshape
 import tensorflow as tf
 import soundfile as sf
 import numpy as np
@@ -224,7 +223,7 @@ class SiameseModel(object):
                 stats = json.load(f)
         else:
             # Collect stats from all seed voices
-            stats = {k: [] for k in 'max_dist,l2_norm,mv_eer_results,mv_far1_results,sv_eer_results,sv_far1_results'.split(',')}
+            stats = {k: [] for k in 'max_dist,mean_abs,mse,mv_eer_results,mv_far1_results,sv_eer_results,sv_far1_results'.split(',')}
         
         for iter in range(n_seed_start, n_seed_voices): # For each audio sample to batch_optimize_by_path
             logger.info(f'Starting optimization {seed_voices[iter]}: {iter+1} of {n_seed_voices}')
@@ -268,7 +267,7 @@ class SiameseModel(object):
             stats['mv_far1_results'].append(performance['mv_far1_results'][-1][gender].item())
             stats['sv_eer_results'].append(performance['mv_eer_results'][0][gender].item())
             stats['sv_far1_results'].append(performance['mv_far1_results'][0][gender].item())
-            stats['l2_norm'].append(performance['l2_norm'][-1])
+            stats['mse'].append(performance['mse'][-1])
             stats['max_dist'].append(performance['max_dist'][-1])
 
             # Summarize all
@@ -290,7 +289,7 @@ class SiameseModel(object):
 
         settings = settings or self.defaults()
 
-        metrics = ('mv_eer_results', 'mv_far1_results', 'mv_avg_similarity', 'l2_norm', 'mean_abs','max_dist')
+        metrics = ('mv_eer_results', 'mv_far1_results', 'mv_avg_similarity', 'mse', 'mean_abs','max_dist', 'snr')
         performance = {m: [] for m in metrics}
 
         remaining_attempts = settings.patience
@@ -310,7 +309,7 @@ class SiameseModel(object):
         results = self.test(input_mv, test_gallery)
         performance['mv_eer_results'].append(results[0])
         performance['mv_far1_results'].append(results[1])
-        performance['l2_norm'].append(tf.reduce_mean(tf.square(attack_vector)).numpy().item())
+        performance['mse'].append(tf.reduce_mean(tf.square(attack_vector)).numpy().item())
         performance['mean_abs'].append(tf.reduce_mean(tf.abs(attack_vector)).numpy().item())
         performance['max_dist'].append(tf.reduce_max(tf.abs(attack_vector)).numpy().item())
 
@@ -335,7 +334,7 @@ class SiameseModel(object):
                 performance['mv_avg_similarity'].append(epoch_loss)
                 performance['mv_eer_results'].append(results[0])
                 performance['mv_far1_results'].append(results[1])
-                performance['l2_norm'].append(tf.reduce_mean(tf.square(attack_vector)).numpy().item())
+                performance['mse'].append(tf.reduce_mean(tf.square(attack_vector)).numpy().item())
                 performance['mean_abs'].append(tf.reduce_mean(tf.abs(attack_vector)).numpy().item())
                 performance['max_dist'].append(tf.reduce_max(tf.abs(attack_vector)).numpy().item())
 
@@ -357,9 +356,10 @@ class SiameseModel(object):
             opt_time = (t2 - t1).total_seconds()
             val_time = (t3 - t2).total_seconds()
             _exp = performance['mean_abs'][-1]
+            _mse = performance['mse'][-1]
             _max = performance['max_dist'][-1]
-            logger.debug('(Step {:3d}) IR@eer m={:.3f} f={:.3f} | IR@far1 m={:.3f} f={:.3f} | opt time {:.1f} + val time {:.1f} | E|v|={:.4f} max|v|={:.4f} '.format(
-                step, results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"], opt_time, val_time, _exp, _max))
+            logger.debug('(Step {:3d}) IR@eer m={:.3f} f={:.3f} | IR@far1 m={:.3f} f={:.3f} | opt time {:.1f} + val time {:.1f} | E|v|={:.4f} max|v|={:.4f} mse={:.4f}'.format(
+                step, results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"], opt_time, val_time, _exp, _max, _mse))
 
         return input_sv, self.attack.run(input_sv, attack_vector), performance
 
@@ -489,6 +489,28 @@ class SiameseModel(object):
             filename_stats = os.path.join(self.dir_full, filename_format.format(thr))
             logger.info(f'Saving progress stats to {filename_stats}')
             np.savez(filename_stats, results)
+
+        # Compute SNR between the two waveforms
+        if len(seed_wave) == len(mv_wave):
+            power_signal = np.mean(np.square(seed_wave))
+            power_noise = np.mean(np.square(seed_wave - mv_wave))
+        else:
+            len_diff = len(seed_wave) - len(mv_wave)
+            power_noise = 1e6
+            for dx in range(len_diff):
+                power_noise2 = np.mean(np.square(seed_wave[dx:len(mv_wave)+dx] - mv_wave))
+                if power_noise2 < power_noise:
+                    power_noise = power_noise2
+
+            seed_wave_inv = self.ensure_waveform(seed_spec, aux_signal=seed_wave)
+            if len(seed_wave_inv) == len(mv_wave):
+                power_signal = np.mean(np.square(seed_wave_inv))
+                power_noise = np.mean(np.square(seed_wave_inv - mv_wave))
+            else:
+                power_signal = 1
+                power_noise = 1
+
+        performance_stats['snr'] = 10 * np.math.log10(power_signal / power_noise)
 
         # We update and save the current impersonation rate history
         filename_stats = os.path.join(self.dir_full, f'opt_progress_{suffix}.npz')
