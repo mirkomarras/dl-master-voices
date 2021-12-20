@@ -120,7 +120,21 @@ class PGDWaveformDistortion(Attack):
                 attack_vector = tf.clip_by_value(attack_vector, -settings.clip_av, settings.clip_av)            
         
         if not self.sgd:
-            attack_vector = attack_vector + settings.epsilon * tf.sign(grads_agg) /settings.n_steps
+
+            # Process the gradient
+            if settings.gradient == 'pgd':
+                grads_agg = tf.sign(grads_agg)
+            elif settings.gradient == 'normed':
+                grads_agg = grads_agg / (1e-9 + tf.linalg.norm(grads_agg))
+            elif settings.gradient is None or settings.gradient == 'none':
+                pass
+            else:
+                raise ValueError('Unsupported gradient mode!')
+
+            if settings.step_size_override:
+                attack_vector += settings.step_size_override * grads_agg
+            else:
+                attack_vector += settings.epsilon * grads_agg /settings.n_steps
 
         return attack_vector, tf.reduce_mean(epoch_similarities)
 
@@ -324,7 +338,7 @@ class NESVoiceCloning(object):
             # TODO [Check] Do we need to project back onto the embedding manifold?
             epoch_similarities.append(tf.reduce_mean(loss).numpy().item())
 
-        return attack_vector, epoch_similarities
+        return attack_vector, tf.reduce_mean(epoch_similarities)
 
     def run(self, seed_sample, attack_vector):
         if not isinstance(attack_vector, np.ndarray):
