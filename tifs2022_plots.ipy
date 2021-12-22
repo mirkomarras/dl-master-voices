@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Dec 22 15:59:36 2021
+
+@author: pkorus
+"""
+
+import os
+import sys
+import json
+import pandas as pd
+from matplotlib import pyplot as plt
+import numpy as np
+import seaborn as sns
+
+from helpers import results as hr
+from helpers import plotting
+
+# %%
+
+df = hr.results_df('data/results/results_plain_pgd/vggvox_v000_pgd_wave_f')
+
+# %%
+
+sns.lineplot(x='mse', y='far1-mv', hue='steps', marker='o', data=df)
+plt.gca().set_xscale('log')
+
+# %%
+
+df_p = hr.results_df('data/results/results_play_pgd/vggvox_v000_pgd_wave_f')
+df_n = hr.results_df('data/results/results_play_normed/vggvox_v000_pgd_wave_f')
+
+d_metric = 'mse'
+
+plt.plot(df_p[d_metric].values, df_p['far1-mv'].values, 'o-', label='pgd')
+plt.plot(df_n[d_metric].values, df_n['far1-mv'].values, 'o-', label='normed')
+plt.gca().set_xscale('log')
+plt.legend()
+plt.xlabel(d_metric)
+
+# %%
+
+df = hr.cat_df('experiment', {
+    'pgd': hr.results_df('data/results/results_play_pgd/vggvox_v000_pgd_wave_f'),
+    'normed': hr.results_df('data/results/results_play_normed/vggvox_v000_pgd_wave_f')
+})
+
+print(df.to_string())
+
+sns.lineplot(x='mse', y='far1-mv', hue='experiment', marker='o', data=df)
+plt.gca().set_xscale('log')
+
+# %% Show optimization progress
+
+results, labels = hr.progress('data/results/results_play_normed/vggvox_v000_pgd_wave_f')
+
+for k, progress in results.items():
+    plt.plot(np.array(progress).mean(axis=0), '.-', label=labels[k]['label'])
+
+plt.ylabel('far-1 IR')
+plt.xlabel('Steps')
+plt.legend()
