@@ -16,11 +16,12 @@
                 "--seed", "./data/vs_mv_seed/female/001.wav",
                 "--attack", "pgd@wave",
                 "--gender", "female",
-                "--gradient", "normed",
-                "--n_steps", "10",
-                "--step_size", "0.0001",
+                "--gradient", "pgd",
+                "--n_steps", "5",
+                "--step_size", "0.001",
+                "--clip_av", "0.01",
                 "--batch", "64",
-                "--memory-growth"
+                "--play"
             ],
             "env": {
                 "CUDA_VISIBLE_DEVICES": "0",
@@ -153,6 +154,27 @@
                 "PYTHONPATH": "${workspaceFolder}:${workspaceFolder}/rtvc"
             }
         },        
+        {
+            "name": "test-mv ",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/routines/mv/test.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--net", "vggvox/v000",
+                "--dataset", "interspeech",
+                "--samples", "data/vs_mv_data/vggvox_v000_pgd_wave_f/v009/mv",
+                "--policy", "avg",
+                "--level", "far1",
+                "--impulse_flags", "1,1,1",
+                "--n_play_reps", "3"
+            ],
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "0",
+                "TF_CPP_MIN_LOG_LEVEL": "3",
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
         {
             "name": "GM training",
             "type": "python",

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+from genericpath import exists
 import itertools
 import os
 import glob 
@@ -8,11 +9,15 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from loguru import logger
 import numpy as np
 import argparse
+import json
+from collections import defaultdict
 
 import tensorflow as tf
+from helpers import utils
 from helpers.dataset import Dataset
 from models import verifier
 
+utils.setup_logging(level='DEBUG')
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 
@@ -20,21 +25,34 @@ def main():
     parser = argparse.ArgumentParser(description='Tensorflow master voice trial pairs generation and testing')
 
     parser.add_argument('--net', dest='net', default='vggvox/v000,resnet50/v000,thin_resnet/v000,resnet34/v000', type=str, action='store', help='Speaker model, e.g., vggvox/v003') #vggvox/v004,resnet50/v004,thin_resnet/v002,resnet34/v002,xvector/v003
-
-    parser.add_argument('--playback', dest='playback', default='0,1', type=str, action='store', help='Playback and recording in master voice test condition: 0 no, 1 yes')
+    parser.add_argument('--samples', dest='mv_set', required=True, action='store', help='Directory with speech samples')
+    parser.add_argument('--dataset', dest='dataset', default='dev-test', type=str, action='store', help='JSON file with population settings (quick setup)')
+    parser.add_argument('--pop', dest='pop', default='data/vs_mv_pairs/mv_test_population_interspeech_1000u_10s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv training')
+    parser.add_argument('--playback', dest='playback', default='0,1', action='store', help='Playback and recording in master voice test condition: 0 no, 1 yes')
     parser.add_argument('--noise_dir', dest='noise_dir', default='data/vs_noise_data', type=str, action='store', help='Noise directory')
-
-    parser.add_argument('--mv_set', dest='mv_set', default='vggvox_v000_pgd_spec_m/v028/sv,vggvox_v000_pgd_spec_m/v028/mv', action='store', help='Directory with MV data')
-    parser.add_argument('--pop', dest='pop', default='data/vs_mv_pairs/mv_test_population_is2019_100u_10s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv training')
     parser.add_argument('--policy', dest='policy', default='any,avg', type=str, action='store', help='Policy of verification, eigher any or avg')
     parser.add_argument('--level', dest='level', default='eer,far1', type=str, action='store', help='Levelof security, either eer or far1')
     parser.add_argument('--n_play_reps', dest='n_play_reps', default=20, type=int, action='store', help='Number of randomized playback settings to run the test for')
-    parser.add_argument('-impulse_flags','--impulse_flags', nargs='+', help='Impulse Flags for controlling playback', required=False)
+    parser.add_argument('--impulse_flags', dest='impulse_flags', nargs='+', help='Impulse Flags for controlling playback', required=False)
     parser.add_argument('--roll', dest='roll', default=None, type=int, action='store', help='Length to rolling the audio sample')
     parser.add_argument('--train_analysis', dest='train_analysis', default=False, type=bool, action='store', help='Picking filenames for train analysis')
     parser.add_argument('--memory-growth', dest='memory_growth', action='store_true', help='Enable dynamic memory growth in Tensorflow')                       
 
     args = parser.parse_args()
+
+    if args.dataset:
+        with open('config/datasets.json') as f:
+            data_config = defaultdict()
+            data_config.update(json.load(f)[args.dataset])
+        args.pop = data_config['test']
+
+    if args.impulse_flags is None:
+        args.impulse_flags = (1, 1, 1)
+    else:
+        args.impulse_flags = ','.join(args.impulse_flags)
+        args.impulse_flags = tuple(int(x) for x in args.impulse_flags.split(','))
+    assert len(args.impulse_flags) == 3
+
     settings = vars(args)
 
     assert settings['net'] is not '', 'Please specify model network for --net'
@@ -44,7 +62,7 @@ def main():
     # Parameter summary to print at the beginning of the script
     logger.info('Parameters summary')
     for key, value in settings.items():
-        logger.info(key, value)
+        logger.debug(f'  {key} = {value}')
 
     # Load noise data
     # print('Load impulse response paths')
@@ -60,7 +78,8 @@ def main():
     if settings['mv_set'] is None or len(settings['mv_set']) == 0:
         mv_sets = [os.path.join('./', 'data', 'vs_mv_data', mv_set, version) for mv_set in os.listdir(os.path.join('.', 'data', 'vs_mv_data')) for version in os.listdir(os.path.join('.', 'data', 'vs_mv_data', mv_set))]
     else:
-        mv_sets = [os.path.join('./', 'data', 'vs_mv_data', mv_set) for mv_set in settings['mv_set'].split(',')]
+        mv_sets = [dirname for dirname in settings['mv_set'].split(',')]
+        mv_sets = [dirname if os.path.exists(dirname) else os.path.join('./', 'data', 'vs_mv_data') for dirname in mv_sets]
 
     logger.info(mv_sets)
 
@@ -73,6 +92,7 @@ def main():
         sv.load()
         sv.calibrate_thresholds()
         sv.infer()
+        sv.setup_playback(settings['noise_dir'], settings['impulse_flags'])
 
         # Create the test gallery
         test_gallery = Dataset(settings['pop'])
@@ -87,19 +107,19 @@ def main():
             sims, imps, gnds = [], [], []
 
             # Repeat the test n times, each time with different playback environment
+            logger.info('Testing[{}x]: net={} policy={} level={} samples={}:'.format(iterations, net, policy, level, mv_set))
             for _ in range(iterations):
-                logger.info('testing setup net={} policy={} level={} mv_set={}:'.format(net, policy, level, mv_set))
                 
                 if(settings['train_analysis']):
                     filenames = glob.glob(settings['mv_set'] + '/*/*/*.wav')
                 else: 
                     filenames = [os.path.join(mv_set, file) for file in os.listdir(mv_set) if file.endswith('.wav')]                
 
-                logger.info('retrieve master voice filenames {}'.format(len(filenames)))
+                # logger.info('retrieve master voice filenames {}'.format(len(filenames)))
 
                 embeddings = sv.predict(np.array(filenames), playback=int(playback))
-                logger.info('compute master voice embeddings {}'.format(embeddings.shape))
-                logger.info('testing error rates...')
+                # logger.info('compute master voice embeddings {}'.format(embeddings.shape))
+                # logger.info('testing error rates...')
 
                 sims_temp, imps_temp, gnds_temp = sv.test_error_rates(embeddings, test_gallery, policy=policy, level=level, playback=int(playback))
 

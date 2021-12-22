@@ -126,6 +126,10 @@ class Model(object):
         self._thresholds = None
         self._uses_spectrum = True
 
+        self._noise_paths = None
+        self._noise_cache = None
+        self.impulse_flags = (1, 1, 1)
+
         self.dir = os.path.join('.', 'data', 'vs_mv_models', self.name)
         if not os.path.exists(self.dir):
             os.makedirs(self.dir)
@@ -137,6 +141,23 @@ class Model(object):
         path = os.path.join(self.dir, 'v' + str('{:03d}'.format(self.id)))
         logger.info('created model folder {}'.format(path))
 
+
+    @property
+    def noise_paths(self):
+        return self._noise_paths
+
+    @property
+    def noise_cache(self):
+        return self._noise_cache
+
+    def setup_playback(self, dirname, impulse_flags):
+        self.impulse_flags = impulse_flags
+        if dirname is None:
+            self._noise_paths = None
+            self._noise_cache = None
+        elif self._noise_cache is None:
+            self._noise_paths = load_noise_paths(dirname)
+            self._noise_cache = cache_noise_data(self._noise_paths, sample_rate=16000)
 
     def infer(self):
         '''
@@ -264,23 +285,15 @@ class Model(object):
             elements = decode_audio(elements).reshape((1, -1))
 
         if len(elements.shape) == 1:
-            if playback == 1:
-                speaker_flag = 0 
-                room_flag = 0 
-                microphone_flag = 0 
-                sample_rate = 16000
-
-                noise_paths = load_noise_paths('./data/vs_noise_data')
-                noise_cache = cache_noise_data(noise_paths, sample_rate=sample_rate)
-                impulse_flags = [speaker_flag, room_flag, microphone_flag]
-                xn = np.array(impulse_flags, dtype=np.float32).reshape(1, -1)
-                print(xn)
-                @tf.function
+            if playback == 1:                
+                # @tf.function
                 def forward(signal, impulse_flags):
-                  return get_play_n_rec_audio(signal = signal, noises=noise_paths, cache=noise_cache, noise_strength='random') #, impulse_flags
+                  return get_play_n_rec_audio(signal=signal, noises=self.noise_paths, 
+                                              cache=self.noise_cache, noise_strength='random', 
+                                              impulse_flags=impulse_flags)
                 
                 # xf = forward(xt, xn).numpy()
-                elements = [forward(decode_audio(e).reshape((1, -1, 1)).astype(np.float32), xn).numpy() for e in elements]
+                elements = [forward(decode_audio(e).reshape((1, -1, 1)).astype(np.float32), self.impulse_flags).numpy() for e in elements]
                 elements = [np.squeeze(e) for e in elements]
                 
                 # elements = [playback.simulate(e) for e in elements]

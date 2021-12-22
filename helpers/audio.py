@@ -63,7 +63,7 @@ def load_noise_paths(noise_dir):
             assert file.endswith('.wav')
             noise_paths[noise_type].append(os.path.join(noise_dir, noise_type, file))
 
-        logger.debug(f'  {noise_type}, {len(noise_paths[noise_type])}')
+        logger.debug(f'  {noise_type} -> {len(noise_paths[noise_type])} impulse responses found')
 
     return noise_paths
 
@@ -80,7 +80,7 @@ def cache_noise_data(noise_paths, sample_rate=16000):
     noise_cache = {}
     for noise_type, noise_files in noise_paths.items():
         for nf in noise_files:
-            noise_cache[nf] = decode_audio(nf, sample_rate=sample_rate).reshape((-1, 1, 1))
+            noise_cache[nf] = tf.convert_to_tensor(decode_audio(nf, sample_rate=sample_rate).reshape((-1, 1, 1)))
 
     return noise_cache
 
@@ -355,7 +355,7 @@ def get_play_n_rec_audio(signal, noises, cache, noise_strength='random', impulse
     if(noise_strength!=None):
 
         if noise_strength == 'random':
-            noise_strength = tf.pow(tf.random.normal((1000,), 0, 0.025), 2)
+            noise_strength = tf.pow(tf.random.normal((1,), 0, 0.025), 2)
 
         noise_tensor = tf.random.normal(tf.shape(output), mean=0, stddev=noise_strength, dtype=tf.float32)
         output = tf.add(output, noise_tensor)

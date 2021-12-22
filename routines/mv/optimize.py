@@ -79,13 +79,16 @@ def main():
     group = parser.add_argument_group('Playback Simulation')
     group.add_argument('--play', dest='playback', default=False, action='store_true', help='Simulate playback at optimization time')
     group.add_argument('--ir_dir', dest='ir_dir', default='./data/vs_noise_data/', type=str, action='store', help='Path to the folder with impuse responses (room, micropone, speaker)')
-    group.add_argument('-impulse_flags','--impulse_flags', nargs='+', help='Impulse Flags for controlling playback', required=False)
+    group.add_argument('--impulse_flags', dest='impulse_flags', nargs='+', help='Impulse Flags for controlling playback', required=False)
     args = parser.parse_args()
 
     # 
     supported_attacks = 'pgd@spec,pgd@wave,nes@cloning,pgd@vae,nes@wave'.split(',')
     if args.attack not in supported_attacks:
         raise ValueError('Unsupported attack vector: {args.attack}')
+
+    if args.impulse_flags is None:
+        args.impulse_flags = (1, 1, 1)
 
     output_type = ('filterbank' if args.netv.split('/')[0] == 'xvector' else 'spectrum')
 
