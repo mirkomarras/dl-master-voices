@@ -56,9 +56,9 @@ def main():
 
     settings = vars(args)
 
-    assert settings['net'] is not '', 'Please specify model network for --net'
-    assert settings['policy'] is not '', 'Please specify policy for --policy'
-    assert settings['level'] is not '', 'Please specify security level for --level'
+    assert settings['net'] != '', 'Please specify model network for --net'
+    assert settings['policy'] != '', 'Please specify policy for --policy'
+    assert settings['level'] != '', 'Please specify security level for --level'
 
     # Parameter summary to print at the beginning of the script
     logger.info('Parameters summary')
