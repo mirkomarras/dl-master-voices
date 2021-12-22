@@ -1,7 +1,7 @@
 import os
 
 batch_size = 256
-epsilons = (0.001, 0.01, 0.1)
+epsilons = (0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1)
 steps = (10,)
 attack = 'pgd@wave'
 gradient = 'pgd'
@@ -17,7 +17,7 @@ for n in steps:
 
 # L_2 version
 gradient = 'normed'
-step_sizes = (0.001, 0.01, 0.1, 1)
+step_sizes = (0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1)
 
 for n in steps:
     for s in step_sizes:
@@ -25,7 +25,7 @@ for n in steps:
         os.system(cmd)
 
 # Tests
-for model in ('vggvox/v000',):
+for model in ('vggvox/v000', 'resnet50/v000', 'xvector/v000'):
     for data in ('data/results_play_normed/vggvox_v000_pgd_wave_f', 'data/results_play_pgd/vggvox_v000_pgd_wave_f'):
         cmd = f'python3 routines/mv/test.py --net {model} --dataset interspeech --samples {data} --policy avg --level far1'
         os.system(cmd)
