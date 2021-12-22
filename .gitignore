@@ -1,7 +1,15 @@
 .idea/*
 venv/*
 jobs/*
+var/*
 *.pyc
 data/*
 vs_mv_models/*
 sftp-config.json
+*.wav
+*.mp3
+*.gz
+*.orig
+*.pkl
+.ipynb_checkpoints
+
