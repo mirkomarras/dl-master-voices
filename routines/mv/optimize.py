@@ -180,7 +180,7 @@ def main():
         'step_size_override': args.step_size_override, 
         'l2_regularization': args.l2_reg,
         'clip_av': args.clip_av,
-        'patience': 3,
+        'patience': 2,
         'nes_n': args.nes_n,
         'nes_sigma': args.nes_sigma,
     })

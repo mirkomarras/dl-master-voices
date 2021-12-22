@@ -268,6 +268,7 @@ class SiameseModel(object):
             stats['sv_eer_results'].append(performance['mv_eer_results'][0][gender].item())
             stats['sv_far1_results'].append(performance['mv_far1_results'][0][gender].item())
             stats['mse'].append(performance['mse'][-1])
+            stats['mean_abs'].append(performance['mean_abs'][-1])
             stats['max_dist'].append(performance['max_dist'][-1])
 
             # Summarize all
@@ -317,6 +318,10 @@ class SiameseModel(object):
 
         for step in range(np.abs(settings.n_steps)):  # For each optimization step
 
+            if remaining_attempts == 0:  # If there are no longer remaining attempts we start the optimization of the current voice
+                logger.warning(f'Exhausted the number of attempts ({settings.patience})')
+                break
+
             t1 = datetime.now()            
             attack_vector, epoch_loss = self.attack.attack_step(input_sv, attack_vector, train_data, settings)
             epoch_loss = epoch_loss.numpy().item()
@@ -341,16 +346,15 @@ class SiameseModel(object):
                 # If the number of steps is negative, be on the lookout to stop early
                 if settings.n_steps < 0:
 
-                    if (results[0]['m'] + results[0]['f']) > best_value_attempt:  # Check if the total impersonation rate after the current step is improved
-                        best_value_attempt = results[0]['m'] + results[0]['f']  # Update the best impersonation rate value
+                    _gender = self.params.mv_gender[0] 
+
+                    if results[1][_gender] > 1.05 * best_value_attempt:  # Check if the current improvement exceeds 5%
+                        best_value_attempt = results[1][_gender]  # Update the best impersonation rate value
                         remaining_attempts = settings.patience  # Resume remaining attempts to patience times
                         # print(' - Best Score', end='')
                     else:
                         remaining_attempts -= 1  # Reduce the remaining attempts to improve the impersonation rate
                         # print(f' - Attempts ({remaining_attempts})', end='')
-
-                    if remaining_attempts == 0:  # If there are no longer remaining attempts we start the optimization of the current voice
-                        break
 
             t3 = datetime.now()
             opt_time = (t2 - t1).total_seconds()
@@ -358,8 +362,8 @@ class SiameseModel(object):
             _exp = performance['mean_abs'][-1]
             _mse = performance['mse'][-1]
             _max = performance['max_dist'][-1]
-            logger.debug('(Step {:3d}) IR@eer m={:.3f} f={:.3f} | IR@far1 m={:.3f} f={:.3f} | opt time {:.1f} + val time {:.1f} | E|v|={:.4f} max|v|={:.4f} mse={:.4f}'.format(
-                step, results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"], opt_time, val_time, _exp, _max, _mse))
+            logger.debug('(Step {:3d}) IR@eer m={:.3f} f={:.3f} | IR@far1 m={:.3f} f={:.3f} | opt time {:.1f} + val time {:.1f} | E|v|={:.4f} max|v|={:.4f} mse={:.4f} | {}'.format(
+                step, results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"], opt_time, val_time, _exp, _max, _mse, remaining_attempts))
 
         return input_sv, self.attack.run(input_sv, attack_vector), performance
 
