@@ -90,6 +90,10 @@ def main():
 
     if args.impulse_flags is None:
         args.impulse_flags = (1, 1, 1)
+    else:
+        args.impulse_flags = ','.join(args.impulse_flags)
+        args.impulse_flags = tuple(int(x) for x in args.impulse_flags.split(','))
+    assert len(args.impulse_flags) == 3
 
     output_type = ('filterbank' if args.netv.split('/')[0] == 'xvector' else 'spectrum')
 

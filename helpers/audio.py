@@ -45,7 +45,10 @@ def decode_audio(fp, sample_rate=16000, target_length=2.58):
     except:
         audio_sf, new_sample_rate = librosa.load(fp, sr=sample_rate, mono=True)
 
-    return ensure_length(audio_sf, int(target_length * sample_rate))
+    if target_length is not None:
+        return ensure_length(audio_sf, int(target_length * sample_rate))
+    else:
+        return audio_sf
 
 def load_noise_paths(noise_dir):
     """
@@ -80,7 +83,7 @@ def cache_noise_data(noise_paths, sample_rate=16000):
     noise_cache = {}
     for noise_type, noise_files in noise_paths.items():
         for nf in noise_files:
-            noise_cache[nf] = tf.convert_to_tensor(decode_audio(nf, sample_rate=sample_rate).reshape((-1, 1, 1)))
+            noise_cache[nf] = tf.convert_to_tensor(decode_audio(nf, sample_rate=sample_rate, target_length=None).reshape((-1, 1, 1)))
 
     return noise_cache
 
