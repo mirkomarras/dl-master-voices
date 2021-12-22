@@ -53,7 +53,7 @@ class Dataset(object):
         self.save_embeddings()
 
 
-    def get_filename(self): # data/vs_mv_data/20200576-1456_mv_train_population_debug_100u_10s.csv  -> remove time, use debug/something label
+    def get_filename(self):
         dirname = os.path.join('data/cache', self.pop_file, 'embeddings')
         if not os.path.exists(dirname):
             os.makedirs(dirname)

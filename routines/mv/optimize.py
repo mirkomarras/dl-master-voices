@@ -51,6 +51,7 @@ def main():
     group.add_argument('--dataset', dest='dataset', default='dev-test', type=str, action='store', help='JSON file with population settings (quick setup)')
     group.add_argument('--train_pop', dest='train_pop', default='./data/vs_mv_pairs/mv_train_population_debug_20u_20s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv training')
     group.add_argument('--test_pop', dest='test_pop', default='./data/vs_mv_pairs/mv_test_population_debug_20u_10s.csv', type=str, action='store', help='Path to the filename-user_id pairs for mv testing')
+    group.add_argument('--results_dir', dest='results_dir', default='results', type=str, action='store', help='Output directory name (in `data`); defaults to `results`')
 
     group = parser.add_argument_group('Optimization Settings')
     # group.add_argument('--n_examples', dest='n_examples', default=100, type=int, action='store', help='Number of master voices sampled to be created (only if netg is set)')
@@ -62,7 +63,7 @@ def main():
     group.add_argument('--clip_av', dest='clip_av', default=0, type=float, action='store', help='Distortion limit (L_inf constraint) ')
     group.add_argument('--batch', dest='batch', default=16, type=int, action='store', help='Batch size for the optimization')
 
-    group = parser.add_argument_group('Misc')
+    group = parser.add_argument_group('NES')
     group.add_argument('--nes_n', dest='nes_n', default=100, type=int, action='store', help='Number of function evaluations')
     group.add_argument('--nes_sigma', dest='nes_sigma', default=0.01, type=float, action='store', help='Search step size')
 
@@ -129,7 +130,7 @@ def main():
     dir_name = utils.sanitize_path(f'{args.netv}_{args.attack}_{args.mv_gender[0]}'.replace('/', '_'))
 
     # We initialize the siamese model that will be used to batch_optimize_by_path master voices
-    siamese_model = SiameseModel(dir=os.path.join('data', 'vs_mv_data', dir_name), params=args, playback=args.playback, ir_dir=args.ir_dir, sample_rate=args.sample_rate, run_id=args.run_id, impulse_flags=args.impulse_flags)
+    siamese_model = SiameseModel(dir=os.path.join('data', args.results_dir, dir_name), params=args, playback=args.playback, ir_dir=args.ir_dir, sample_rate=args.sample_rate, run_id=args.run_id, impulse_flags=args.impulse_flags)
     logger.info('Siamese network initialized')
 
     logger.info('Setting verifier')

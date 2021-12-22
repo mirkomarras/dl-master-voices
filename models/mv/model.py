@@ -28,9 +28,9 @@ class SiameseModel(object):
 
     def __init__(self, dir, params, playback=False, ir_dir=None, sample_rate=16000, run_id=None, impulse_flags=[1,1,1]):
         """
-        Method to initialize a master voice model that will save audio samples in 'data/vs_mv_data/{net}-{netv}_{gan}-{ganv}_{f|m}-{f|m}_{mv|sv}'
+        Method to initialize a master voice model that will save audio samples in 'data/{results_dir}/{net}-{netv}_{gan}-{ganv}_{f|m}-{f|m}_{mv|sv}'
         :param sample_rate:     Sample rate of an audio sample to be processed
-        :param dir:          Path to the folder where master voice audio samples will be saved (data/vs_mv_data/vggvox-v004_real_u-f/)
+        :param dir:          Path to the folder where master voice audio samples will be saved (data/{results_dir}/vggvox-v004_real_u-f/)
         """
         assert sample_rate > 0, 'Please provide a non-negative sample rate'
 

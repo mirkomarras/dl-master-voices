@@ -448,7 +448,7 @@ def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1
         return fig
 
 
-def imp_rate_change(mv_set, target_pop, net, policy):
+def imp_rate_change(mv_set, target_pop, net, policy, results_dir='vs_mv_data'):
     def get_subplot(imps_mv_eer, imps_sv_eer, imps_sv_far1, imps_mv_far1, gender_map, gender):
         # Distributions
         distr_mv_eer = (imps_mv_eer > 0).sum(axis=1) / imps_mv_eer.shape[1]
@@ -476,7 +476,7 @@ def imp_rate_change(mv_set, target_pop, net, policy):
         plt.grid()
 
     # Load impersonation rates
-    mv_eer_path = os.path.join('..', 'data', 'vs_mv_data', mv_set, 'mv', target_pop + '-' + net + '-' + policy + '-eer.npz')
+    mv_eer_path = os.path.join('..', 'data', results_dir, mv_set, 'mv', target_pop + '-' + net + '-' + policy + '-eer.npz')
     imps_mv_eer = np.load(mv_eer_path, allow_pickle=True)['results'][()]['imps']
     imps_sv_eer = np.load(mv_eer_path.replace('mv' + os.sep, 'sv' + os.sep), allow_pickle=True)['results'][()]['imps']
     imps_sv_far1 = np.load(mv_eer_path.replace('mv' + os.sep, 'sv' + os.sep).replace('eer', 'far1'), allow_pickle=True)['results'][()]['imps']
@@ -503,7 +503,7 @@ def imp_rate_change(mv_set, target_pop, net, policy):
     plt.show()
 
 
-def imp_rate_scatter(mv_set, target_pop, net, policy):
+def imp_rate_scatter(mv_set, target_pop, net, policy, results_dir='vs_mv_data'):
     def get_subplot(imps_sv, imps_mv, level, gender):
         # Distributions
         distr_mv = (imps_mv > 0).sum(axis=1) / imps_mv.shape[1]
@@ -522,7 +522,7 @@ def imp_rate_scatter(mv_set, target_pop, net, policy):
         plt.grid()
 
     # Impersonation rates
-    mv_eer_path = os.path.join('..', 'data', 'vs_mv_data', mv_set, 'mv', target_pop + '-' + net + '-' + policy + '-eer.npz')
+    mv_eer_path = os.path.join('..', 'data', results_dir, mv_set, 'mv', target_pop + '-' + net + '-' + policy + '-eer.npz')
     imps_mv_eer = np.load(mv_eer_path, allow_pickle=True)['results'][()]['imps']
     imps_sv_eer = np.load(mv_eer_path.replace('mv' + os.sep, 'sv' + os.sep), allow_pickle=True)['results'][()]['imps']
     imps_sv_far1 = np.load(mv_eer_path.replace('mv' + os.sep, 'sv' + os.sep).replace('eer', 'far1'), allow_pickle=True)['results'][()]['imps']
@@ -555,7 +555,7 @@ def imp_rate_scatter(mv_set, target_pop, net, policy):
     plt.show()
 
 
-def cross_asv_table(mv_sets, test_pop, policy, level, gender):
+def cross_asv_table(mv_sets, test_pop, policy, level, gender, results_dir='vs_mv_data'):
     print('test_pop={}, policy={}, level={}, gender={}'.format(test_pop, policy, level, gender))
 
     results = {}
@@ -563,7 +563,7 @@ def cross_asv_table(mv_sets, test_pop, policy, level, gender):
         if '_' + gender[0] not in mv_set:
             continue
 
-        base_path = os.path.join('..','data', 'vs_mv_data', mv_set, 'mv')
+        base_path = os.path.join('..','data', results_dir, mv_set, 'mv')
         source_asv = mv_set.split(os.sep)[0]
 
         # Find paths across asv
@@ -609,8 +609,8 @@ def v2(source_imps, max_pres):
     return ordered_mv_list
 
 
-def multiple_presentation_table(source_pop, target_pop, mv_sets, net, policy, level, gender, max_pres=5):
-    b = os.path.join('..', 'data', 'vs_mv_data')
+def multiple_presentation_table(source_pop, target_pop, mv_sets, net, policy, level, gender, max_pres=5, results_dir='vs_mv_data'):
+    b = os.path.join('..', 'data', results_dir)
 
     results = {}
     for mv_set in mv_sets:
