@@ -3,6 +3,7 @@
 from genericpath import exists
 import itertools
 import os
+import sys
 import glob 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -76,15 +77,35 @@ def main():
 
     # Create all the paths to the mv_set/version folders we want to test
     if settings['mv_set'] is None or len(settings['mv_set']) == 0:
-        mv_sets = [os.path.join('./', 'data', 'vs_mv_data', mv_set, version) for mv_set in os.listdir(os.path.join('.', 'data', 'vs_mv_data')) for version in os.listdir(os.path.join('.', 'data', 'vs_mv_data', mv_set))]
+        logger.error('Sample set not specified!')
+        sys.exit(1)
     else:
-        mv_sets = [dirname for dirname in settings['mv_set'].split(',')]
-        mv_sets = [dirname if os.path.exists(dirname) else os.path.join('./', 'data', 'vs_mv_data') for dirname in mv_sets]
+        cand_sets = [dirname for dirname in settings['mv_set'].split(',')]
+        mv_sets = []
 
-    logger.info(mv_sets)
+        for cset in cand_sets:
+            # Check is the directory exists
+            if not os.path.exists(cset):
+                logger.warning(f'Path does not exist! {cset}!')
+                continue
+            # Check if it directly contains wave samples            
+            filenames = glob.glob(cset + '/*.wav')
+            if len(filenames) > 0:
+                mv_sets.append(cset)
+            else:
+                for subset in glob.glob(os.path.join(cset, '**/[sm]v'), recursive=True):
+                    filenames = glob.glob(os.path.join(subset, '*.wav'))
+                    if len(filenames) > 0:
+                        mv_sets.append(os.path.join(subset))
+        
+    logger.info(f'Found speech sets to test: {len(mv_sets)}')
+    for mv_set in mv_sets:
+        logger.debug(f'  {mv_set}')
+    assert len(mv_sets) > 0, "No valid speech sets found!"
 
     # Create the csv file with the similarity scores for each master voice, i.e., each master voice is compared with all the users enrolled templates
     combs = list(itertools.product(map(str, settings['net'].split(',')), map(str, settings['policy'].split(',')), map(str, settings['level'].split(',')), map(str, settings['playback'].split(','))))
+    
     for net, policy, level, playback in combs:
         # Build and load pre-trained weights of a sv
         sv = verifier.get_model(net)

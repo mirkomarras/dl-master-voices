@@ -23,3 +23,9 @@ for n in steps:
     for s in step_sizes:
         cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}/001.wav --attack {attack} --gender {gender} --gradient {gradient} --n_steps {n} --step_size {s} --batch {batch_size} --play --results_dir "results_play_normed"'
         os.system(cmd)
+
+# Tests
+for model in ('vggvox/v000',):
+    for data in ('data/results_play_normed/vggvox_v000_pgd_wave_f', 'data/results_play_pgd/vggvox_v000_pgd_wave_f'):
+        cmd = f'python3 routines/mv/test.py --net {model} --dataset interspeech --samples {data} --policy avg --level far1'
+        os.system(cmd)
