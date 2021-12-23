@@ -1,7 +1,7 @@
 import os
 import argparse
 
-os.environ["PYTHONPATH"] = '".":"./rtvc"'
+os.environ["PYTHONPATH"] = '.:./rtvc'
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = '3'
 
 # Parse arguments
