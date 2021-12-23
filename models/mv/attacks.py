@@ -310,7 +310,11 @@ class NESVoiceCloning(object):
                 return loss
 
             loss = f(attack_vector)
-            grad = _nes(attack_vector, f, self.n, self.sigma, self.antithetic)
+
+            if settings.nes_n is not None and settings.nes_sigma is not None:
+                grad = _nes(attack_vector, f, settings.nes_n, settings.nes_sigma, True)
+            else:
+                grad = _nes(attack_vector, f, self.n, self.sigma, self.antithetic)
             
             assert grad.numpy().size == 256, 'Gradient shape mismatch'
 

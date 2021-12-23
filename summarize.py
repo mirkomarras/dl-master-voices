@@ -22,44 +22,12 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import numpy as np
 
-from argparse import Namespace
 
+from helpers import results as hr
 
-df = pd.DataFrame(columns=('epsilon', 'steps', 'step_size_override', 'clip_av', 'far1-sv', 'far1-mv', 'nes_n', 'nes_sigma'))
+df = hr.results_df('data/results/results_plain_pgd/vggvox_v000_pgd_wave_f')
 
-if len(sys.argv) == 1:
-    # dirname = 'data/results/vggvox_v000_pgd_wave_f/'
-    dirname = 'data/results/vggvox_v000_nes_wave_f'
-else:
-    dirname = sys.argv[1]
-
-if not os.path.isdir(dirname):
-    print('ERROR: Directory does not exist...')
-
-for subdir in sorted(os.listdir(dirname))[:16]:
-
-    with open(os.path.join(dirname, subdir, 'params.txt')) as f:
-        params = f.read()
-        args = eval(eval(params))
-    
-    with open(os.path.join(dirname, subdir, 'stats.json')) as f:
-        data = json.load(f)
-    
-    df = df.append({
-        'epsilon' : args.epsilon,
-        'steps': args.n_steps,
-        'step_size_override' : args.step_size_override,
-        'nes_n' : args.nes_n,
-        'nes_sigma' : args.nes_sigma,
-        'clip_av' : args.clip_av,
-        'far1-sv': np.mean(data['sv_far1_results']),
-        'far1-mv': np.mean(data['mv_far1_results'])
-        }, ignore_index=True)
-
-# Drop columns with all NaNs
-df = df.dropna(how='all', axis=1)
-
-print(df)
+print(df.to_string())
 
 # %%
 
