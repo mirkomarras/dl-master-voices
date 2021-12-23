@@ -16,7 +16,7 @@ args = parser.parse_args()
 batch_size = 256
 e = 0.01
 ss = 0.01
-steps = (-10)
+steps = (-10,)
 nes_n = (25, 50, 100)
 nes_sigma = (0.01, 0.005, 0.001)
 epsilons = (0.0005, 0.001, 0.005, 0.01, 0.05)
@@ -24,6 +24,13 @@ attack = 'nes@wave'
 gender = args.gender
 se = f'{args.encoder}/v000'
 gradient = args.gradient
+
+# Grid
+# 3 sigma x 10 steps x (10 + 5 + 3 min) = 9h / seed  -> 27h for 3 eps
+
+# Full
+# 670 s / epoch at NES_n=100 = 10 min
+# 1 eps x 100 seeds * 10 steps * 10 min ~= 7 days / eps
 
 # Grid search (PGD) on 10 seed samples only
 if args.target == 'grid' and gradient == 'pgd':
