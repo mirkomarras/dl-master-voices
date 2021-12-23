@@ -112,7 +112,7 @@ def main():
         args.audio_dir = data_config['dir']
         args.audio_meta = data_config['meta']
 
-    display_fields = {'netv', 'attack', 'seed_voice', 'mv_gender', 'n_steps', 'epsilon', 'step_size_override', 'clip_av'}
+    display_fields = {'netv', 'attack', 'seed_voice', 'mv_gender', 'n_steps', 'epsilon', 'step_size_override', 'clip_av', 'nes_n', 'nes_sigma'}
 
     if len(tf.config.get_visible_devices("GPU")) == 0:
         logger.warning(f'[TF {tf.__version__}] No GPU? TF Devices: {tf.config.get_visible_devices()}')
