@@ -36,7 +36,7 @@ if args.target == 'grid' and gradient == 'normed':
     for ss in epsilons:
         for nn in nes_n:
             for ns in nes_sigma:
-                cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}/001.wav --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {ss} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results_cloning_grid"'
+                cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}/001.wav --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {ss} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/cloning_grid"'
                 os.system(cmd)
 
 # Run full attack
@@ -44,12 +44,12 @@ if args.target == 'full' and gradient == 'normed':
     ss = 0.01
     nn = 20
     ns = 0.025
-    cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}/001.wav --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {ss} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results_cloning"'
+    cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}/001.wav --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {ss} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/cloning"'
     os.system(cmd)
 
 # Test
 if args.target == 'test':
-    for data in ('results_cloning', 'results_cloning_grid'):
+    for data in ('results/cloning', 'results/cloning_grid'):
         for se in encoders:
             cmd = f'python3 routines/mv/test.py --net {se} --dataset interspeech --samples {data} --policy avg --level far1'
             os.system(cmd)

@@ -27,20 +27,20 @@ if gradient == 'pgd' and not args.test_only:
     for n in steps:
         for e in epsilons:
             s = e / 10
-            cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}-10/ --attack {attack} --gender {gender} --gradient {gradient} --n_steps {n} --step_size {s} --clip_av {e} --batch {batch_size} --play --results_dir "results_play_pgd"'
+            cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}-10/ --attack {attack} --gender {gender} --gradient {gradient} --n_steps {n} --step_size {s} --clip_av {e} --batch {batch_size} --play --results_dir "results/play_pgd"'
             os.system(cmd)
 
 # L_2 version
 if gradient == 'normed' and not args.test_only:
     for n in steps:
         for s in epsilons:
-            cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}-10/ --attack {attack} --gender {gender} --gradient {gradient} --n_steps {n} --step_size {s} --batch {batch_size} --play --results_dir "results_play_normed"'
+            cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}-10/ --attack {attack} --gender {gender} --gradient {gradient} --n_steps {n} --step_size {s} --batch {batch_size} --play --results_dir "results/play_normed"'
             os.system(cmd)
 
 # Tests
 if args.test_only:
     for model in ('vggvox/v000', 'resnet50/v000', 'xvector/v000'):
-        for data in ('data/results_play_normed', 'data/results_play_pgd/'):
+        for data in ('data/results/play_normed', 'data/results/play_pgd/'):
             cmd = f'python3 routines/mv/test.py --net {model} --dataset interspeech --samples {data} --policy avg --level far1'
             os.system(cmd)
 
