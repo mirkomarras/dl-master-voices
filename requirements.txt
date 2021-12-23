@@ -18,3 +18,4 @@ scikit-image
 soundfile
 h5py==2.10.0
 loguru
+pesq
