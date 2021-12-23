@@ -6,7 +6,8 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = '3'
 
 # Parse arguments
 parser = argparse.ArgumentParser(description='Run all experiments (optimization settings)')
-parser.add_argument('-e', dest='encoder', default='vggvox', type=str, action='store') 
+parser.add_argument('-e', dest='encoder', default='vggvox', type=str, action='store')
+parser.add_argument('-m', dest='domain', default='wave', type=str, action='store', choices=('wave', 'spec')) 
 parser.add_argument('-g', dest='gender', default='female', type=str, action='store', choices=('female', 'male')) 
 parser.add_argument('-d', dest='gradient', default='normed', type=str, action='store', choices=('normed', 'pgd')) 
 parser.add_argument('-t', dest='test_only', default=False, action='store_true') 
@@ -14,9 +15,13 @@ args = parser.parse_args()
 
 # Experiment setup
 batch_size = 256
-epsilons = (0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05)
+if args.domain == 'wave':
+    epsilons = (0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05)
+else:
+    epsilons = (0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5)
+
 steps = (10, 1, -10)
-attack = 'pgd@wave'
+attack = f'pgd@{args.domain}'
 gender = args.gender
 se = f'{args.encoder}/v000'
 gradient = args.gradient
