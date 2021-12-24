@@ -14,13 +14,23 @@ parser.add_argument('-t', dest='test_only', default=False, action='store_true')
 args = parser.parse_args()
 
 # Experiment setup
-batch_size = 256
-if args.domain == 'wave':
-    epsilons = (0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05)
-else:
-    epsilons = (0.0005, 0.001, 0.005, 0.01, 0.05, 0.1, 0.5)
+if args.gradient == 'normed':
 
-steps = (10, 1, -10)
+    if args.domain == 'wave':
+        epsilons = (0.00005, 0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05)
+    else:
+        epsilons = (0.01, 0.05, 0.1, 0.5, 1, 2.5, 5)
+
+elif args.gradient == 'pgd':
+
+    if args.domain == 'wave':
+        epsilons = (0.0001, 0.0005, 0.001, 0.005, 0.01)
+    else:
+        # TODO Don't know whether this range is reasonable - no experiments so far
+        epsilons = (0.01, 0.05, 0.1, 0.5, 1, 2.5)
+
+batch_size = 256
+steps = (-15,)
 attack = f'pgd@{args.domain}'
 gender = args.gender
 se = f'{args.encoder}/v000'
