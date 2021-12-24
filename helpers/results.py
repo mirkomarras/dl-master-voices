@@ -1,4 +1,5 @@
 import os
+import re
 import glob
 import json
 import numpy as np
@@ -51,13 +52,16 @@ def cat_df(column_name, frames):
     return pd.concat(frames.values(), ignore_index=True)
 
 
-def progress(dirname):
+def progress(dirname, pattern=None):
     """Return optimization progress for a series of optimization runs
     """
     results = {}
     labels = {}
     
     for subdir in sorted(os.listdir(dirname)):
+        
+        if pattern is not None and not re.match(pattern, subdir):
+            continue
 
         with open(os.path.join(dirname, subdir, 'params.txt')) as f:
             args = eval(eval(f.read()))
