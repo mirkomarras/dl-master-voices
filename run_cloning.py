@@ -13,17 +13,15 @@ args = parser.parse_args()
 
 # Experiment setup
 batch_size = 16
-n = 10
+n = 5
 
 # NES settings grid:
-nes_n = (20, 40)
-nes_sigma = (0.025, 0.01, 0.005)
+nes_n = (30, 50, 100)
+nes_sigma = (0.025, 0.01)
 
 # NES settings: nn - number of samples; ns - sigma (bandwidth of the search distribution)
-nn = 20
-ns = 0.025
 
-epsilons = (0.005, 0.01, 0.05)
+epsilons = (0.01, 0.05, 0.1)
 
 gradient = 'normed'
 attack = 'nes@cloning'
@@ -36,20 +34,21 @@ if args.target == 'grid' and gradient == 'normed':
     for ss in epsilons:
         for nn in nes_n:
             for ns in nes_sigma:
-                cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}/001.wav --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {ss} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/cloning_grid"'
+                cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset libri --seed ./data/vs_mv_seed/{gender}-5/ --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {ss} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/cloning_grid_local" --memory-growth'
                 os.system(cmd)
 
 # Run full attack
 if args.target == 'full' and gradient == 'normed':
-    ss = 0.01
-    nn = 20
+    ss = 0.05
+    nn = 100
     ns = 0.025
-    cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}/001.wav --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {ss} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/cloning"'
+    cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset libri --seed ./data/vs_mv_seed/{gender}/ --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {ss} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/cloning_local" --memory-growth'
     os.system(cmd)
 
 # Test
 if args.target == 'test':
     for data in ('results/cloning', 'results/cloning_grid'):
         for se in encoders:
-            cmd = f'python3 routines/mv/test.py --net {se} --dataset interspeech --samples {data} --policy avg --level far1'
+            cmd = f'python3 routines/mv/test.py --net {se} --dataset libri --samples {data} --policy avg --level far1'
             os.system(cmd)
+
