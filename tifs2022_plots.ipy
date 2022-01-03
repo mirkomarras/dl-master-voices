@@ -19,12 +19,17 @@ from helpers import plotting
 
 # %%
 
-df = hr.results_df('data/results/results_plain_pgd/vggvox_v000_pgd_wave_f')
+df = hr.results_df('data/results/plain_normed/vggvox_v000_pgd_spec_f', None)
+# df = df[df['steps'] == 10]
+
+print(df.to_string())
 
 # %%
 
-sns.lineplot(x='mse', y='far1-mv', hue='steps', marker='o', data=df)
-plt.gca().set_xscale('log')
+sns.lineplot(x='pesq', y='far1-mv', marker='o', hue='step_size', data=df,
+               palette=sns.color_palette(None, len(df)))
+# plt.gca().set_xscale('log')
+plt.gca().set_title('vggvox, spec, normed, f')
 
 # %%
 
@@ -42,22 +47,51 @@ plt.xlabel(d_metric)
 # %%
 
 df = hr.cat_df('experiment', {
-    'pgd': hr.results_df('data/results/results_play_pgd/vggvox_v000_pgd_wave_f'),
-    'normed': hr.results_df('data/results/results_play_normed/vggvox_v000_pgd_wave_f')
+    'wave-norm': hr.results_df('data/results/plain_normed/vggvox_v000_pgd_wave_f'),
+    'wave-pgd': hr.results_df('data/results/plain_pgd/vggvox_v000_pgd_wave_f'),
+    'spec-norm': hr.results_df('data/results/plain_normed/vggvox_v000_pgd_spec_f')
 })
 
 print(df.to_string())
 
-sns.lineplot(x='mse', y='far1-mv', hue='experiment', marker='o', data=df)
-plt.gca().set_xscale('log')
+sns.lineplot(x='pesq', y='far1-mv', hue='experiment', marker='o', data=df)
+# plt.gca().set_xscale('log')
 
 # %% Show optimization progress
+# 
 
-results, labels = hr.progress('data/results/results_play_normed/vggvox_v000_pgd_wave_f')
+dirname = 'data/results/play_normed/vggvox_v000_pgd_wave_f'
+dirname = 'data/results/cloning_grid/vggvox_v000_nes_cloning_f'
+
+# results, labels = hr.progress('data/results/plain_normed/vggvox_v000_pgd_wave_f', None)
+results, labels = hr.progress(dirname, 'v016')
+# results, labels = hr.progress('data/results/plain_pgd/vggvox_v000_pgd_wave_f', pad=True)
 
 for k, progress in results.items():
-    plt.plot(np.array(progress).mean(axis=0), '.-', label=labels[k]['label'])
+    plt.plot(np.array(progress).mean(axis=0), '.-', label='$\lambda$=' + labels[k]['label'])
+    # plt.plot(np.array(progress).T[..., 0:1], ':', label='$\lambda$=' + labels[k]['label'])
+    # plt.plot(np.percentile(progress, 90, axis=0), ':', label=labels[k]['label'])
+    # plt.plot(np.percentile(progress, 10, axis=0), ':', label=labels[k]['label'])
 
 plt.ylabel('far-1 IR')
 plt.xlabel('Steps')
 plt.legend()
+plt.title('Progress: f{}'.format(dirname.split('/')[-1]))
+
+# %%
+
+df = hr.cat_df('experiment', {
+    'plain': hr.results_df('data/results/plain_normed/vggvox_v000_pgd_wave_f'),
+    'play': hr.results_df('data/results/play_normed/vggvox_v000_pgd_wave_f'),
+})
+
+print(df.to_string())
+
+sns.lineplot(x='pesq', y='far1-mv', hue='experiment', marker='o', data=df)
+
+# %%
+
+df = hr.results_df('data/results/cloning_grid/vggvox_v000_nes_cloning_f', None)
+df = df.sort_values(['nes_n', 'nes_sigma', 'step_size'])
+
+print(df.to_string())
