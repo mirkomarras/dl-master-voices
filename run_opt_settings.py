@@ -55,5 +55,5 @@ if gradient == 'normed' and not args.test_only:
 # Testing
 if args.test_only:
     for data in ('data/results/plain_pgd', 'data/results/plain_normed'):
-        cmd = f'python3 routines/mv/test.py --net {se} --dataset interspeech --samples {data} --policy avg,any --level far1,eer'
+        cmd = f'python3 routines/mv/test.py --net {se} --dataset interspeech --samples {data} --policy avg,any --level eer,far1,far1-avg --playback 0'
         os.system(cmd)

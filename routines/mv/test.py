@@ -97,7 +97,8 @@ def main():
                     filenames = glob.glob(os.path.join(subset, '*.wav'))
                     if len(filenames) > 0:
                         mv_sets.append(os.path.join(subset))
-        
+    
+    mv_sets = sorted(mv_sets)
     logger.info(f'Found speech sets to test: {len(mv_sets)}')
     for mv_set in mv_sets:
         logger.debug(f'  {mv_set}')
@@ -125,6 +126,18 @@ def main():
             iterations = 1
 
         for mv_set in mv_sets:
+
+            population_label = settings['pop'].split('/')[-1][:-4]
+            fname = f'{population_label}-{net}-{policy}-{level}-{playback}.npz'.replace('/', '_')
+            filename_stats = os.path.join(mv_set, fname)
+
+            if(settings['train_analysis']):
+                filename_stats =  os.path.join('./data/', fname)
+
+            if os.path.exists(filename_stats):
+                logger.warning(f'File exists ({filename_stats}) - skipping...')
+                continue
+
             sims, imps, gnds = [], [], []
 
             # Repeat the test n times, each time with different playback environment
@@ -165,9 +178,6 @@ def main():
             logger.debug(f'Gender breakown [m,f]: {np.mean(100 * results["gnds"], 0).round(2)}')
 
             # Save results
-            filename_stats = os.path.join(mv_set, settings['pop'].split('/')[-1][:-4] + '-' + net.replace('/', '_') + '-' + str(policy) + '-' + str(level) + '-' + str(playback)+ '.npz')
-            if(settings['train_analysis']):
-                filename_stats =  os.path.join('./data/', settings['pop'].split('/')[-1][:-4] + '-' + net.replace('/', '_') + '-' + str(policy) + '-' + str(level) + '-' + str(playback)+ '.npz')
             logger.info('saving stats to {}'.format(filename_stats))
             np.savez(filename_stats, results=results, protocol=4)
 
