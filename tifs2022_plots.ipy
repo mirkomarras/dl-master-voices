@@ -17,6 +17,22 @@ import seaborn as sns
 from helpers import results as hr
 from helpers import plotting
 
+#%% Compare training-time vs post-training validation
+
+# Optim
+test_gallery = Dataset('data/vs_mv_pairs/mv_test_population_interspeech_1000u_10s.csv')
+test_gallery.precomputed_embeddings(sv)
+
+
+
+# MV Test
+test_gallery = Dataset('data/vs_mv_pairs/mv_test_population_interspeech_1000u_10s.csv')
+test_gallery.precomputed_embeddings(sv)
+
+#embeddings = [0.0, 0.0, 0.0, 0.039325573, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, ...] max 0.46728554
+
+sims_temp, imps_temp, gnds_temp = sv.test_error_rates(embeddings, test_gallery, policy='avg', level='far1', playback=0)
+
 # %%
 
 df = hr.results_df('data/results/plain_normed/vggvox_v000_pgd_spec_f', None)
@@ -57,27 +73,46 @@ print(df.to_string())
 sns.lineplot(x='pesq', y='far1-mv', hue='experiment', marker='o', data=df)
 # plt.gca().set_xscale('log')
 
+# %% Scatter plots
+
+scenario = 'avg-10 far-1'
+
+x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_spec_f/v004/', 'vggvox_v000-avg-far1', gender_index=1)
+plt.plot(x, y, 'o', alpha=0.5, label=f'black-box (NES) : PESQ={pesq:.1f}')
+
+# x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_wave_f/v005/', 'training')
+# plt.plot(x, y, 'o', alpha=0.5, label=f'white-box : PESQ={pesq:.1f}')
+# x, y = hr.scatter('data/results/nes_normed/vggvox_v000_nes_wave_f/v000/', 'vggvox_v000')
+
+plt.title('IR improvement for white-box vs black-box optimization')
+plt.plot([0, 1], [0, 1], 'k:')
+plt.xlabel(f'seed IR ({scenario})')
+plt.ylabel(f'master voice IR ({scenario})')
+plt.legend()
+
 # %% Show optimization progress
 # 
 
-dirname = 'data/results/play_normed/vggvox_v000_pgd_wave_f'
+dirname = 'data/results/plain_normed/vggvox_v000_pgd_spec_f'
 dirname = 'data/results/cloning/vggvox_v000_nes_cloning_f'
+dirname = 'data/results/plain_normed/vggvox_v000_pgd_wave_m'
 # dirname = 'data/results/cloning_grid/vggvox_v000_nes_cloning_f'
 # dirname = 'data/results/transfer/thin_resnet_v000_pgd_wave_f'
+# dirname = 'data/results/nes_normed/vggvox_v000_nes_wave_f'
 
 # results, labels = hr.progress('data/results/plain_normed/vggvox_v000_pgd_wave_f', None)
-results, labels = hr.progress(dirname, None, gender='f')
+results, labels = hr.progress(dirname, None, gender='m')
 # results, labels = hr.progress('data/results/plain_pgd/vggvox_v000_pgd_wave_f', pad=True)
 
 for k, progress in results.items():
     plt.plot(np.array(progress).mean(axis=0), '.-', label='$\lambda$=' + labels[k]['label'])
     # plt.plot(np.array(progress).T, '-', label='$\lambda$=' + labels[k]['label'])
-    plt.plot(np.percentile(progress, 90, axis=0), ':', label=labels[k]['label'])
-    plt.plot(np.percentile(progress, 10, axis=0), ':', label=labels[k]['label'])
+    # plt.plot(np.percentile(progress, 90, axis=0), ':', label=labels[k]['label'])
+    # plt.plot(np.percentile(progress, 10, axis=0), ':', label=labels[k]['label'])
 
 plt.ylabel('far-1 IR')
 plt.xlabel('Steps')
-plt.legend()
+# plt.legend()
 plt.title('Progress: f{}'.format(dirname.split('/')[-1]))
 
 # %%
@@ -101,5 +136,220 @@ print(df.to_string())
 # %% Transferability
 
 df = hr.transferability('data/results/cloning', (0,), 1, play=0)
+print(df.round(2).to_string())
+
+# %%
+
+x, y, pesq = hr.scatter('data/results/cloning/vggvox_v000_nes_cloning_f/v000/', 'vggvox_v000', gender_index=1)
+plt.plot(x, y, 'o', alpha=0.5, label=f'black-box (NES) : PESQ={pesq:.1f}')
+plt.plot([0, 1], [0, 1], 'k:')
+plt.xlabel(f'seed IR ({scenario})')
+plt.ylabel(f'master voice IR ({scenario})')
+plt.legend()
+
+# %% Section A : Optimization domain and settings
+
+plt.figure(figsize=(20,3), dpi=150)
+
+dirname = 'data/results/plain_normed/vggvox_v000_pgd_wave_f'
+results, labels = hr.progress(dirname, 'v00[1-9]', gender='f')
+
+plt.subplot(1,4,2)
+for k, progress in results.items():
+    plt.plot(np.array(progress).mean(axis=0), '.-', label='$\lambda$=' + labels[k]['label'])
+
+# plt.ylabel('master voice IR (any-10, far-1)')
+plt.xlabel('Epochs')
+plt.legend(loc='lower right')
+plt.ylim([0, 0.75])
+plt.gca().set_yticklabels([])
+plt.title('Attack progress: {}'.format('waveform'))
+
+# --
+
+dirname = 'data/results/plain_pgd/vggvox_v000_pgd_wave_f'
+results, labels = hr.progress(dirname, 'v00[1-9]', gender='f')
+
+plt.subplot(1,4,3)
+for k, progress in results.items():
+    plt.plot(np.array(progress).mean(axis=0), '.-', label='$\lambda$=' + labels[k]['label'])
+
+# plt.ylabel('master voice IR (any-10, far-1)')
+plt.xlabel('Epochs')
+plt.legend(loc='lower right')
+plt.ylim([0, 0.75])
+plt.gca().set_yticklabels([])
+plt.title('Attack progress: waveform (BIM)')
+
+# --
+
+dirname = 'data/results/plain_normed/vggvox_v000_pgd_spec_f'
+results, labels = hr.progress(dirname, None, gender='f')
+
+plt.subplot(1,4,1)
+for k, progress in results.items():
+    plt.plot(np.array(progress).mean(axis=0), '.-', label='$\lambda$=' + labels[k]['label'])
+
+plt.ylabel('master voice IR (any-10, far-1)')
+plt.xlabel('Epochs')
+plt.legend(loc='lower right')
+plt.ylim([0, 0.75])
+plt.title('Attack progress: {}'.format('spectrogram'))
+
+# --
+
+plt.subplot(1,4,4)
+df = hr.cat_df('experiment', {
+    'spectrogram (L2 norm)': hr.results_df('data/results/plain_normed/vggvox_v000_pgd_spec_f'),
+    'waveform (L2 norm)': hr.results_df('data/results/plain_normed/vggvox_v000_pgd_wave_f', 'v00[1-9]'),
+    'waveform (BIM)': hr.results_df('data/results/plain_pgd/vggvox_v000_pgd_wave_f')
+})
+
 print(df.to_string())
 
+sns.lineplot(x='pesq', y='far1-mv', hue='experiment', marker='o', data=df)
+plt.xlabel('PESQ')
+plt.ylim([0, 0.75])
+plt.ylabel(None)
+plt.gca().set_yticklabels([])
+plt.title('Distortion vs. impersonation rate trade-off')
+
+# %% A : Table
+
+df = pd.DataFrame(columns=['sv', 'm/sv', 'm/mv', 'f/sv', 'f/mv'])
+
+x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_wave_f/v005/', 'vggvox_v000-avg-far1', gender_index=1)
+row = {'sv': 'avg-far1'}
+row['f/sv'] = np.mean(100 * x)
+row['f/mv'] = np.mean(100 * y)
+x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_wave_m/v005/', 'vggvox_v000-avg-far1', gender_index=0)
+row['m/sv'] = np.mean(100 * x)
+row['m/mv'] = np.mean(100 * y)
+df = df.append(row, ignore_index=True)
+
+x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_wave_f/v005/', 'vggvox_v000-avg-eer', gender_index=1)
+row = {'sv': 'avg-eer'}
+row['f/sv'] = np.mean(100 * x)
+row['f/mv'] = np.mean(100 * y)
+x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_wave_m/v005/', 'vggvox_v000-avg-eer', gender_index=0)
+row['m/sv'] = np.mean(100 * x)
+row['m/mv'] = np.mean(100 * y)
+df = df.append(row, ignore_index=True)
+
+# df.columns = pd.MultiIndex.from_tuples([c.split('/') for c in df.columns])
+
+print(df.round(1))
+
+# %% A : Spectrograms
+
+def plot_spec(w1, w2, axes, titles=True):
+
+    s1 = audio.get_np_spectrum(w1, normalized=False)
+    s2 = audio.get_np_spectrum(w2, normalized=False)
+    
+    pesq_score = pesq.pesq(16000, w1, w2, 'wb')
+
+    if s1.shape[1] > s2.shape[1]:
+        s1 = s1[..., :s2.shape[1]]
+
+    if s2.shape[1] > s1.shape[1]:
+        s2 = s2[..., :s1.shape[1]]
+
+    s1 = s1 / np.max(s1)
+    s2 = s2 / np.max(s2)
+
+    axes[0].imshow(np.log(0.01 + s1))
+    axes[0].set_xticks([])
+    axes[0].set_yticks([])
+    if titles:
+        axes[0].set_title('seed voice spectrum')
+    
+    axes[1].imshow(np.log(0.01 + s2))
+    axes[1].set_xticks([])
+    axes[1].set_yticks([])
+    if titles:
+        axes[1].set_title(f'master voice (PESQ={pesq_score:.1f})')
+    
+    V = np.percentile(np.abs(s1 - s2), 99)
+    axes[2].imshow(s2 - s1, vmin=-V, vmax=V, cmap='bwr')
+    axes[2].set_xticks([])
+    axes[2].set_yticks([])
+    if titles:
+        axes[2].set_title('difference')
+
+
+# s1 = audio.get_np_spectrum(w1, normalized=False)[..., :256]
+
+# TEMP Invert 
+# s1 = audio.get_np_spectrum(w1, normalized=False, full=True)[..., :256].T
+# s1 = audio.spectrum_to_signal(s1, int(2.57 * 16000))
+# s1 = audio.get_np_spectrum(s1, normalized=False)
+
+# s1 = np.load(f'data/results/plain_normed/vggvox_v000_pgd_spec_f/v{vid:03d}/sv/{sid:03d}.npy')
+# s2 = np.load(f'data/results/plain_normed/vggvox_v000_pgd_spec_f/v{vid:03d}/mv/{sid:03d}.npy')
+
+fig, axes = plt.subplots(4,3)
+fig.set_size_inches((9,12))
+fig.set_dpi(150)
+
+# --
+vid, sid = 5, 5
+axes[0][0].set_ylabel(f'waveform opt. ({sid:03d}.wav)')
+w1 = audio.decode_audio(f'data/results/plain_normed/vggvox_v000_pgd_wave_f/v{vid:03d}/sv/{sid:03d}.wav', target_length=None)
+w2 = audio.decode_audio(f'data/results/plain_normed/vggvox_v000_pgd_wave_f/v{vid:03d}/mv/{sid:03d}.wav', target_length=None)
+plot_spec(w1, w2, axes[0], True)
+
+# --
+vid, sid = 5, 2
+axes[1][0].set_ylabel(f'waveform opt. ({sid:03d}.wav)')
+w1 = audio.decode_audio(f'data/results/plain_normed/vggvox_v000_pgd_wave_f/v{vid:03d}/sv/{sid:03d}.wav', target_length=None)
+w2 = audio.decode_audio(f'data/results/plain_normed/vggvox_v000_pgd_wave_f/v{vid:03d}/mv/{sid:03d}.wav', target_length=None)
+plot_spec(w1, w2, axes[1], True)
+
+# --
+vid, sid = 3, 5
+axes[2][0].set_ylabel(f'spectrum opt. ({sid:03d}.wav)')
+w1 = audio.decode_audio(f'data/results/plain_normed/vggvox_v000_pgd_spec_f/v{vid:03d}/sv/{sid:03d}.wav', target_length=None)
+w2 = audio.decode_audio(f'data/results/plain_normed/vggvox_v000_pgd_spec_f/v{vid:03d}/mv/{sid:03d}.wav', target_length=None)
+plot_spec(w1, w2, axes[2], True)
+
+# --
+vid, sid = 3, 2
+axes[3][0].set_ylabel(f'spectrum opt. ({sid:03d}.wav)')
+w1 = audio.decode_audio(f'data/results/plain_normed/vggvox_v000_pgd_spec_f/v{vid:03d}/sv/{sid:03d}.wav', target_length=None)
+w2 = audio.decode_audio(f'data/results/plain_normed/vggvox_v000_pgd_spec_f/v{vid:03d}/mv/{sid:03d}.wav', target_length=None)
+plot_spec(w1, w2, axes[3], True)
+
+# %% ...
+
+scenario = 'avg-10 far-1'
+
+x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_spec_f/v001/', 'training')
+plt.plot(x, y, 'o', alpha=0.5, label=f'black-box (NES) : PESQ={pesq:.1f}')
+
+x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_wave_f/v005/', 'training')
+plt.plot(x, y, 'o', alpha=0.5, label=f'white-box : PESQ={pesq:.1f}')
+# x, y = hr.scatter('data/results/nes_normed/vggvox_v000_nes_wave_f/v000/', 'vggvox_v000')
+
+plt.title('IR improvement for white-box vs black-box optimization')
+plt.plot([0, 1], [0, 1], 'k:')
+plt.xlabel(f'seed IR ({scenario})')
+plt.ylabel(f'master voice IR ({scenario})')
+plt.legend()
+
+# %% Section C : Black-box vs. white-box optimization
+
+scenario = 'avg-10 far-1'
+
+x, y, pesq = hr.scatter('data/results/nes_normed/vggvox_v000_nes_wave_f/v000/', 'vggvox_v000')
+plt.plot(x, y, 'o', alpha=0.5, label=f'black-box (NES) : PESQ={pesq:.1f}')
+
+x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_wave_f/v005/', 'training')
+plt.plot(x, y, 'o', alpha=0.5, label=f'white-box : PESQ={pesq:.1f}')
+# x, y = hr.scatter('data/results/nes_normed/vggvox_v000_nes_wave_f/v000/', 'vggvox_v000')
+
+plt.title('IR improvement for white-box vs black-box optimization')
+plt.plot([0, 1], [0, 1], 'k:')
+plt.xlabel(f'seed IR ({scenario})')
+plt.ylabel(f'master voice IR ({scenario})')
+plt.legend()
