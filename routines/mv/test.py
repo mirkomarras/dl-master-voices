@@ -161,7 +161,7 @@ def main():
             imp_rates = results['imps'].sum(axis=1) / len(np.unique(test_gallery.user_ids))
 
             logger.info(f'SV using thresholds {sv._thresholds}')
-            logger.warning(f'Impersonation rates [avg,far1]: {100 * np.mean(imp_rates):.1f}%')
+            logger.warning(f'Impersonation rates [{policy}-{level}]: {100 * np.mean(imp_rates):.1f}%')
             logger.debug(f'Gender breakown [m,f]: {np.mean(100 * results["gnds"], 0).round(2)}')
 
             # Save results
