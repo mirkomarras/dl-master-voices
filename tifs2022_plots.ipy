@@ -49,14 +49,13 @@ plt.gca().set_title('vggvox, spec, normed, f')
 
 # %%
 
-df_p = hr.results_df('data/results/results_play_pgd/vggvox_v000_pgd_wave_f')
-df_n = hr.results_df('data/results/results_play_normed/vggvox_v000_pgd_wave_f')
+df_p = hr.results_df('data/results/plain_normed/vggvox_v000_pgd_wave_f')
+df_n = hr.results_df('data/results/play_normed/vggvox_v000_pgd_wave_f')
 
-d_metric = 'mse'
+d_metric = 'pesq'
 
 plt.plot(df_p[d_metric].values, df_p['far1-mv'].values, 'o-', label='pgd')
 plt.plot(df_n[d_metric].values, df_n['far1-mv'].values, 'o-', label='normed')
-plt.gca().set_xscale('log')
 plt.legend()
 plt.xlabel(d_metric)
 
@@ -77,7 +76,7 @@ sns.lineplot(x='pesq', y='far1-mv', hue='experiment', marker='o', data=df)
 
 scenario = 'avg-10 far-1'
 
-x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_spec_f/v004/', 'vggvox_v000-avg-far1', gender_index=1)
+x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_wave_f/v005/', 'vggvox_v000-avg-far1-avg', gender_index=1)
 plt.plot(x, y, 'o', alpha=0.5, label=f'black-box (NES) : PESQ={pesq:.1f}')
 
 # x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_wave_f/v005/', 'training')
@@ -147,6 +146,19 @@ plt.xlabel(f'seed IR ({scenario})')
 plt.ylabel(f'master voice IR ({scenario})')
 plt.legend()
 
+# %%
+
+from matplotlib import rc
+
+# enable latex
+rc('font', **{'family': 'serif', 'serif': ['Computer Modern']})
+rc('text', usetex=True)
+rc('text.latex', preamble=r'\usepackage{amsmath}\usepackage{amssymb}')
+
+# disable latex
+rc('font', **{'family': 'serif'})
+rc('text', usetex=False)
+
 # %% Section A : Optimization domain and settings
 
 plt.figure(figsize=(20,3), dpi=150)
@@ -199,20 +211,45 @@ plt.title('Attack progress: {}'.format('spectrogram'))
 # --
 
 plt.subplot(1,4,4)
-df = hr.cat_df('experiment', {
-    'spectrogram (L2 norm)': hr.results_df('data/results/plain_normed/vggvox_v000_pgd_spec_f'),
-    'waveform (L2 norm)': hr.results_df('data/results/plain_normed/vggvox_v000_pgd_wave_f', 'v00[1-9]'),
-    'waveform (BIM)': hr.results_df('data/results/plain_pgd/vggvox_v000_pgd_wave_f')
-})
 
-print(df.to_string())
+# Version 1 ----
+# df = hr.cat_df('experiment', {
+#     'spectrogram (L2 norm)': hr.results_df('data/results/plain_normed/vggvox_v000_pgd_spec_f'),
+#     'waveform (L2 norm)': hr.results_df('data/results/plain_normed/vggvox_v000_pgd_wave_f', 'v00[1-9]'),
+#     'waveform (BIM)': hr.results_df('data/results/plain_pgd/vggvox_v000_pgd_wave_f')
+# })
 
-sns.lineplot(x='pesq', y='far1-mv', hue='experiment', marker='o', data=df)
+# print(df.to_string())
+
+# sns.lineplot(x='pesq', y='far1-mv', hue='experiment', marker='o', data=df)
+
+# Version 2 ---
+
+exp_labels = ('waveform ($L_2$)', 'waveform ($L_\infty$)', 'spectrum ($L_2$, after inversion)', 'spectrum ($L_2$, no inversion)')
+measurements = ['vggvox_v000-any-far1'] * 3 + ['training']
+
+for i, experiment in enumerate(('plain_normed/vggvox_v000_pgd_wave_f', 'plain_pgd/vggvox_v000_pgd_wave_f', 'plain_normed/vggvox_v000_pgd_spec_f', 'plain_normed/vggvox_v000_pgd_spec_f')):
+
+    X, Y, P = [], [], []
+    for v in range(9):
+        try:
+            x, y, p = hr.scatter(f'data/results/{experiment}/v{v:03d}/', measurements[i], gender_index=1)
+            X.append(np.mean(x))
+            Y.append(np.mean(y))
+            P.append(np.mean(p))
+        except:
+            pass
+
+    plt.plot(P, Y, '.-', label=exp_labels[i])
+
 plt.xlabel('PESQ')
 plt.ylim([0, 0.75])
 plt.ylabel(None)
 plt.gca().set_yticklabels([])
 plt.title('Distortion vs. impersonation rate trade-off')
+plt.legend(loc='lower right')
+
+plt.savefig('data/results/a_progress.pdf', bbox_inches='tight')
 
 # %% A : Table
 
@@ -239,6 +276,42 @@ df = df.append(row, ignore_index=True)
 # df.columns = pd.MultiIndex.from_tuples([c.split('/') for c in df.columns])
 
 print(df.round(1))
+
+# %%
+
+# from collections import OrderedDict
+
+df = pd.DataFrame(columns=['sv'])
+
+versions_wave = range(1, 6)
+
+for measurement in (
+        'training', 
+        'vggvox_v000-any-far1', 
+        'vggvox_v000-avg-far1', 
+        'vggvox_v000-avg-far1-avg', 
+        'vggvox_v000-any-eer', 
+        'vggvox_v000-avg-eer'
+        ):
+    
+    row = {}
+    row['sv'] = '-'.join(measurement.split('-')[1:]) if '-' in measurement else measurement
+
+    for v in versions_wave:
+
+        # females
+        x, y, pesq_score = hr.scatter(f'data/results/plain_normed/vggvox_v000_pgd_spec_f/v{v:03d}/', measurement, gender_index=1)
+        row[f'f/_sv'] = 100 * np.mean(x)
+        row[f'f/mv({v})'] = 100 * np.mean(y)
+        
+        # males
+        x, y, pesq_score = hr.scatter(f'data/results/plain_normed/vggvox_v000_pgd_spec_f/v{v:03d}/', measurement, gender_index=0)
+        row[f'm/_sv'] = 100 * np.mean(x)
+        row[f'm/mv({v})'] = 100 * np.mean(y)
+    
+    df = df.append(row, ignore_index=True)
+
+print(df.round(1).to_string())
 
 # %% A : Spectrograms
 
@@ -320,6 +393,32 @@ w1 = audio.decode_audio(f'data/results/plain_normed/vggvox_v000_pgd_spec_f/v{vid
 w2 = audio.decode_audio(f'data/results/plain_normed/vggvox_v000_pgd_spec_f/v{vid:03d}/mv/{sid:03d}.wav', target_length=None)
 plot_spec(w1, w2, axes[3], True)
 
+plt.savefig('data/results/a_spectrograms.pdf', bbox_inches='tight')
+
+# %% B : Playback Simulation
+
+scenario = 'avg-10 far-1'
+
+x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_wave_f/v005/', 'vggvox_v000-avg-far1')
+plt.plot(x, y, 'o', alpha=0.5, label=f'no playback (PESQ={pesq:.1f})')
+
+x, y, pesq = hr.scatter('data/results/plain_normed/vggvox_v000_pgd_wave_f/v005/', 'vggvox_v000-avg-far1', play=True)
+plt.plot(x, y, 'o', alpha=0.5, label=f'tested with playback (PESQ={pesq:.1f})')
+
+x, y, pesq = hr.scatter('data/results/play_normed/vggvox_v000_pgd_wave_f/v004/', 'vggvox_v000-avg-far1')
+plt.plot(x, y, 'o', alpha=0.5, label=f'optimized and tested with playback (PESQ={pesq:.1f})')
+# x, y = hr.scatter('data/results/nes_normed/vggvox_v000_nes_wave_f/v000/', 'vggvox_v000')
+
+plt.title('impact of playback simulation (during test and optimization)')
+plt.plot([0, 1], [0, 1], 'k:')
+plt.xlabel(f'seed IR ({scenario})')
+plt.ylabel(f'master voice IR ({scenario})')
+plt.legend()
+
+plt.savefig('data/results/a_playback.pdf', bbox_inches='tight', dpi=150)
+
+# %%
+
 # %% ...
 
 scenario = 'avg-10 far-1'
@@ -336,6 +435,7 @@ plt.plot([0, 1], [0, 1], 'k:')
 plt.xlabel(f'seed IR ({scenario})')
 plt.ylabel(f'master voice IR ({scenario})')
 plt.legend()
+
 
 # %% Section C : Black-box vs. white-box optimization
 
