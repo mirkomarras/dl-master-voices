@@ -135,7 +135,11 @@ def scatter(dirname, measurement='training', play=False, gender_index=1):
 
     else:
         pattern = os.path.join(dirname, 'mv', f'*-{measurement}-{play:1d}.npz')
-        filename = glob.glob(pattern)[0]
+        filename = glob.glob(pattern)
+        if len(filename) == 0:
+            raise IOError(f'File not found: {pattern}')
+        else:
+            filename = filename[0]
         pdata = {x: y for x, y in np.load(filename, allow_pickle=True).items()}
         ir_mv = pdata['results'].item()['gnds'][:, gender_index]
         # pdata['results'].item()['imps'].mean(1)
