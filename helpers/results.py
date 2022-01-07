@@ -159,7 +159,7 @@ def transferability(dirname, versions=(0,3), gender_index=1, play=False):
     # data/results/transfer/vggvox_v000_pgd_wave_f/v000/mv/
     # mv_test_population_interspeech_1000u_10s-resnet34_v000-avg-far1-0.npz
     FN_PREFIX = 'mv_test_population_interspeech_1000u_10s'
-    FN_PREFIX = 'mv_test_population_libri_100u_10s'
+    # FN_PREFIX = 'mv_test_population_libri_100u_10s'
     arch = ('resnet50', 'thin_resnet', 'vggvox', 'xvector')
     arch_short = ('R50', 'TR', 'V', 'X')
     encoders = [f'{se}_v000' for se in arch]
@@ -177,6 +177,9 @@ def transferability(dirname, versions=(0,3), gender_index=1, play=False):
 
             prefix = os.path.join(dirname, target_dir, f'v{version:03d}')
 
+            if not os.path.exists(os.path.join(prefix, 'params.txt')):
+                continue
+            
             with open(os.path.join(prefix, 'params.txt')) as f:
                 params = f.read()
                 args = eval(eval(params))
@@ -184,18 +187,24 @@ def transferability(dirname, versions=(0,3), gender_index=1, play=False):
             for i, enc in enumerate(encoders):
 
                 # seed voices
-                filename = os.path.join(prefix, 'sv', f'{FN_PREFIX}-{enc}-avg-far1-{play:1d}.npz')
-                pdata = {x: y for x, y in np.load(filename, allow_pickle=True).items()}
-                ir_per_gender = pdata['results'].item()['gnds'].mean(0)
+                try:
+                    filename = os.path.join(prefix, 'sv', f'{FN_PREFIX}-{enc}-avg-far1-{play:1d}.npz')
+                    pdata = {x: y for x, y in np.load(filename, allow_pickle=True).items()}
+                    ir_per_gender = pdata['results'].item()['gnds'].mean(0)
 
-                new_row[f'sv/{arch_short[i]}'] = 100 * ir_per_gender[gender_index] 
+                    new_row[f'sv/{arch_short[i]}'] = 100 * ir_per_gender[gender_index] 
+                except:
+                    new_row[f'sv/{arch_short[i]}'] = np.nan
 
                 # master voices
-                filename = os.path.join(prefix, 'mv', f'{FN_PREFIX}-{enc}-avg-far1-{play:1d}.npz')
-                pdata = {x: y for x, y in np.load(filename, allow_pickle=True).items()}
-                ir_per_gender = pdata['results'].item()['gnds'].mean(0)
+                try:
+                    filename = os.path.join(prefix, 'mv', f'{FN_PREFIX}-{enc}-avg-far1-{play:1d}.npz')
+                    pdata = {x: y for x, y in np.load(filename, allow_pickle=True).items()}
+                    ir_per_gender = pdata['results'].item()['gnds'].mean(0)
 
-                new_row[f'mv({args.step_size_override})/{arch_short[i]}'] = 100 * ir_per_gender[gender_index] 
+                    new_row[f'mv({args.step_size_override})/{arch_short[i]}'] = 100 * ir_per_gender[gender_index] 
+                except:
+                    new_row[f'mv({args.step_size_override})/{arch_short[i]}'] = np.nan
                 
         df = df.append(new_row, ignore_index=True)
         # df.loc[target_dir.split('_')[0]] = new_row
