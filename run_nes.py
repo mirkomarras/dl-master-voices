@@ -14,16 +14,20 @@ args = parser.parse_args()
 
 # Experiment setup
 batch_size = 256
-e = 0.01
+e = args.step
 ss = 0.01
 steps = (-10,)
 nes_n = (25, 50, 100)
 nes_sigma = (0.01, 0.005, 0.001)
-epsilons = (0.001, 0.005, 0.01, 0.05, 0.1)
+epsilons = (e, )
 attack = 'nes@wave'
 gender = args.gender
 se = f'{args.encoder}/v000'
 gradient = args.gradient
+extra_params = ''
+
+play_flags = '--play' if args.playback else ''
+play_suffix = '_play' if args.playback else ''
 
 # Grid
 # 3 sigma x 10 steps x (10 + 5 + 3 min) = 9h / seed  -> 27h for 3 eps
@@ -37,7 +41,7 @@ if args.target == 'grid' and gradient == 'pgd':
     for n in steps:
         for nn in nes_n:
             for ns in nes_sigma:
-                cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}-10/ --attack {attack} --gender {gender} --gradient pgd --n_steps {n} --step_size {e/10} --clip_av {e} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/nes_grid_pgd"'
+                cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}-10/ --attack {attack} --gender {gender} --gradient pgd --n_steps {n} --step_size {e/10} --clip_av {e} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/nes_grid_pgd{play_suffix}" {play_flags}'
                 os.system(cmd)
 
 # Grid search (normed) on 10 seed samples only
@@ -45,7 +49,7 @@ if args.target == 'grid' and gradient == 'normed':
     for n in steps:
         for nn in nes_n:
             for ns in nes_sigma:
-                cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}-10/ --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {ss} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/nes_grid_normed"'
+                cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}-10/ --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {ss} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/nes_grid_normed{play_suffix}" {play_flags}'
                 os.system(cmd)
 
 # Best NES setting (supposed)
@@ -55,16 +59,16 @@ nn = 100
 ns = 0.001
 if args.target == 'full' and gradient == 'pgd':
     for e in epsilons:
-        cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}/ --attack {attack} --gender {gender} --gradient pgd --n_steps {n} --step_size {e/10} --clip_av {e} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/nes_pgd"'
+        cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}/ --attack {attack} --gender {gender} --gradient pgd --n_steps {n} --step_size {e/10} --clip_av {e} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/nes_pgd{play_suffix}" {extra_params} {play_flags}'
         os.system(cmd)
 
 if args.target == 'full' and gradient == 'normed':
     for e in epsilons:
-        cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}/ --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {e} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/nes_normed"'
+        cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}/ --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {e} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/nes_normed{play_suffix}" {extra_params} {play_flags}'
         os.system(cmd)
 
 # Test
 if args.target == 'test':
-    for data in ('data/results/nes_grid_pgd', 'data/results/nes_grid_normed', 'data/results/nes_pgd', 'data/results/nes_normed'):
+    for data in ('data/results/nes_grid_pgd', 'data/results/nes_grid_normed', 'data/results/nes_pgd', 'data/results/nes_normed', 'data/results/nes_grid_pgd_play', 'data/results/nes_grid_normed_play', 'data/results/nes_pgd_play', 'data/results/nes_normed_play'):
         cmd = f'python3 routines/mv/test.py --net {se} --dataset interspeech --samples {data} --policy avg --level far1'
         os.system(cmd)
