@@ -150,7 +150,7 @@ class Model(object):
     def noise_cache(self):
         return self._noise_cache
 
-    def setup_playback(self, dirname, impulse_flags):
+    def setup_playback(self, dirname='data/vs_noise_data', impulse_flags=(1,1,1)):
         self.impulse_flags = impulse_flags
         if dirname is None:
             self._noise_paths = None

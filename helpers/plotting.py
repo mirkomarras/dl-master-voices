@@ -382,6 +382,29 @@ def rsquared(a, b):
     return r2_score(a, b)
 
 
+
+def scatter(x, y, style, label, alpha=0.5, marginals='xy', axes=None, xlim=None, ylim=None):
+    axes.plot(x, y, style, alpha=alpha, label=label)
+    xx = axes.get_xlim() if xlim is None else [0, 1]
+    yy = axes.get_ylim() if ylim is None else [0, 1]
+    m_bins = 15
+
+    if 'x' in marginals:
+        x_hist, x_bins = np.histogram(x.reshape((-1, )), bins=m_bins)
+        x_bins = np.convolve(x_bins, [0.5, 0.5], mode='valid')
+        x_hist = x_hist / x_hist.max()
+        axes.bar(x_bins, bottom=yy[1], height=0.1 * np.abs(yy[1] - yy[0]) * x_hist, zorder=-1, clip_on=False, alpha=0.5, width=x_bins[1] - x_bins[0])
+
+    if 'y' in marginals:
+        y_hist, y_bins = np.histogram(y.reshape((-1, )), bins=m_bins)
+        y_bins = np.convolve(y_bins, [0.5, 0.5], mode='valid')
+        y_hist = y_hist / y_hist.max()
+        axes.barh(y_bins, left=xx[1], width=0.1 * np.abs(xx[1] - xx[0]) * y_hist, zorder=-1, clip_on=False, alpha=0.5, height=y_bins[1] - y_bins[0])
+
+    axes.set_ylim(yy)
+    axes.set_xlim(xx)
+
+
 def correlation(x, y, xlabel=None, ylabel=None, title=None, axes=None, alpha=0.1, guide=False, color=None, kde=False, marginals=False):
 
     title = '{} : '.format(title) if title is not None else ''
@@ -748,3 +771,51 @@ def hist(samples, bins=20, labels='', xlabel=None, guides=0, axes=None, alpha=0.
 
     if 'fig' in locals():
         return fig
+
+def intervals_bulk(x, y, p=10):
+    # fig, axes = plt.subplots(nrows=1, ncols=len(y), sharex=True)
+    fig, axes = sub(len(y), ncols=-1)
+    fig.set_size_inches((6 * len(y), 3))
+    
+    xl = sorted(x.keys())[0]
+    xv = x[xl]
+    
+    for i, (k, v) in enumerate(y.items()):
+        axes[i].plot(xv, np.percentile(v, 50, axis=0))
+        axes[i].fill_between(xv, np.percentile(v, p, axis=0), np.percentile(v, 100-p, axis=0), alpha=0.2, edgecolor='#1B2ACC', facecolor='#089FFF',)
+        axes[i].set_ylabel(k)
+        axes[i].set_xlabel(xl)
+
+    return fig
+
+
+def intervals(x, y, p=10, xlabel=None, ylabel=None, style='.-', axes=None, label=None):
+
+    if axes is None:
+        fig = get_figure()
+        axes = fig.gca()
+
+    h = axes.plot(x, np.percentile(y, 50, axis=0), style, label=label)
+    color = h[0].get_color()
+    axes.fill_between(x, np.percentile(y, p, axis=0), np.percentile(y, 100-p, axis=0), alpha=0.2,
+                      edgecolor=color, facecolor=color)
+                      
+    if ylabel is not None: axes.set_ylabel(ylabel)
+    if xlabel is not None: axes.set_xlabel(xlabel)
+
+    if 'fig' in locals():
+        return fig
+
+
+def intervals_from_CI(x, intervals, xlabel=None, ylabel=None, style='.-', axes=None, label=None):
+
+    if axes is None:
+        fig = get_figure()
+        axes = fig.gca()
+
+    axes.fill_between(x, [y[0] for y in intervals], [y[1] for y in intervals], alpha=0.2)
+                      
+    if ylabel is not None: axes.set_ylabel(ylabel)
+    if xlabel is not None: axes.set_xlabel(xlabel)
+
+    return fig

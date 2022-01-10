@@ -106,7 +106,7 @@ def scatter(dirname, measurement='training', play=False, gender_index=1):
                                'nes_n', 'nes_sigma', 'mse', 'max_dist', 'pesq'))
     
     if not os.path.isdir(dirname):
-        raise IOError('Directory does not exist...')
+        raise IOError(f'Directory does not exist ({dirname})...')
         
     with open(os.path.join(dirname, 'params.txt')) as f:
         params = f.read()
