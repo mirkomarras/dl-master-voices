@@ -134,7 +134,7 @@ print(df.to_string())
 
 # %% Transferability
 
-df = hr.transferability('data/results/cloning_play', (0,), 1, play=0)
+df = hr.transferability('data/results/cloning', (0,), 1, play=0)
 print(df.round(2).to_string())
 
 # %%
@@ -305,7 +305,7 @@ for measurement in (
         row[f'f/mv({v})'] = 100 * np.mean(y)
         
         # males
-        x, y, pesq_score = hr.scatter(f'data/results/plain_normed/vggvox_v000_pgd_spec_f/v{v:03d}/', measurement, gender_index=0)
+        x, y, pesq_score = hr.scatter(f'data/results/plain_normed/vggvox_v000_pgd_spec_m/v{v:03d}/', measurement, gender_index=0)
         row[f'm/_sv'] = 100 * np.mean(x)
         row[f'm/mv({v})'] = 100 * np.mean(y)
     
@@ -578,7 +578,6 @@ plt.xlabel(f'seed IR ({scenario})')
 plt.ylabel(f'master voice IR ({scenario})')
 plt.legend()
 
-
 # %% Section C : Black-box vs. white-box optimization
 
 scenario = 'avg-10 far-1'
@@ -644,6 +643,11 @@ plt.savefig('data/results/c_spectrograms.pdf', bbox_inches='tight')
 
 # %%
 
+# %% D : Transferability
+
+df = hr.transferability('data/results/transfer', (0,2), 1, play=1)
+print(df.round(2).to_string())
+
 # %% F: Cloning
 
 df = hr.results_df('data/results/cloning_grid/vggvox_v000_nes_cloning_f', None)
@@ -701,3 +705,62 @@ plt.ylabel(f'master voice IR ({scenario})')
 plt.legend()
 
 plt.savefig('data/results/f_cloning.pdf', bbox_inches='tight')
+
+# %% F : Spectrograms
+
+def plot_spec(w1, w2, axes, titles=True):
+
+    s1 = audio.get_np_spectrum(w1, normalized=False)
+    s2 = audio.get_np_spectrum(w2, normalized=False)
+    
+    pesq_score = pesq.pesq(16000, w1, w2, 'wb')
+
+    if s1.shape[1] > s2.shape[1]:
+        s1 = s1[..., :s2.shape[1]]
+
+    if s2.shape[1] > s1.shape[1]:
+        s2 = s2[..., :s1.shape[1]]
+
+    s1 = s1 / np.max(s1)
+    s2 = s2 / np.max(s2)
+
+    axes[0].imshow(np.log(0.01 + s1))
+    axes[0].set_xticks([])
+    axes[0].set_yticks([])
+    if titles:
+        axes[0].set_title('seed voice spectrum')
+    
+    axes[1].imshow(np.log(0.01 + s2))
+    axes[1].set_xticks([])
+    axes[1].set_yticks([])
+    if titles:
+        axes[1].set_title(f'master voice (PESQ={pesq_score:.1f})')
+    
+    if len(axes) > 2:
+        V = np.percentile(np.abs(s1 - s2), 99)
+        axes[2].imshow(s2 - s1, vmin=-V, vmax=V, cmap='bwr')
+        axes[2].set_xticks([])
+        axes[2].set_yticks([])
+        if titles:
+            axes[2].set_title('difference')
+
+
+fig, axes = plt.subplots(2,2)
+fig.set_size_inches((9,9))
+fig.set_dpi(150)
+
+# --
+vid, sid = 0, 8
+axes[0][0].set_ylabel(f'seed = {sid:03d}.wav')
+w1 = audio.decode_audio(f'data/results/cloning_play/vggvox_v000_nes_cloning_f/v{vid:03d}/sv/{sid:03d}.wav', target_length=None)
+w2 = audio.decode_audio(f'data/results/cloning_play/vggvox_v000_nes_cloning_f/v{vid:03d}/mv/{sid:03d}.wav', target_length=None)
+plot_spec(w1, w2, axes[0], True)
+
+# --
+vid, sid = 0, 2
+axes[1][0].set_ylabel(f'seed = {sid:03d}.wav')
+w1 = audio.decode_audio(f'data/results/cloning_play/vggvox_v000_nes_cloning_f/v{vid:03d}/sv/{sid:03d}.wav', target_length=None)
+w2 = audio.decode_audio(f'data/results/cloning_play/vggvox_v000_nes_cloning_f/v{vid:03d}/mv/{sid:03d}.wav', target_length=None)
+plot_spec(w1, w2, axes[1], True)
+
+plt.savefig('data/results/f_spectrograms.pdf', bbox_inches='tight')
