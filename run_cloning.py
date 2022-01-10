@@ -16,7 +16,7 @@ batch_size = 16
 n = 5
 
 # NES settings grid:
-nes_n = (30, 50, 100)
+nes_n = (50, 100)
 nes_sigma = (0.025, 0.01)
 
 # NES settings: nn - number of samples; ns - sigma (bandwidth of the search distribution)
@@ -27,7 +27,7 @@ gradient = 'normed'
 attack = 'nes@cloning'
 gender = args.gender
 se = f'{args.encoder}/v000'
-encoders = [f'{se}/v000' for se in ('vggvox', 'resnet50', 'resnet34', 'thinresnet', 'xvector')]
+encoders = [f'{se}/v000' for se in ('vggvox', 'resnet50', 'resnet34', 'thin_resnet', 'xvector')]
 
 # Grid search (normed) on 10 seed samples only
 if args.target == 'grid' and gradient == 'normed':
@@ -47,8 +47,9 @@ if args.target == 'full' and gradient == 'normed':
 
 # Test
 if args.target == 'test':
-    for data in ('results/cloning', 'results/cloning_grid'):
+#    for data in ('results/cloning', 'results/cloning_grid'):
+    for data in ('data/results/cloning_play', ):
         for se in encoders:
-            cmd = f'python3 routines/mv/test.py --net {se} --dataset libri --samples {data} --policy avg --level far1'
+            cmd = f'python3 routines/mv/test.py --net {se} --dataset libri --samples {data} --policy avg --level far1,far1-avg --memory-growth'
             os.system(cmd)
 
