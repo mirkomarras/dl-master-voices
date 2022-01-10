@@ -354,7 +354,7 @@ class Model(object):
                 self.infer()
                 scores = self.compare(x1, x2)
 
-                far, tpr, thresholds = roc_curve(1 - y, scores, pos_label=1)
+                far, tpr, thresholds = roc_curve(y, scores, pos_label=1)
                 frr = 1 - tpr
                 id_eer = np.argmin(np.abs(far - frr))
                 id_far1 = np.argmin(np.abs(far - 0.01))
