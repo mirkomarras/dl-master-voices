@@ -121,6 +121,7 @@ class Model(object):
 
         # TODO Simplify model setup - current split into build+load+calibrate+infer is unnecessarily complicated
         self.name = name
+        self._cosine_loss = tf.keras.layers.Dot(axes=1, normalize=True)
         self.input_type = None
         self._inference_model = None
         self._thresholds = None
@@ -325,9 +326,9 @@ class Model(object):
                 emb_1 = e1
                 emb_2 = e2
             else:
-                emb_1 = self.predict(np.array([e1]))[0]
-                emb_2 = self.predict(np.array([e2]))[0]
-            scores.append(1 - cosine(emb_1, emb_2))
+                emb_1 = self.predict(np.array([e1]))
+                emb_2 = self.predict(np.array([e2]))
+            scores.append(self._cosine_loss([emb_1, emb_2]).numpy().item())
         return scores
 
     # TODO [Critical] Hard-coded paths for testing
@@ -343,26 +344,26 @@ class Model(object):
             else:
 
                 if comparison_data is None:
-                    test_pairs = pd.read_csv(os.path.join('.', 'data', 'vs_mv_pairs', 'trial_pairs_vox1_test.csv'), delimiter=' ', names=['y', 'x1', 'x2'])
-                    x1 = test_pairs['x1'].apply(lambda x: os.path.join('data/voxceleb1/test', x)), 
-                    x2 = test_pairs['x2'].apply(lambda x: os.path.join('data/voxceleb1/test', x))
-                    y = test_pairs['y']
+                    test_pairs = pd.read_csv(os.path.join('.', 'data', 'vs_mv_pairs', 'trial_pairs_vox1_test.csv'), delimiter=' ', names=['y', 'x1', 'x2'], index_col=False)
+                    x1 = test_pairs['x1'].apply(lambda x: os.path.join('data/voxceleb1/test', x)).values
+                    x2 = test_pairs['x2'].apply(lambda x: os.path.join('data/voxceleb1/test', x)).values
+                    y = test_pairs['y'].values
                 else:
                     x1, x2, y = comparison_data
 
                 self.infer()
                 scores = self.compare(x1, x2)
 
-                far, tpr, thresholds = roc_curve(y, scores, pos_label=1)
+                far, tpr, thresholds = roc_curve(1 - y, scores, pos_label=1)
                 frr = 1 - tpr
                 id_eer = np.argmin(np.abs(far - frr))
                 id_far1 = np.argmin(np.abs(far - 0.01))
                 eer = float(np.mean([far[id_eer], frr[id_eer]]))  # p = None --> EER, 1, 0.1
                 thrs = {'eer': thresholds[id_eer], 'far1': thresholds[id_far1]}
-                logger.info('>', 'found thresholds {} - eer of {}'.format(thrs, eer))
+                logger.info('Found thresholds {} - eer of {}'.format(thrs, eer))
 
                 with open(thresholds_path, 'w') as thresholds_file:
-                    logger.info('>', 'thresholds saved in {}'.format(thresholds_path))
+                    logger.info('Thresholds saved in {}'.format(thresholds_path))
                     json.dump(thrs, thresholds_file)
 
                 self._thresholds = thrs
