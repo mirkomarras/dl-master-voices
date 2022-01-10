@@ -332,8 +332,10 @@ class Model(object):
         return scores
 
     # TODO [Critical] Hard-coded paths for testing
-    def calibrate_thresholds(self, comparison_data=None):
+    def calibrate_thresholds(self, comparison_data=None, trial_pairs_path='data/vs_mv_pairs/trial_pairs_vox1_test.csv', prefix='data/voxceleb1/test'):
         if self._thresholds is None:
+            
+            os.path.join('.', )
 
             thresholds_path = os.path.join(self.get_dirname(), 'thresholds.json')
 
@@ -344,9 +346,9 @@ class Model(object):
             else:
 
                 if comparison_data is None:
-                    test_pairs = pd.read_csv(os.path.join('.', 'data', 'vs_mv_pairs', 'trial_pairs_vox1_test.csv'), delimiter=' ', names=['y', 'x1', 'x2'], index_col=False)
-                    x1 = test_pairs['x1'].apply(lambda x: os.path.join('data/voxceleb1/test', x)).values
-                    x2 = test_pairs['x2'].apply(lambda x: os.path.join('data/voxceleb1/test', x)).values
+                    test_pairs = pd.read_csv(trial_pairs_path, delimiter=' ', names=['y', 'x1', 'x2'], index_col=False)
+                    x1 = test_pairs['x1'].apply(lambda x: os.path.join(prefix, x)).values
+                    x2 = test_pairs['x2'].apply(lambda x: os.path.join(prefix, x)).values
                     y = test_pairs['y'].values
                 else:
                     x1, x2, y = comparison_data
