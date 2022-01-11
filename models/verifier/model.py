@@ -335,7 +335,7 @@ class Model(object):
     # TODO [Critical] Hard-coded paths for testing
     def calibrate_thresholds(self, 
                              comparison_data=None, 
-                             trial_pairs_path='data/vs_mv_pairs/trial_pairs_vox1_test_head.csv', 
+                             trial_pairs_path='data/vs_mv_pairs/trial_pairs_vox1_test.csv', 
                              prefix='data/voxceleb1/test', 
                              target_length=None, 
                              output_filename='thresholds.json'):
