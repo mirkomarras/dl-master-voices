@@ -17,12 +17,19 @@ tf.config.experimental.set_memory_growth(physical_devices[0], True)
 # %%
 
 # sv = xvector.XVector(id=0)
-sv = vggvox.VggVox(id=0)
+sv = vggvox.VggVox(id=0, target_length=None)
 # sv = resnet50.ResNet50(id=0)
 sv.build(0)
-sv.calibrate_thresholds()
-# sv.load(replace_model=False)
+sv.load(replace_model=False)
 sv.infer()
+
+# sv._inference_model.get_layer(name='embs').activation = None
+# sv._inference_model.compile()
+
+sv.calibrate_thresholds(output_filename=None)
+
+from matplotlib import pyplot as plt
+plt.plot(*sv._roc)
 
 # x.model.summary()
 # x.build(5205)

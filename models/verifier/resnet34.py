@@ -7,14 +7,14 @@ import os
 from models.verifier.model import VladPooling
 from models.verifier.model import Model
 
-from helpers.audio import get_tf_spectrum
+from helpers.audio import get_tf_spectrum, DEFAULT_LENGTH
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 class ResNet34(Model):
 
-    def __init__(self, name='resnet34', id=''):
-        super().__init__(name, id)
+    def __init__(self, name='resnet34', id='', target_length=DEFAULT_LENGTH):
+        super().__init__(name, id, target_length)
 
     def compute_acoustic_representation(self, e):
         return get_tf_spectrum(e, num_fft=512)

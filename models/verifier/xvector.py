@@ -6,7 +6,7 @@ import os
 import random
 
 from models.verifier.model import Model
-from helpers.audio import get_tf_filterbanks
+from helpers.audio import get_tf_filterbanks, DEFAULT_LENGTH
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -24,8 +24,8 @@ class XVector(Model):
        In: 2018 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP), 5329-5333. IEEE.
     """
 
-    def __init__(self, name='xvector', id=''):
-        super().__init__(name, id)
+    def __init__(self, name='xvector', id='', target_length=DEFAULT_LENGTH):
+        super().__init__(name, id, target_length)
         self._uses_spectrum = False
 
 

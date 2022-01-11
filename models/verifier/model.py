@@ -13,7 +13,7 @@ import json
 import os
 
 from helpers.audio import load_noise_paths, cache_noise_data, get_play_n_rec_audio
-from helpers.audio import get_tf_spectrum, get_tf_filterbanks, decode_audio
+from helpers.audio import get_tf_spectrum, get_tf_filterbanks, decode_audio, DEFAULT_LENGTH
 from helpers.dataset import Dataset
 
 from loguru import logger
@@ -100,7 +100,7 @@ class VladPooling(tf.keras.layers.Layer):
 class Model(object):
 
 
-    def __init__(self, name='', id=-1):
+    def __init__(self, name='', id=-1, target_length=DEFAULT_LENGTH):
         '''
         An Automated Speaker Verification (ASV) model
 
@@ -126,6 +126,7 @@ class Model(object):
         self._inference_model = None
         self._thresholds = None
         self._uses_spectrum = True
+        self._target_length = target_length
 
         self._noise_paths = None
         self._noise_cache = None
@@ -279,11 +280,11 @@ class Model(object):
     def compute_acoustic_representation(self):
         pass
 
-    def prepare_input(self, elements, playback):
+    def prepare_input(self, elements, playback, target_length=None):
         assert len(elements) > 0
 
         if isinstance(elements, str):
-            elements = decode_audio(elements).reshape((1, -1))
+            elements = decode_audio(elements, target_length=self._target_length).reshape((1, -1))
 
         if len(elements.shape) == 1:
             if playback == 1:                
@@ -299,7 +300,7 @@ class Model(object):
                 
                 # elements = [playback.simulate(e) for e in elements]
             else:
-                elements = [decode_audio(e) for e in elements]
+                elements = [decode_audio(e, target_length=self._target_length) for e in elements]
         
         if len(elements[0].shape) == 1:
             elements = [self.compute_acoustic_representation(tf.reshape(tf.convert_to_tensor(e), (1, -1, 1))).numpy() for e in elements]
@@ -318,10 +319,10 @@ class Model(object):
         return embeddings_norm
 
 
-    def compare(self, x1, x2, only_scores=False):
+    def compare(self, pairs, only_scores=False):
         assert self._inference_model is not None
         scores = []
-        for e1, e2 in zip(x1, x2):
+        for e1, e2 in pairs:
             if only_scores:
                 emb_1 = e1
                 emb_2 = e2
@@ -332,43 +333,51 @@ class Model(object):
         return scores
 
     # TODO [Critical] Hard-coded paths for testing
-    def calibrate_thresholds(self, comparison_data=None, trial_pairs_path='data/vs_mv_pairs/trial_pairs_vox1_test.csv', prefix='data/voxceleb1/test'):
-        if self._thresholds is None:
+    def calibrate_thresholds(self, 
+                             comparison_data=None, 
+                             trial_pairs_path='data/vs_mv_pairs/trial_pairs_vox1_test_head.csv', 
+                             prefix='data/voxceleb1/test', 
+                             target_length=None, 
+                             output_filename='thresholds.json'):
+        # if self._thresholds is not None:
+        #     return
             
-            os.path.join('.', )
-
-            thresholds_path = os.path.join(self.get_dirname(), 'thresholds.json')
+        if output_filename is not None:
+            thresholds_path = os.path.join(self.get_dirname(), output_filename)
 
             if os.path.exists(thresholds_path):
                 with open(thresholds_path, 'r') as thresholds_file:
                     self._thresholds = json.load(thresholds_file)
+                return
+            
+        else:
+            logger.warning(f'Empty output filename - thresholds will not be saved.')
 
-            else:
+        if comparison_data is None:
+            test_pairs = pd.read_csv(trial_pairs_path, delimiter=' ', names=['y', 'x1', 'x2'], index_col=False)
+            x1 = test_pairs['x1'].apply(lambda x: os.path.join(prefix, x)).values
+            x2 = test_pairs['x2'].apply(lambda x: os.path.join(prefix, x)).values
+            y = test_pairs['y'].values
+        else:
+            x1, x2, y = comparison_data
+        
+        scores = self.compare(zip(x1, x2))
 
-                if comparison_data is None:
-                    test_pairs = pd.read_csv(trial_pairs_path, delimiter=' ', names=['y', 'x1', 'x2'], index_col=False)
-                    x1 = test_pairs['x1'].apply(lambda x: os.path.join(prefix, x)).values
-                    x2 = test_pairs['x2'].apply(lambda x: os.path.join(prefix, x)).values
-                    y = test_pairs['y'].values
-                else:
-                    x1, x2, y = comparison_data
+        far, tpr, thresholds = roc_curve(y, scores, pos_label=1)
+        frr = 1 - tpr
+        id_eer = np.argmin(np.abs(far - frr))
+        id_far1 = np.argmin(np.abs(far - 0.01))
+        eer = float(np.mean([far[id_eer], frr[id_eer]]))  # p = None --> EER, 1, 0.1
+        thrs = {'eer': thresholds[id_eer], 'far1': thresholds[id_far1]}
+        logger.info('Found thresholds {} - eer of {}'.format(thrs, eer))
 
-                self.infer()
-                scores = self.compare(x1, x2)
+        if output_filename is not None:
+            with open(thresholds_path, 'w') as thresholds_file:
+                logger.info('Thresholds saved in {}'.format(thresholds_path))
+                json.dump(thrs, thresholds_file)
 
-                far, tpr, thresholds = roc_curve(y, scores, pos_label=1)
-                frr = 1 - tpr
-                id_eer = np.argmin(np.abs(far - frr))
-                id_far1 = np.argmin(np.abs(far - 0.01))
-                eer = float(np.mean([far[id_eer], frr[id_eer]]))  # p = None --> EER, 1, 0.1
-                thrs = {'eer': thresholds[id_eer], 'far1': thresholds[id_far1]}
-                logger.info('Found thresholds {} - eer of {}'.format(thrs, eer))
-
-                with open(thresholds_path, 'w') as thresholds_file:
-                    logger.info('Thresholds saved in {}'.format(thresholds_path))
-                    json.dump(thrs, thresholds_file)
-
-                self._thresholds = thrs
+        self._roc = (far, tpr)
+        self._thresholds = thrs
 
 
     def test_error_rates(self, elements, gallery, policy='any', level='far1', playback=None):

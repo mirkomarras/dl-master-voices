@@ -7,7 +7,7 @@ import os
 from models.verifier.model import VladPooling
 from models.verifier.model import Model
 
-from helpers.audio import get_tf_spectrum
+from helpers.audio import get_tf_spectrum, DEFAULT_LENGTH
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
@@ -20,8 +20,8 @@ class ResNet50(Model):
        Proc. Interspeech 2018, 1086-1090.
     """
 
-    def __init__(self, name='resnet50', id=''):
-        super().__init__(name, id)
+    def __init__(self, name='resnet50', id='', target_length=DEFAULT_LENGTH):
+        super().__init__(name, id, target_length)
 
 
     def compute_acoustic_representation(self, e):

@@ -13,6 +13,9 @@ import os
 from loguru import logger
 
 
+DEFAULT_LENGTH = 2.58
+
+
 def ensure_length(wave, slice_length):
 
     # Ensure audio of given length by: clipping
@@ -29,7 +32,7 @@ def ensure_length(wave, slice_length):
     return wave
 
 
-def decode_audio(fp, sample_rate=16000, target_length=2.58):
+def decode_audio(fp, sample_rate=16000, target_length=DEFAULT_LENGTH):
     """
     Function to decode an audio file
     :param fp:              File path to the audio sample
@@ -37,7 +40,7 @@ def decode_audio(fp, sample_rate=16000, target_length=2.58):
     :return:                Audio sample
     """
     assert sample_rate > 0
-
+    
     try:
         audio_sf, audio_sr = sf.read(fp, dtype='float32')
         if audio_sf.ndim > 1 or audio_sr != sample_rate:

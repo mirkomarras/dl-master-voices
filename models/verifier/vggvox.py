@@ -8,7 +8,7 @@ import os
 from models.verifier.model import VladPooling
 from models.verifier.model import Model
 
-from helpers.audio import get_tf_spectrum, decode_audio
+from helpers.audio import get_tf_spectrum, decode_audio, DEFAULT_LENGTH
 from loguru import logger
 
 
@@ -23,8 +23,8 @@ class VggVox(Model):
        Proc. Interspeech 2017, 2616-2620.
     """
 
-    def __init__(self, name='vggvox', id=-1):
-        super().__init__(name, id)
+    def __init__(self, name='vggvox', id=-1, target_length=DEFAULT_LENGTH):
+        super().__init__(name, id, target_length)
 
 
     def compute_acoustic_representation(self, e):
