@@ -324,8 +324,8 @@ class Model(object):
         scores = []
         for e1, e2 in pairs:
             if only_scores:
-                emb_1 = e1
-                emb_2 = e2
+                emb_1 = tf.reshape(e1, (-1, self.embs_size))
+                emb_2 = tf.reshape(e2, (-1, self.embs_size))
             else:
                 emb_1 = self.predict(np.array([e1]))
                 emb_2 = self.predict(np.array([e2]))
@@ -406,13 +406,13 @@ class Model(object):
             for user_idx, user_id in enumerate(gallery.user_ids[::n_samples_pp]): # For each user in the gallery, reuse if the gallery size increase
                 
                 if policy == 'any':
-                    user_sim = self.compare(np.tile(element_emb, (np.sum(gallery.user_ids == user_id), 1)), gallery.embeddings[gallery.user_ids == user_id], only_scores=True)
+                    user_sim = self.compare(zip(np.tile(element_emb, (np.sum(gallery.user_ids == user_id), 1)), gallery.embeddings[gallery.user_ids == user_id]), only_scores=True)
                     user_sim = np.array(user_sim)
                     sim_matrix[element_idx, gallery.user_ids == user_id] = user_sim
                     imp_matrix[element_idx, user_idx] = np.any(user_sim > self._thresholds[level])
                 elif policy == 'avg':
                     user_embedding = np.mean(gallery.embeddings[gallery.user_ids == user_id], axis=0)
-                    user_sim = self.compare(np.expand_dims(element_emb, axis=0), np.expand_dims(user_embedding, axis=0), only_scores=True)[0]
+                    user_sim = self.compare(zip(np.expand_dims(element_emb, axis=0), np.expand_dims(user_embedding, axis=0)), only_scores=True)[0]
                     sim_matrix[element_idx, user_idx] = user_sim
                     imp_matrix[element_idx, user_idx] = user_sim > self._thresholds[level]
 
