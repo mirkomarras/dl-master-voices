@@ -42,10 +42,16 @@ def main():
     args = parser.parse_args()
 
     if args.dataset:
+        if '/' in args.dataset:
+            subset = args.dataset.split('/')[-1]
+            dataset_label = args.dataset.split('/')[0]
+        else:
+            subset = 'test'
+            dataset_label = args.dataset.split('/')[0]
         with open('config/datasets.json') as f:
             data_config = defaultdict()
-            data_config.update(json.load(f)[args.dataset])
-        args.pop = data_config['test']
+            data_config.update(json.load(f)[dataset_label])
+        args.pop = data_config[subset]
 
     if args.impulse_flags is None:
         args.impulse_flags = (1, 1, 1)
