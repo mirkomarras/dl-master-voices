@@ -35,7 +35,7 @@ sims_temp, imps_temp, gnds_temp = sv.test_error_rates(embeddings, test_gallery, 
 
 # %%
 
-df = hr.results_df('data/results/plain_normed/vggvox_v000_pgd_spec_f', None)
+df = hr.results_df('data/results/play_normed/vggvox_v000_pgd_wave_f', None)
 # df = df[df['steps'] == 10]
 
 print(df.to_string())
@@ -645,7 +645,7 @@ plt.savefig('data/results/c_spectrograms.pdf', bbox_inches='tight')
 
 # %% D : Transferability
 
-df = hr.transferability('data/results/transfer', (0,2), 1, play=1)
+df = hr.transferability('data/results/transfer_play', (0,2), 1, play=1)
 print(df.round(2).to_string())
 
 # %% F: Cloning
@@ -657,12 +657,12 @@ print(df.to_string())
 
 # %% F: Cloning Transferability
 
-df = hr.transferability('data/results/cloning', (0,), 0, play=0)
+df = hr.transferability('data/results/cloning_play', (0,), 1, play=0)
 print(df.round(2).to_string())
 
 # %% F : Cloning
 
-plt.figure(figsize=(12,4))
+plt.figure(figsize=(10,4))
 plt.subplot(1,2,1)
 dirname = 'data/results/cloning_play/vggvox_v000_nes_cloning_f'
 
@@ -691,11 +691,11 @@ plt.xlabel('Epochs')
 plt.subplot(1,2,2)
 scenario = 'avg-10 far-1'
 
-x, y, _ = hr.scatter('data/results/cloning_play/vggvox_v000_nes_cloning_f/v000/', 'vggvox_v000-avg-far1')
-plt.plot(x, y, 'o', alpha=0.5, label=f'female')
+x, y, _ = hr.scatter('data/results/cloning_play/vggvox_v000_nes_cloning_f/v000/', 'test*vggvox_v000-avg-far1')
+plt.plot(x, y, 'o', alpha=0.5, label=f'female ({np.mean(x):.2f} $\\rightarrow$ {np.mean(y):.2f})')
 
-x, y, _ = hr.scatter('data/results/cloning_play/vggvox_v000_nes_cloning_m/v000', 'training')
-plt.plot(x, y, 'o', alpha=0.5, label=f'male')
+x, y, _ = hr.scatter('data/results/cloning_play/vggvox_v000_nes_cloning_m/v000', 'test*vggvox_v000-avg-far1', gender_index=0)
+plt.plot(x, y, 'o', alpha=0.5, label=f'male ({np.mean(x):.2f} $\\rightarrow$ {np.mean(y):.2f})')
 # x, y = hr.scatter('data/results/nes_normed/vggvox_v000_nes_wave_f/v000/', 'vggvox_v000')
 
 # plt.title('IR improvement for white-box vs bl.ack-box optimization')
@@ -704,7 +704,7 @@ plt.xlabel(f'seed IR ({scenario})')
 plt.ylabel(f'master voice IR ({scenario})')
 plt.legend()
 
-plt.savefig('data/results/f_cloning.pdf', bbox_inches='tight')
+# plt.savefig('data/results/f_cloning.pdf', bbox_inches='tight')
 
 # %% F : Spectrograms
 
