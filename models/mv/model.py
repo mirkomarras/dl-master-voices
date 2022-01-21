@@ -246,7 +246,7 @@ class SiameseModel(object):
                 input_sv = input_sv[:max_length]
             
             # The input_sv is returned to support generative models & cloning
-            input_sv_setup, input_mv, performance = self.optimize(input_sv, train_data, test_gallery, settings)
+            input_sv_setup, input_mv, attack_vector, performance = self.optimize(input_sv, train_data, test_gallery, settings)
 
             # If the returned seed is a spectrogram, ignore - otherwise take the waveform
             if len(input_sv_setup.shape) < 3:
@@ -261,7 +261,7 @@ class SiameseModel(object):
 
             # TODO Remove me - added for temporary debugging
             self.test_gallery = test_gallery
-            self.save(input_sv, input_mv, performance, model_suffix, test_gallery.pop_file)
+            self.save(input_sv, input_mv, attack_vector, performance, model_suffix, test_gallery.pop_file)
             
             logger.info(f'Finished optimization! {gender} impersonation {performance["mv_far1_results"][0][gender]:.3f} -> {performance["mv_far1_results"][-1][gender]:.3f}')
 
@@ -368,9 +368,9 @@ class SiameseModel(object):
             logger.debug('(Step {:3d}) IR@eer m={:.3f} f={:.3f} | IR@far1 m={:.3f} f={:.3f} | opt time {:.1f} + val time {:.1f} | E|v|={:.4f} max|v|={:.4f} mse={:.4f} | {}'.format(
                 step, results[0]["m"], results[0]["f"], results[1]["m"], results[1]["f"], opt_time, val_time, _exp, _max, _mse, remaining_attempts))
 
-        return input_sv, self.attack.run(input_sv, attack_vector), performance
+        return input_sv, self.attack.run(input_sv, attack_vector), attack_vector, performance
 
-    def save(self, seed_sample, attack_sample, performance_stats, filename='', population_name='default', iter=None): # input_avg, input_std, 
+    def save(self, seed_sample, attack_sample, attack_vector, performance_stats, filename='', population_name='default', iter=None): # input_avg, input_std, 
         """
         
         Save the seed and attack samples along with optimization stats and impersonation scores:
@@ -410,7 +410,7 @@ class SiameseModel(object):
 
         np.save(os.path.join(self.dir_full, 'sv', suffix), seed_spec)
         sf.write(os.path.join(self.dir_full, 'sv', suffix + '.wav'), seed_wave, self.sample_rate)
-        np.save(os.path.join(self.dir_full, 'mv', suffix), mv_spec)
+        np.savez(os.path.join(self.dir_full, 'mv', suffix), spec=mv_spec, attack_vector=attack_vector)
         sf.write(os.path.join(self.dir_full, 'mv', suffix + '.wav'), mv_wave, self.sample_rate)
 
         # Plot a comparion between seed and attack spectrograms -------------------------------------------------------
@@ -513,13 +513,13 @@ class SiameseModel(object):
         self.sims, self.imps, self.gnds = {}, {}, {}
 
         # tf.expand_dims(input_spectrum, axis=0)
-        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(input_mv, test_gallery, level='eer')
+        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(input_mv, test_gallery, policy='avg', level='eer')
         eer_results = {'m': np.mean(gnd_df[:, 0]), 'f': np.mean(gnd_df[:, 1])}
         self.sims['eer'] = sim_df
         self.imps['eer'] = imp_df
         self.gnds['eer'] = gnd_df
 
-        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(input_mv, test_gallery, level='far1')
+        sim_df, imp_df, gnd_df = self.verifier.test_error_rates(input_mv, test_gallery, policy='avg', level='far1')
         far1_results = {'m': np.mean(gnd_df[:, 0]), 'f': np.mean(gnd_df[:, 1])}
         self.sims['far1'] = sim_df
         self.imps['far1'] = imp_df

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 from scipy.spatial.distance import euclidean, cosine
-from sklearn.metrics import roc_curve
+from sklearn.metrics import roc_curve, auc
 from itertools import groupby
 from loguru import logger
 import tensorflow as tf
@@ -127,6 +127,7 @@ class Model(object):
         self._thresholds = None
         self._uses_spectrum = True
         self._target_length = target_length
+        self._playback = False
 
         self._noise_paths = None
         self._noise_cache = None
@@ -280,14 +281,14 @@ class Model(object):
     def compute_acoustic_representation(self):
         pass
 
-    def prepare_input(self, elements, playback, target_length=None):
+    def prepare_input(self, elements, playback):
         assert len(elements) > 0
 
         if isinstance(elements, str):
             elements = decode_audio(elements, target_length=self._target_length).reshape((1, -1))
 
         if len(elements.shape) == 1:
-            if playback == 1:                
+            if (self._playback or playback):
                 # @tf.function
                 def forward(signal, impulse_flags):
                   return get_play_n_rec_audio(signal=signal, noises=self.noise_paths, 
@@ -308,7 +309,7 @@ class Model(object):
         return elements
 
 
-    def predict(self, elements, playback=None):
+    def predict(self, elements, playback=False):
         elements = self.prepare_input(elements, playback)
         if isinstance(elements, list):
             embeddings = tf.concat([self._inference_model.predict(e) for e in elements if not e.shape[2] == 1], axis=0)
@@ -337,7 +338,6 @@ class Model(object):
                              comparison_data=None, 
                              trial_pairs_path='data/vs_mv_pairs/trial_pairs_vox1_test.csv', 
                              prefix='data/voxceleb1/test', 
-                             target_length=None, 
                              output_filename='thresholds.json'):
         # if self._thresholds is not None:
         #     return
@@ -365,8 +365,8 @@ class Model(object):
 
         far, tpr, thresholds = roc_curve(y, scores, pos_label=1)
         frr = 1 - tpr
-        id_eer = np.argmin(np.abs(far - frr))
-        id_far1 = np.argmin(np.abs(far - 0.01))
+        id_eer = max(1, np.argmin(np.abs(far - frr)))
+        id_far1 = max(1, np.argmin(np.abs(far - 0.01))) # the max(1, ...) prevents from choosing the first output - a reserved failure marker
         eer = float(np.mean([far[id_eer], frr[id_eer]]))  # p = None --> EER, 1, 0.1
         thrs = {'eer': thresholds[id_eer], 'far1': thresholds[id_far1]}
         logger.info('Found thresholds {} - eer of {}'.format(thrs, eer))
@@ -378,6 +378,11 @@ class Model(object):
 
         self._roc = (far, tpr)
         self._thresholds = thrs
+        self._eer = eer
+        self._auc = auc(*self._roc)
+
+        scores = np.array(scores)
+        return {'positive': scores[y == 1], 'negative': scores[y == 0]}
 
 
     def test_error_rates(self, elements, gallery, policy='any', level='far1', playback=None):
