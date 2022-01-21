@@ -8,8 +8,10 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = '3'
 parser = argparse.ArgumentParser(description='Run all experiments (Voice cloning)')
 parser.add_argument('-e', dest='encoder', default='vggvox', type=str, action='store')
 parser.add_argument('-g', dest='gender', default='female', type=str, action='store', choices=('female', 'male'))
+parser.add_argument('-d', dest='gradient', default='normed', type=str, action='store', choices=('normed', 'pgd'))
 parser.add_argument('-t', dest='target', default='full', type=str, action='store', choices=('grid', 'full', 'test'))
-parser.add_argument('-p', dest='playback', action='store_true') 
+parser.add_argument('-s', dest='step', default='0.01', type=float, action='store')
+parser.add_argument('-p', dest='playback', action='store_true')
 args = parser.parse_args()
 
 # Experiment setup
@@ -50,7 +52,8 @@ if args.target == 'full' and gradient == 'normed':
 
 # Test
 if args.target == 'test':
-    for data in ('data/results/cloning', 'data/results/cloning_play'):
+   for data in ('data/results/cloning', 'data/results/cloning_play'):
+    # for data in ('data/results/cloning_play',):
         for se in encoders:
             cmd = f'python3 routines/mv/test.py --net {se} --dataset libri --samples {data} --policy avg --level far1'
             os.system(cmd)

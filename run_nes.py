@@ -10,6 +10,8 @@ parser.add_argument('-e', dest='encoder', default='vggvox', type=str, action='st
 parser.add_argument('-g', dest='gender', default='female', type=str, action='store', choices=('female', 'male')) 
 parser.add_argument('-d', dest='gradient', default='normed', type=str, action='store', choices=('normed', 'pgd')) 
 parser.add_argument('-t', dest='target', default='grid', type=str, action='store', choices=('grid', 'full', 'test')) 
+parser.add_argument('-s', dest='step', default='0.01', type=float, action='store') 
+parser.add_argument('-p', dest='playback', action='store_true') 
 args = parser.parse_args()
 
 # Experiment setup
@@ -70,5 +72,7 @@ if args.target == 'full' and gradient == 'normed':
 # Test
 if args.target == 'test':
     for data in ('data/results/nes_grid_pgd', 'data/results/nes_grid_normed', 'data/results/nes_pgd', 'data/results/nes_normed', 'data/results/nes_grid_pgd_play', 'data/results/nes_grid_normed_play', 'data/results/nes_pgd_play', 'data/results/nes_normed_play'):
-        cmd = f'python3 routines/mv/test.py --net {se} --dataset interspeech --samples {data} --policy avg --level far1'
-        os.system(cmd)
+    # for data in ('data/results/nes_normed_play', ):
+        for se in ('vggvox/v000', 'thin_resnet/v000', 'resnet50/v000', 'xvector/v000'):
+            cmd = f'python3 routines/mv/test.py --net {se} --dataset interspeech --samples {data} --policy avg --level far1'
+            os.system(cmd)
