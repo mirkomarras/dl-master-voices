@@ -152,7 +152,7 @@ class WaveRNN(nn.Module):
 
     def generate(self, mels, batched, target, overlap, mu_law, progress_callback=None):
         mu_law = mu_law if self.mode == 'RAW' else False
-        progress_callback = progress_callback or self.gen_display
+        # progress_callback = progress_callback or self.gen_display
 
         self.eval()
         output = []
@@ -229,7 +229,7 @@ class WaveRNN(nn.Module):
                 else:
                     raise RuntimeError("Unknown model mode value - ", self.mode)
 
-                if i % 100 == 0:
+                if i % 100 == 0 and progress_callback is not None:
                     gen_rate = (i + 1) / (time.time() - start) * b_size / 1000
                     progress_callback(i, seq_len, b_size, gen_rate)
 
