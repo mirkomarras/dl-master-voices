@@ -114,6 +114,10 @@ def main():
     combs = list(itertools.product(map(str, settings['net'].split(',')), map(str, settings['policy'].split(',')), map(str, settings['level'].split(',')), map(str, settings['playback'].split(','))))
     
     for net, policy, level, playback in combs:
+        
+        # Clear TF session
+        tf.keras.backend.clear_session()
+
         # Build and load pre-trained weights of a sv
         sv = verifier.get_model(net)
         sv.build(classes=0, mode='test')
