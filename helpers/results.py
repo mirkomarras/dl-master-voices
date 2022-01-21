@@ -47,9 +47,10 @@ def results_df(dirname, pattern=None):
     df = df.dropna(how='all', axis=1)
     
     # Drop columns with all identical entries
-    for col in df.columns:
-        if len(df[col].unique()) == 1:
-            df = df.drop(columns=col)
+    if len(df) > 1:
+        for col in df.columns:
+            if len(df[col].unique()) == 1:
+                df = df.drop(columns=col)
     
     return df
 
@@ -134,19 +135,23 @@ def scatter(dirname, measurement='training', play=False, gender_index=1):
         return train_stats['sv_far1_results'], train_stats['mv_far1_results'], np.mean(train_stats['pesq'])
 
     else:
-        pattern = os.path.join(dirname, 'mv', f'*-{measurement}-{play:1d}.npz')
+        pattern = os.path.join(dirname, 'mv', f'*{measurement}-{play:1d}.npz')
         filename = glob.glob(pattern)
+        
         if len(filename) == 0:
             raise IOError(f'File not found: {pattern}')
-        else:
+        elif len(filename) == 1:
             filename = filename[0]
+        else:            
+            raise IOError(f'Found multiple result files matching the current pattern (*{measurement}-{play:1d}.npz)')
+
         pdata = {x: y for x, y in np.load(filename, allow_pickle=True).items()}
         ir_mv = pdata['results'].item()['gnds'][:, gender_index]
         # pdata['results'].item()['imps'].mean(1)
 
         # print(np.mean(ir_mv), 
 
-        pattern = os.path.join(dirname, 'sv', f'*-{measurement}-{play:1d}.npz')
+        pattern = os.path.join(dirname, 'sv', f'*{measurement}-{play:1d}.npz')
         filename = glob.glob(pattern)[0]
         pdata = {x: y for x, y in np.load(filename, allow_pickle=True).items()}
         # ir_sv = pdata['results'].item()['imps'].mean(1)
@@ -158,8 +163,8 @@ def scatter(dirname, measurement='training', play=False, gender_index=1):
 def transferability(dirname, versions=(0,3), gender_index=1, play=False):
     # data/results/transfer/vggvox_v000_pgd_wave_f/v000/mv/
     # mv_test_population_interspeech_1000u_10s-resnet34_v000-avg-far1-0.npz
-    FN_PREFIX = 'mv_test_population_interspeech_1000u_10s'
-    # FN_PREFIX = 'mv_test_population_libri_100u_10s'
+    # FN_PREFIX = 'mv_test_population_interspeech_1000u_10s'
+    FN_PREFIX = 'mv_test_population_libri_100u_10s'
     arch = ('resnet50', 'thin_resnet', 'vggvox', 'xvector')
     arch_short = ('R50', 'TR', 'V', 'X')
     encoders = [f'{se}_v000' for se in arch]
@@ -179,7 +184,7 @@ def transferability(dirname, versions=(0,3), gender_index=1, play=False):
 
             if not os.path.exists(os.path.join(prefix, 'params.txt')):
                 continue
-            
+
             with open(os.path.join(prefix, 'params.txt')) as f:
                 params = f.read()
                 args = eval(eval(params))
@@ -188,7 +193,7 @@ def transferability(dirname, versions=(0,3), gender_index=1, play=False):
 
                 # seed voices
                 try:
-                    filename = os.path.join(prefix, 'sv', f'{FN_PREFIX}-{enc}-avg-far1-{play:1d}.npz')
+                    filename = os.path.join(prefix, 'sv', f'{FN_PREFIX}-{enc}-avg-far1-avg-{play:1d}.npz')
                     pdata = {x: y for x, y in np.load(filename, allow_pickle=True).items()}
                     ir_per_gender = pdata['results'].item()['gnds'].mean(0)
 
@@ -198,7 +203,7 @@ def transferability(dirname, versions=(0,3), gender_index=1, play=False):
 
                 # master voices
                 try:
-                    filename = os.path.join(prefix, 'mv', f'{FN_PREFIX}-{enc}-avg-far1-{play:1d}.npz')
+                    filename = os.path.join(prefix, 'mv', f'{FN_PREFIX}-{enc}-avg-far1-avg-{play:1d}.npz')
                     pdata = {x: y for x, y in np.load(filename, allow_pickle=True).items()}
                     ir_per_gender = pdata['results'].item()['gnds'].mean(0)
 
