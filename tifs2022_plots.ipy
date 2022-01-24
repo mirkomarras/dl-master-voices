@@ -657,14 +657,19 @@ print(df.to_string())
 
 # %% F: Cloning Transferability
 
-df = hr.transferability('data/results/cloning_play', (0,), 1, play=0)
-print(df.round(2).to_string())
+df = hr.transferability('data/results/cloning_interspeech', (0,), 1, play=0, population='interspeech', policy='avg-far1-avg')
+print(df.round(1).to_string())
 
 # %% F : Cloning
 
-plt.figure(figsize=(10,4))
-plt.subplot(1,2,1)
-dirname = 'data/results/cloning_play/vggvox_v000_nes_cloning_f'
+encoders = ('vggvox', 'resnet50', 'thin_resnet', 'xvector') # 'xvector'
+encoder_labels = {'vggvox': 'VGG', 'resnet50': 'ResNet 50', 'thin_resnet': 'Thin ResNet', 'xvector': 'X-vector'}
+
+results_set = 'cloning_interspeech'
+
+plt.figure(figsize=((len(encoders) + 1)  *5, 4))
+plt.subplot(1, len(encoders) + 1, 1)
+dirname = f'data/results/{results_set}/vggvox_v000_nes_cloning_f'
 
 results, labels = hr.progress(dirname, None, gender=dirname[-1])
 
@@ -676,7 +681,7 @@ plt.xlabel('Epochs')
 # plt.legend()
 # plt.title('Progress: f{}'.format(dirname.split('/')[-1]))
 
-dirname = 'data/results/cloning_play/vggvox_v000_nes_cloning_m'
+dirname = f'data/results/{results_set}/vggvox_v000_nes_cloning_m'
 
 results, labels = hr.progress(dirname, None, gender=dirname[-1])
 
@@ -688,23 +693,25 @@ plt.xlabel('Epochs')
 # plt.legend()
 # plt.title('Progress: f{}'.format(dirname.split('/')[-1]))
 
-plt.subplot(1,2,2)
-scenario = 'avg-10 far-1'
+for i, encoder in enumerate(encoders):
+    plt.subplot(1, len(encoders) + 1, 2 + i)
+    scenario = 'avg-10 far-1'
+    
+    x, y, _ = hr.scatter(f'data/results/{results_set}/vggvox_v000_nes_cloning_f/v000/', f'test*{encoder}_v000-avg-far1-avg')
+    plt.plot(x, y, 'o', alpha=0.5, label=f'female ({100*np.mean(x):.1f} $\\rightarrow$ {100*np.mean(y):.1f})')
+    
+    x, y, _ = hr.scatter(f'data/results/{results_set}/vggvox_v000_nes_cloning_m/v000', f'test*{encoder}_v000-avg-far1-avg', gender_index=0)
+    plt.plot(x, y, 'o', alpha=0.5, label=f'male ({100*np.mean(x):.1f} $\\rightarrow$ {100*np.mean(y):.1f})')
+    # x, y = hr.scatter('data/results/nes_normed/vggvox_v000_nes_wave_f/v000/', 'vggvox_v000')
+    
+    # plt.title('IR improvement for white-box vs bl.ack-box optimization')
+    plt.plot([0, 1], [0, 1], 'k:')
+    plt.xlabel(f'seed IR ({scenario})')
+    plt.ylabel(f'master voice IR ({scenario})')
+    plt.legend()
+    plt.title(f'target={encoder_labels["vggvox"]}, test={encoder_labels[encoder]}')
 
-x, y, _ = hr.scatter('data/results/cloning_play/vggvox_v000_nes_cloning_f/v000/', 'test*vggvox_v000-avg-far1')
-plt.plot(x, y, 'o', alpha=0.5, label=f'female ({np.mean(x):.2f} $\\rightarrow$ {np.mean(y):.2f})')
-
-x, y, _ = hr.scatter('data/results/cloning_play/vggvox_v000_nes_cloning_m/v000', 'test*vggvox_v000-avg-far1', gender_index=0)
-plt.plot(x, y, 'o', alpha=0.5, label=f'male ({np.mean(x):.2f} $\\rightarrow$ {np.mean(y):.2f})')
-# x, y = hr.scatter('data/results/nes_normed/vggvox_v000_nes_wave_f/v000/', 'vggvox_v000')
-
-# plt.title('IR improvement for white-box vs bl.ack-box optimization')
-plt.plot([0, 1], [0, 1], 'k:')
-plt.xlabel(f'seed IR ({scenario})')
-plt.ylabel(f'master voice IR ({scenario})')
-plt.legend()
-
-# plt.savefig('data/results/f_cloning.pdf', bbox_inches='tight')
+# plt.savefig('data/results/f_cloning_interspeech.pdf', bbox_inches='tight')
 
 # %% F : Spectrograms
 
