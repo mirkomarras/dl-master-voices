@@ -160,11 +160,15 @@ def scatter(dirname, measurement='training', play=False, gender_index=1):
         return ir_sv, ir_mv, np.mean(train_stats['pesq'])
 
 
-def transferability(dirname, versions=(0,3), gender_index=1, play=False):
+def transferability(dirname, versions=(0,3), gender_index=1, play=False, population='interspeech', policy='avg-far1'):
     # data/results/transfer/vggvox_v000_pgd_wave_f/v000/mv/
     # mv_test_population_interspeech_1000u_10s-resnet34_v000-avg-far1-0.npz
-    # FN_PREFIX = 'mv_test_population_interspeech_1000u_10s'
-    FN_PREFIX = 'mv_test_population_libri_100u_10s'
+    if population == 'interspeech':
+        FN_PREFIX = 'mv_test_population_interspeech_1000u_10s'
+    elif population == 'libri':
+        FN_PREFIX = 'mv_test_population_libri_100u_10s'
+    else:
+        raise ValueError('Unknown population!')
     arch = ('resnet50', 'thin_resnet', 'vggvox', 'xvector')
     arch_short = ('R50', 'TR', 'V', 'X')
     encoders = [f'{se}_v000' for se in arch]
@@ -193,7 +197,7 @@ def transferability(dirname, versions=(0,3), gender_index=1, play=False):
 
                 # seed voices
                 try:
-                    filename = os.path.join(prefix, 'sv', f'{FN_PREFIX}-{enc}-avg-far1-avg-{play:1d}.npz')
+                    filename = os.path.join(prefix, 'sv', f'{FN_PREFIX}-{enc}-{policy}-{play:1d}.npz')
                     pdata = {x: y for x, y in np.load(filename, allow_pickle=True).items()}
                     ir_per_gender = pdata['results'].item()['gnds'].mean(0)
 
@@ -203,7 +207,7 @@ def transferability(dirname, versions=(0,3), gender_index=1, play=False):
 
                 # master voices
                 try:
-                    filename = os.path.join(prefix, 'mv', f'{FN_PREFIX}-{enc}-avg-far1-avg-{play:1d}.npz')
+                    filename = os.path.join(prefix, 'mv', f'{FN_PREFIX}-{enc}-{policy}-{play:1d}.npz')
                     pdata = {x: y for x, y in np.load(filename, allow_pickle=True).items()}
                     ir_per_gender = pdata['results'].item()['gnds'].mean(0)
 
