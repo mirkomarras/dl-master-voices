@@ -304,7 +304,12 @@ class NESVoiceCloning(object):
                     pad_neeed = int(min_lenght - len(input_mv))
                     input_mv = tf.pad(input_mv, [[0, pad_neeed]], 'CONSTANT')
 
-                input_mv = audio.get_tf_spectrum(input_mv[tf.newaxis, ...])
+                # Convert to spectrogram / filterbanks
+                if batch_data[0].shape[2] > 128:
+                    input_mv = audio.get_tf_spectrum(input_mv)                
+                else:
+                    input_mv = audio.get_tf_filterbanks(input_mv[tf.newaxis, ..., tf.newaxis], n_filters=24)
+
                 input_mv = tf.repeat(input_mv, len(batch_data[0]), axis=0)
                 loss = self.siamese_model([batch_data[0], input_mv])
                 return loss

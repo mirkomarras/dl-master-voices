@@ -313,7 +313,9 @@ def get_tf_filterbanks(signal, sample_rate=16000, frame_size=0.025, frame_stride
     assert sample_rate > 0 and frame_size > 0 and frame_stride > 0 and num_fft > 0
     assert frame_stride < frame_size
 
+
     # Compute the spectrogram
+    signal = tf.cast(signal, tf.float32)
     signal = tf.squeeze(signal, axis=-1)
     magnitude_spectrum = tf.signal.stft(signal, int(frame_size*sample_rate), int(frame_stride*sample_rate), fft_length=num_fft)
     magnitude_spectrum = tf.abs(magnitude_spectrum)
