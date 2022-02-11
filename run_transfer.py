@@ -13,31 +13,36 @@ parser.add_argument('-t', dest='target', default='attack', type=str, action='sto
 args = parser.parse_args()
 
 # Experiment setup
-batch_size = 256
-n = -10
+# batch_size = 32
+batch_sizes = {'vggvox': 256, 'resnet50': 128, 'resnet34': 16, 'thin_resnet': 64, 'xvector': 256}
+n = -15
 
 # NES settings: nn - number of samples; ns - sigma (bandwidth of the search distribution)
 nn = 100
 ns = 0.001
 
-epsilons = (0.001, 0.005, 0.01)
+epsilons = (0.001, 0.005, 0.01, 0.05)
 
 gradient = 'normed'
 gender = args.gender
 attack = f'{args.attack}@wave'
 play_flags = '--play' if args.playback else ''
-encoders = [f'{se}/v000' for se in ('vggvox', 'resnet50', 'resnet34', 'thinresnet', 'xvector')]
+play_suffix = '_play' if args.playback else ''
+encoders = [f'{se}/v000' for se in ('vggvox', 'resnet50', 'thin_resnet', 'xvector')]
+#encoders = [f'{se}/v000' for se in ('thin_resnet', 'xvector')]
 
 # Run attacks (PGD gradient)
 if args.target == 'attack' and gradient == 'pgd':
 
     for se in encoders:
 
+        batch_size = batch_sizes[se.split('/')[0]]
+
         if 'xvector' in se and args.attack == 'pgd':
             continue
 
         for e in epsilons:
-            cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}-10/ --attack {attack} --gender {gender} --gradient pgd --n_steps {n} --step_size {e/10} --clip_av {e} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/transfer"'
+            cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}-10/ --attack {attack} --gender {gender} --gradient pgd --n_steps {n} --step_size {e/10} --clip_av {e} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} --results_dir "results/transfer{play_suffix}"'
             os.system(cmd)
 
 # Run attacks (normalized gradient)
@@ -45,16 +50,18 @@ if args.target == 'attack' and gradient == 'normed':
 
     for se in encoders:
 
+        batch_size = batch_sizes[se.split('/')[0]]
+
         if 'xvector' in se and args.attack == 'pgd':
             continue
 
         for e in epsilons:
-            cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}-10/ --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {e} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} {play_flags} --results_dir "results/transfer"'
+            cmd = f'python3 routines/mv/optimize.py --netv {se} --dataset interspeech --seed ./data/vs_mv_seed/{gender}-10/ --attack {attack} --gender {gender} --gradient normed --n_steps {n} --step_size {e} --batch {batch_size} --nes_n {nn} --nes_sigma {ns} {play_flags} --results_dir "results/transfer{play_suffix}"'
             os.system(cmd)
 
 # Test
 if args.target == 'test':
-    data = 'data/results_transfer'
+    data = f'data/results/transfer{play_suffix}'
     for se in encoders:
         cmd = f'python3 routines/mv/test.py --net {se} --dataset interspeech --samples {data} --policy avg --level far1'
         os.system(cmd)
