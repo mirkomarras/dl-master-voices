@@ -424,7 +424,7 @@ Please feel free to file issues and pull requests on the repo and we will addres
 If you find this code useful in your work, please cite our papers:
 
 ```
-Marras, M., Korus, P., Jain, A., & Memon, N. (2'23)
+Marras, M., Korus, P., Jain, A., & Memon, N. (2023)
 Dictionary Attacks on Speaker Verification
 In: IEEE Transactions on Information Forensics and Security (IEEE TIFS)
 ```
